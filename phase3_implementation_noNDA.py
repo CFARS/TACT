@@ -253,6 +253,20 @@ def get_inputdata(filename, config_file):
         sys.exit()
     Timestamps = inputdata['Timestamp']
 
+    # Get Hour from timestamp and add as column
+    Timestamps_dt = pd.to_datetime(Timestamps)
+
+    def hr_func(ts):
+        h = ts.hour
+        m = ts.minute/60        
+        return h+m
+
+    if 'Hour' in inputdata.columns.to_list():
+        pass
+    else:
+        Hour = Timestamps_dt.apply(hr_func)
+        inputdata['Hour'] = Hour
+
     # drop timestamp colum from inputdata data frame, replace any 9999 cells with NaN's
     inputdata = inputdata.drop('Timestamp', 1).replace(9999, np.NaN)
     
@@ -6874,6 +6888,9 @@ def get_inputfiles():
 
 
 if __name__ == '__main__':
+    # Python 2 caveat: Temporary warning due to bugs in python 2 version
+    if sys.version_info[0] < 3:
+        raise Exception("Tool will not run at this time. You must be using Python 3, as running on Python 2 will encounter errors.")
     # ------------------------
     # set up and configuration
     # ------------------------
