@@ -113,6 +113,8 @@ def get_SiteMetadata(config_file):
     :param config_file: Input configuration file
     :return: metadata containing information about site
     '''
+    print (config_file)
+    sys.exit()
     if isinstance(config_file,pd.DataFrame):
         siteMetadata = config_file
     else:
