@@ -8,7 +8,7 @@
 
 4) Execute phase3_implementation_noNDA.py
 
->>> python phase3_implementation_noNDA.py -in PATH_TO_DATA.csv -config PATH_TO_CONFIG.xlsx -res PATH_TO_RESULTS_FILE.xlsx --timetestFlag
+>>> python TIAT.py -in PATH_TO_DATA.csv -config PATH_TO_CONFIG.xlsx -res PATH_TO_RESULTS_FILE.xlsx --timetestFlag
 
 5) Send results output and configuration files to aea@nrgsystems.com 
 
