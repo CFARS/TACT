@@ -113,8 +113,6 @@ def get_SiteMetadata(config_file):
     :param config_file: Input configuration file
     :return: metadata containing information about site
     '''
-    print (config_file)
-    sys.exit()
     if isinstance(config_file,pd.DataFrame):
         siteMetadata = config_file
     else:
@@ -6901,8 +6899,6 @@ if __name__ == '__main__':
     # ------------------------
     input_filename, config_file, rtd_files, results_filename, NRRELV3a, timetestFlag = get_inputfiles()
     siteMetadata = get_SiteMetadata(config_file)
-    print (siteMetadata)
-    sys.exit()
     filterMetadata = get_FilteringMetadata(config_file)
     correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,NRRELV3a)
     inputdata, Timestamps = get_inputdata(input_filename, config_file)
