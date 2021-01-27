@@ -222,7 +222,7 @@ def get_inputdata(filename, config_file):
     :param config_file: Configuration file
     :return: input data dataframe
     '''
-    
+
     if filename.split('.')[-1] == 'csv':
         inputdata = pd.read_csv(filename)
     elif filename.split('.')[-1] == 'xlsx':
@@ -5637,7 +5637,8 @@ def calculate_stability_TKE(inputdata):
             stabilityClass = None
             stabilityMetric = None
             regimeBreakdown = None
-            print ('Warning: Could not find direction columns in configuration key. If you intend to get TKE derived stability, check data.')
+            print ('Warning: Could not find direction columns in configuration key.  TKE derived stability, check data.')
+            sys.exit()
         else:
             for c in dir_cols:
                 name_radians = str(c + '_radians')
@@ -6536,6 +6537,16 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
                                Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
 
         # --- stability class by alpha Ane
+        if cup_alphaFlag:
+            pass
+        else:
+            TIbybin_stability_alpha_Ane = TIbybin_stability
+            TI_MBE_j_stability_alpha_Ane = TI_MBE_j_stability
+            RepTI_MBE_j_stability_alpha_Ane = RepTI_MBE_j_stability
+            RepTI_Diff_j_stability_alpha_Ane = RepTI_Diff_j_stability
+            TI_Diff_j_stability_alpha_Ane = TI_Diff_j_stability
+            TI_RMSE_j_stability_alpha_Ane = TI_RMSE_j_stability
+            RepTI_RMSE_j_stability_alpha_Ane = RepTI_RMSE_j_stability
         if stabilityFlag:
             for i in range(0,len(TIbybin_stability_alpha_Ane)):
                 Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbybin_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
@@ -6581,7 +6592,16 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
                                Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
 
         # --- stability class by alpha RSD
-        if stabilityFlag:
+        if RSD_alphaFlag:
+            pass
+        else:
+            TIbybin_stability_alpha_RSD = TIbybin_stability
+            TI_MBE_j_stability_alpha_RSD = TI_MBE_j_stability
+            RepTI_MBE_j_stability_alpha_RSD = RepTI_MBE_j_stability
+            RepTI_Diff_j_stability_alpha_RSD = RepTI_Diff_j_stability
+            TI_Diff_j_stability_alpha_RSD = TI_Diff_j_stability
+            TI_RMSE_j_stability_alpha_RSD = TI_RMSE_j_stability
+            RepTI_RMSE_j_stability_alpha_RSD = RepTI_RMSE_j_stability
             for i in range(0,len(TIbybin_stability_alpha_RSD)):
                 Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbybin_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
             for i in range(0,len(TI_MBE_j_stability_alpha_RSD)):
@@ -8150,6 +8170,7 @@ if __name__ == '__main__':
                                                                          inputdata_corr, Timestamps, method)
                     className += 1
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
+                
 
             if cup_alphaFlag:
                 print ('Applying correction Method: G-C by stability class Alpha w/cup')
@@ -8264,6 +8285,16 @@ if __name__ == '__main__':
             pass
         else:
             print ('Applying Correction Method: G-LTERRA_WC_S_ML')
+
+    if  RSD_alphaFlag:
+        pass
+    else:
+        ResultsLists_stability_alpha_RSD = ResultsList_stability
+
+    if cup_alphaFlag:
+        pass
+    else:
+        ResultsLists_stability_alpha_Ane = ResultsList_stability
 
     if RSDtype['Selection'][0:4] != 'Wind':
         reg_results_class1 = np.nan
