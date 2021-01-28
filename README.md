@@ -6,7 +6,7 @@
 
 3) Fill out a separate configuration template file for each project data set 
 
-4) Execute phase3_implementation_noNDA.py
+4) Execute TIAT.py
 
 >>> python TIAT.py -in PATH_TO_DATA.csv -config PATH_TO_CONFIG.xlsx -res PATH_TO_RESULTS_FILE.xlsx --timetestFlag
 
