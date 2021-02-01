@@ -2,11 +2,11 @@
 """
 This is the main script to analyze projects without an NDA in place.
 Authors: Nikhil Kondabala, Alexandra Arntsen, Andrew Black, Barrett Goudeau, Nigel Swytink-Binnema, Nicolas Jolin
-Updated: 11/30/2020
+Updated: 01/29/2021
 
 Example command line execution: 
 
-python phase3_implementation_noNDA.py -in /Users/aearntsen/CFARSPhase3/test/NRG_canyonCFARS_data.csv -config /Users/aearntsen/CFARSPhase3/test/Configuration_template_phase3_NRG_ZX.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/CFARSPhase3/test/out.xlsx --timetestFlag
+python TIAT.py -in /Users/aearntsen/CFARSPhase3/test/518Tower_Windcube_Filtered_subset.csv -config /Users/aearntsen/CFARSPhase3/test/configuration_518Tower_Windcube_Filtered_subset_ex.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/CFARSPhase3/test/out.xlsx --timetestFlag
 
 """
 
@@ -164,7 +164,7 @@ def get_CorrectionsMetadata(config_file, NRRELV3a):
     correctionsManager = {'SS-SF':True,'SS-S':True,'SS-SS':True,'SS-Match2':True,'SS-WS':True,'SS-WS-Std':True,
                           'SS-LTERRA-WC-1HZ':False,'SS-LTERRA-MLa':True,'SS-LTERRA-MLb':True,'SS-LTERRA-MLc':True,'TI-Extrap':False,
                           'G-Sa':True,'G-SFa':True,'G-Sc':True,'G-SFc':True,'G-Std':False,'G-Match':True,'G-Ref-S':True,
-                          'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True}
+                          'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True, 'G-LTERRA-ML':True}
     # input data checking
     subset = ['Ref_TI','RSD_TI']
     result = all(elem in availableData for elem in subset)
@@ -1421,8 +1421,9 @@ def perform_G_SFc_correction(inputdata):
     results = results.drop(columns=['sensor','height'])
     return inputdata, results, m, c
 
-def perform_SS_LTERRA_ML_correction(inputdata):
+def perform_SS_LTERRA_ML_correction(inputdata,model_Tag):
 
+    RF_model_number = 1
     inputdata_test_result = pd.DataFrame()
 
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
@@ -1462,7 +1463,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
         else:
             m = np.NaN
             c = np.NaN
-            TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+            TI_pred_RF,RF_model_number = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'],RF_model_number,model_Tag)
             all_test['corrTI_RSD_TI'] = TI_pred_RF
             all_test['corrRepTI_RSD_RepTI'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
             all_test['Ref_TI'] = all_test['y_test']
@@ -1488,7 +1489,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+                 TI_pred_RF,RF_model_number = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'],RF_model_number,model_Tag)
                  all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
                  all_test['corrRepTI_RSD_RepTI_Ht1'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht1'] = all_test['y_test']
@@ -1513,7 +1514,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+                 TI_pred_RF,RF_model_number = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'],RF_model_number,model_Tag)
                  all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
                  all_test['corrRepTI_RSD_RepTI_Ht2'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht2'] = all_test['y_test']
@@ -1538,7 +1539,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+                 TI_pred_RF,RF_model_number = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'],RF_model_number,model_Tag)
                  all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
                  all_test['corrRepTI_RSD_RepTI_Ht3'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht3'] = all_test['y_test']
@@ -1562,7 +1563,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+                 TI_pred_RF,RF_model_number = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'],RF_model_number,model_Tag)
                  all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
                  all_test['corrRepTI_RSD_RepTI_Ht4'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht4'] = all_test['y_test']
@@ -1573,8 +1574,9 @@ def perform_SS_LTERRA_ML_correction(inputdata):
         inputdata_test_result = inputdata_test
     return inputdata_test_result, results, m, c
 
-def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols):
+def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,model_Tag):
 
+    RF_model_number = 1
     inputdata_test_result = pd.DataFrame()
 
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
@@ -1622,8 +1624,8 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
         else:
             m = np.NaN
             c = np.NaN
-            TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                             all_test[all_testY_cols],'RF', all_test['TI_test'])
+            TI_pred_RF, RF_model_number = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+                                             all_test[all_testY_cols],'RF', all_test['TI_test'],RF_model_number,model_Tag)
             all_test['corrTI_RSD_TI'] = TI_pred_RF
             all_test['corrRepTI_RSD_RepTI'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
             all_test['Ref_TI'] = all_test['y_test']
@@ -1656,8 +1658,8 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                                  all_test[all_testY_cols],'RF', all_test['TI_test'])
+                 TI_pred_RF, RF_model_number = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+                                                  all_test[all_testY_cols],'RF', all_test['TI_test'],RF_model_number,model_Tag)
                  all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
                  all_test['corrRepTI_RSD_RepTI_Ht1'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht1'] = all_test['y_test']
@@ -1690,8 +1692,8 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                                  all_test[all_testY_cols],'RF', all_test['TI_test'])
+                 TI_pred_RF,RF_model_number = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+                                                  all_test[all_testY_cols],'RF', all_test['TI_test'],RF_model_number,model_Tag)
                  all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
                  all_test['corrRepTI_RSD_RepTI_Ht2'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht2'] = all_test['y_test']
@@ -1724,8 +1726,8 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                                  all_test[all_testY_cols],'RF', all_test['TI_test'])
+                 TI_pred_RF,RF_model_number = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+                                                  all_test[all_testY_cols],'RF', all_test['TI_test'],RF_model_number,model_Tag)
                  all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
                  all_test['corrRepTI_RSD_RepTI_Ht3'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht3'] = all_test['y_test']
@@ -1757,8 +1759,8 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                                  all_test[all_testY_cols],'RF', all_test['TI_test'])
+                 TI_pred_RF,RF_model_number = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+                                                  all_test[all_testY_cols],'RF', all_test['TI_test'],RF_model_number,model_Tag)
                  all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
                  all_test['corrRepTI_RSD_RepTI_Ht4'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht4'] = all_test['y_test']
@@ -1770,7 +1772,8 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
 
     return inputdata_test_result, results, m, c
 
-def machine_learning_TI(x_train,y_train,x_test,y_test,mode,TI_test):
+def machine_learning_TI(x_train,y_train,x_test,y_test,mode,TI_test,RF_model_number,model_Tag):
+    from pickle import dump
 
     if len(x_train.shape) == 1:
         y_train = np.array(y_train).reshape(-1,1).ravel()
@@ -1793,11 +1796,18 @@ def machine_learning_TI(x_train,y_train,x_test,y_test,mode,TI_test):
 
     if "RF" in mode:
         from sklearn.ensemble import RandomForestRegressor
-        rfc_new = RandomForestRegressor(random_state=42, n_estimators = 100)
-        #rfc_new = RandomForestRegressor(random_state=42,max_features=2,n_estimators=100)
-        rfc_new = rfc_new.fit(x_train,y_train.ravel())
-        TI_pred = rfc_new.predict(x_test)
-
+        if model_Tag == 'G-LTERRA-ML':
+            # load model
+            rfc = pickle.load(open('RF_model_1_SS_LTERRA_MLb.pkl', 'rb'))
+            TI_pred = rfc.predict(x_test)
+        else:
+            rfc_new = RandomForestRegressor(random_state=42, n_estimators = 100)
+            #rfc_new = RandomForestRegressor(random_state=42,max_features=2,n_estimators=100)
+            rfc_new = rfc_new.fit(x_train,y_train.ravel())
+            TI_pred = rfc_new.predict(x_test)
+           # dump(rfc_new, open(str('RF_model_'+ str(RF_model_number) + '_' + model_Tag + '.pkl'),'wb'))
+            RF_model_number = RF_model_number + 1
+                             
     if "SVR" in mode:
        from sklearn.svm import SVR
        clf = SVR(C=1.0, epsilon=0.2,kernel='poly',degree=2)
@@ -1816,7 +1826,7 @@ def machine_learning_TI(x_train,y_train,x_test,y_test,mode,TI_test):
         # import stuff
         NN_model = None
 
-    return TI_pred
+    return TI_pred, RF_model_number
 
 def min_diff(array_orig,array_to_find,tol):
     #Finds indices in array_orig that correspond to values closest to numbers in array_to_find with tolerance tol
@@ -5945,7 +5955,7 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
                             Ht_1_ane, Ht_2_ane, extrap_metadata, reg_results_class1, reg_results_class2, reg_results_class3,
                             reg_results_class4, reg_results_class5,reg_results_class1_alpha, reg_results_class2_alpha, reg_results_class3_alpha,
                             reg_results_class4_alpha, reg_results_class5_alpha, Ht_1_rsd, Ht_2_rsd, ResultsLists_stability, ResultsLists_stability_alpha_RSD,
-                            ResultsLists_stability_alpha_Ane, stabilityFlag, cup_alphaFlag, RSD_alphaFlag, TimeTestA_baseline_df, TimeTestB_baseline_df, TimeTestC_baseline_df,TimeTestA_corrections_df,TimeTestB_corrections_df,TimeTestC_corrections_df):
+                            ResultsLists_stability_alpha_Ane, stabilityFlag, cup_alphaFlag, RSD_alphaFlag, TimeTestA_baseline_df, TimeTestB_baseline_df, TimeTestC_baseline_df,TimeTestA_corrections_df,TimeTestB_corrections_df,TimeTestC_corrections_df,vers,now):
 
     wb = Workbook()
     ws = wb.active
@@ -6172,8 +6182,8 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
     b = wb.create_sheet(title='Metadata')
     rowNumber = 1
     b.cell(row=rowNumber, column=1, value='Software version: ')
-    b.cell(row= rowNumber, column = 2, value = '1.1.0')
-    b.cell(row= rowNumber, column=3, value = datetime.datetime.now())
+    b.cell(row= rowNumber, column = 2, value = vers)
+    b.cell(row= rowNumber, column=3, value = now)
     rowNumber += 3
     for r in dataframe_to_rows(siteMetadata, index=False):
         b.append(r)
@@ -6911,6 +6921,11 @@ def get_inputfiles():
 
 
 if __name__ == '__main__':
+    # DevVersion Note
+    vers = 'TIAT_V_1.0'
+    from datetime import datetime
+    now = datetime.now()
+    print (now)
     # Python 2 caveat: Temporary warning due to bugs in python 2 version
     if sys.version_info[0] < 3:
         raise Exception("Tool will not run at this time. You must be using Python 3, as running on Python 2 will encounter errors.")
@@ -7181,7 +7196,6 @@ if __name__ == '__main__':
         except:
             count_1mps_alpha_RSD.append(None)
             count_05mps_alpha_RSD.append(None)
-
 
     for method in correctionsMetadata:
 
@@ -7524,7 +7538,7 @@ if __name__ == '__main__':
             pass
         else:
             print ('Applying Correction Method: SS-LTERRA-MLa')
-            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(inputdata.copy())
+            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(inputdata.copy(),'SS_LTERRA_MLa')
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = 'SS_LTERRA_MLa'
@@ -7537,7 +7551,7 @@ if __name__ == '__main__':
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_ML_correction(item[primary_idx].copy())
+                    inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_ML_correction(item[primary_idx].copy(),'SS_LTERRA_MLa')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
@@ -7551,7 +7565,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
+                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy(),'SS_LTERRA_MLa_alphaRSD')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLa' + '_' + 'class_' + str(className))
@@ -7565,7 +7579,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
+                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy(),'SS_LTERRA_MLa_alphaAne')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
@@ -7589,7 +7603,7 @@ if __name__ == '__main__':
             all_testX_cols = ['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']
             all_testY_cols = ['y_test']
             
-            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'SS_LTERRA_MLc')
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = 'SS_LTERRA_MLc'
@@ -7602,7 +7616,7 @@ if __name__ == '__main__':
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_S_ML_correction(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_S_ML_correction(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'SS_LTERRA_MLc')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLc' + '_' + 'class_' + str(className))
@@ -7616,7 +7630,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'SS_LTERRA_MLc_alphaRSD')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLc' + '_' + 'class_' + str(className))
@@ -7630,7 +7644,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'SS_LTERRA_MLc_alphaAne')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLc' + '_' + 'class_' + str(className))
@@ -7654,7 +7668,7 @@ if __name__ == '__main__':
             all_testX_cols = ['x_test_TI','x_test_TKE']
             all_testY_cols = ['y_test']
             
-            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'SS_LTERRA_MLb')
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = 'SS_LTERRA_MLb'
@@ -7667,7 +7681,7 @@ if __name__ == '__main__':
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_S_ML_correction(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_S_ML_correction(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'SS_LTERRA_MLb')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLb' + '_' + 'class_' + str(className))
@@ -7681,7 +7695,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'SS_LTERRA_MLb_alphaRSD')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLb' + '_' + 'class_' + str(className))
@@ -7695,7 +7709,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'SS_LTERRA_MLb_alphaAne')
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLb' + '_' + 'class_' + str(className))
@@ -8260,13 +8274,70 @@ if __name__ == '__main__':
             print ('Applying Correction Method: G-LTERRA_ZX_ML')
 
         # ************************************************ #
-        # Global LTERRA WC Machine Learning (G-LTERRA_WC_ML)
-        if method != 'G-LTERRA_WC_ML':
+        # Global LTERRA WC Machine Learning (G-LTERRA_ML)
+        # use .pkl generated models from the NRG sample site
+        if method != 'G-LTERRA-ML':
             pass
-        elif correctionsMetadata['G-LTERRA_WC_ML'] == False:
+        elif correctionsMetadata['G-LTERRA-ML'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-LTERRA_WC_ML')
+            print ('Applying Correction Method: G-LTERRA_ML')
+            all_trainX_cols = ['x_train_TI', 'x_train_TKE']
+            all_trainY_cols = ['y_train']
+            all_testX_cols = ['x_test_TI','x_test_TKE']
+            all_testY_cols = ['y_test']
+            
+            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'G_LTERRA_ML')
+            lm_corr['sensor'] = sensor
+            lm_corr['height'] = height
+            lm_corr['correction'] = 'G_LTERRA_ML'
+            correctionName = 'G_LTERRA_ML'
+            baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
+
+            if RSDtype['Selection'][0:4] == 'Wind':
+                print ('Applying Correction Method: G-LTERRA_ML by stability class (TKE)')
+                # stability subset output for primary height (all classes)
+                ResultsLists_class = initialize_resultsLists('class_')
+                className = 1
+                for item in All_class_data:
+                    inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_S_ML_correction(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'G_LTERRA_ML')
+                    lm_corr['sensor'] = sensor
+                    lm_corr['height'] = height
+                    lm_corr['correction'] = str('G_LTERRA_ML' + '_' + 'class_' + str(className))
+                    correctionName = str('G_LTERRA_ML' + '_TKE_' + str(className))
+                    ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', correctionName, lm_corr,
+                                                               inputdata_corr, Timestamps, method)
+                    className += 1
+                ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
+            if RSD_alphaFlag:
+                print ('Applying Correction Method: G-LTERRA_ML by stability class Alpha w/ RSD')
+                ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
+                className = 1
+                for item in All_class_data_alpha_RSD:
+                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'G_LTERRA_ML')
+                    lm_corr['sensor'] = sensor
+                    lm_corr['height'] = height
+                    lm_corr['correction'] = str('G-LTERRA_ML' + '_' + 'class_' + str(className))
+                    correctionName = str('G_LTERRA_ML' + '_alphaRSD_' + str(className))
+                    ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', correctionName, lm_corr,
+                                                                         inputdata_corr, Timestamps, method)
+                    className += 1
+                ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
+            if cup_alphaFlag:
+                print ('Applying correction Method: G-LTERRA_ML by stability class Alpha w/cup')
+                ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
+                className = 1
+                for item in All_class_data_alpha_Ane:
+                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols,'G_LTERRA_ML')
+                    lm_corr['sensor'] = sensor
+                    lm_corr['height'] = height
+                    lm_corr['correction'] = str('G_LTERRA_ML' + '_' + 'class_' + str(className))
+                    emptyclassFlag = False
+                    correctionName = str('G_LTERRA_ML' + '_alphaCup_' + str(className))
+                    ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', correctionName, lm_corr,
+                                                                         inputdata_corr, Timestamps, method)
+                    className += 1
+                ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
         # ************************************************** #
         # Global LTERRA WC w/Stability 1Hz (G-LTERRA_WC_S_1Hz)
@@ -8332,4 +8403,4 @@ if __name__ == '__main__':
                             reg_results_class4, reg_results_class5,reg_results_class1_alpha, reg_results_class2_alpha, reg_results_class3_alpha,
                             reg_results_class4_alpha, reg_results_class5_alpha, Ht_1_rsd, Ht_2_rsd, ResultsLists_stability, ResultsLists_stability_alpha_RSD,
                             ResultsLists_stability_alpha_Ane, stabilityFlag, cup_alphaFlag, RSD_alphaFlag, TimeTestA_baseline_df, TimeTestB_baseline_df,
-                            TimeTestC_baseline_df,TimeTestA_corrections_df,TimeTestB_corrections_df,TimeTestC_corrections_df)
+                            TimeTestC_baseline_df,TimeTestA_corrections_df,TimeTestB_corrections_df,TimeTestC_corrections_df,vers,now)
