@@ -1,4 +1,3 @@
-
 """
 This is the main script to analyze projects without an NDA in place.
 Authors: Nikhil Kondabala, Alexandra Arntsen, Andrew Black, Barrett Goudeau, Nigel Swytink-Binnema, Nicolas Jolin
@@ -6,7 +5,9 @@ Updated: 11/30/2020
 
 Example command line execution: 
 
-python phase3_implementation_noNDA.py -in /Users/aearntsen/CFARSPhase3/test/NRG_canyonCFARS_data.csv -config /Users/aearntsen/CFARSPhase3/test/Configuration_template_phase3_NRG_ZX.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/CFARSPhase3/test/out.xlsx --timetestFlag
+python TIAT.py -in /Users/aearntsen/CFARSPhase3/test/518Tower_Windcube_Filtered_subset.csv -config /Users/aearntsen/CFARSPhase3/test/configuration_518Tower_Windcube_Filtered_subset_ex.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/CFARSPhase3/test/out.xlsx --timetestFlag
+
+python phase3_implementation_noNDA.py -in /Users/aearntsen/cfarsMaster/CFARSPhase3/test/NRG_canyonCFARS_data.csv -config /Users/aearntsen/cfarsMaster/CFARSPhase3/test/Configuration_template_phase3_NRG_ZX.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMaster/CFARSPhase3/test/out.xlsx --timetestFlag
 
 """
 
@@ -127,9 +128,9 @@ def get_FilteringMetadata(config_file):
     configMetadata = pd.read_excel(config_file, usecols=[7, 8, 9], nrows=8)
     return (configMetadata)
 
-def get_CorrectionsMetadata(config_file, NRRELV3a):
+def get_CorrectionsMetadata(config_file, globalModel):
     '''
-    :param config_file: Input configuration file
+    :param config_file: Input configuration file, name of globalModel tested
     :return: metadata containing information about which corrections will be applied
              to this data set and why
     '''
@@ -148,8 +149,8 @@ def get_CorrectionsMetadata(config_file, NRRELV3a):
     RSDtype = pd.read_excel(config_file, usecols=[4], nrows=8).iloc[6]
     # read NDA status
     ndaStatus = pd.read_excel(config_file, usecols=[12], nrows=3).iloc[1]
-    # check argument that specifies NRREL version of the script
-    NRREL_argument = NRRELV3a
+    # check argument that specifies global model
+    globalModel = globalModel
     # check ability to compute extrapolated TI
     all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = check_for_additional_heights(config_file, primaryHeight)
     extrapolation_type = check_for_extrapolations(ane_heights, RSD_heights)
@@ -201,6 +202,7 @@ def get_CorrectionsMetadata(config_file, NRRELV3a):
 
     if extrapolation_type is not None:
         correctionsManager['TI-Extrap']=True
+        correctionsManager['Name global model'] = globalModel
 
     correctionsMetadata = correctionsManager
     return (correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type)
@@ -279,6 +281,16 @@ def get_inputdata(filename, config_file):
         print ('Error encountered. Input data contains non numeric values, please handle this in input data before running the tool.')
         sys.exit()
 
+    # make sure we have a TI column
+    if 'RSD_TI' in inputdata.columns.to_list():
+        pass
+    else:
+        if 'RSD_SD' in inputdata.columns.to_list():
+            inputdata['RSD_TI'] = inputdata['RSD_SD']/inputdata['RSD_WS']
+        else:
+            print ('ERROR: input data does not have an RSD_TI column or an RSD_SD column. Please fix input data')
+            sys.exit()
+        
     # Calculate Representative TI (Representative TI = TI * 1.28 TI Std. Dev.) (Characteristic TI = TI * 1 TI Std. Dev.)
     if 'Ref_SD' in inputdata.columns:
         inputdata['Ref_RepTI'] = inputdata['Ref_TI'] + 1.28 * inputdata['Ref_SD']
@@ -735,84 +747,25 @@ def get_all_regressions(inputdata,title = None):
     # get the ws regression results for all the col required pairs. Title is the name of subset of data being evaluated
     # Note the order in input to regression function. x is reference.
 
+    pairList = [['Ref_WS','RSD_WS'],['Ref_WS','Ane2_WS'],['Ref_TI','RSD_TI'],['Ref_TI','Ane2_TI'],['Ref_SD','RSD_SD'],['Ref_SD','Ane2_SD'],['Ref_RepTI','RSD_RepTI'],['Ref_RepTI','Ane2_RepTI']]
+
     lenFlag = False
     if len(inputdata) < 2:
         lenFlag = True
 
     results = pd.DataFrame(columns=[title,'m', 'c', 'rsquared', 'mean difference', 'mse', 'rmse'])
-    if 'RSD_WS' in inputdata.columns and lenFlag == False:
-        results_WS_rsd_ref = get_regression(inputdata['Ref_WS'],inputdata['RSD_WS'])
-        # regression of WS between RSD and reference
-        results = results.append({title:'WS_regression_RSD_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'WS_regression_RSD_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = results_WS_rsd_ref
-    else:
-        results = results.append({title:'WS_regression_RSD_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'WS_regression_RSD_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-    if 'RSD_TI' in inputdata.columns and lenFlag == False:
-        results_TI_rsd_ref = get_regression(inputdata['Ref_TI'],inputdata['RSD_TI'])
-        # regression of TI between RSD and reference
-        results = results.append({title:'TI_regression_RSD_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'TI_regression_RSD_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = results_TI_rsd_ref
-    else:
-        results = results.append({title:'TI_regression_RSD_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'TI_regression_RSD_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-    if 'Ane2_TI' in inputdata.columns and lenFlag == False:
-        results_TI_ane2_ref = get_regression(inputdata['Ref_TI'], inputdata['Ane2_TI'])
-        # regression of TI between Ane2 and reference
-        results = results.append({title:'TI_regression_Ane2_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'TI_regression_Ane2_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = results_TI_ane2_ref
-    else:
-        results = results.append({title:'TI_regression_Ane2_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'TI_regression_Ane2_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-    if 'Ane2_WS' in inputdata.columns and lenFlag == False:
-        results_WS_ane2_ref = get_regression(inputdata['Ref_WS'],inputdata['Ane2_WS'])
-        # regression of WS between Ane2 and reference
-        results = results.append({title:'WS_regression_Ane2_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'WS_regression_Ane2_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = results_WS_ane2_ref
-    else:
-        results = results.append({title:'WS_regression_Ane2_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'WS_regression_Ane2_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-    if 'RSD_SD' in inputdata.columns and lenFlag == False:
-        results_SD_rsd_ref = get_regression(inputdata['Ref_SD'],inputdata['RSD_SD'])
-        # regression of SD between RSD and reference
-        results = results.append({title:'SD_regression_RSD_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'SD_regression_RSD_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = results_SD_rsd_ref
-    else:
-        results = results.append({title:'SD_regression_RSD_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'SD_regression_RSD_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-    if 'Ane2_SD' in inputdata.columns and lenFlag == False:
-        results_SD_ane2_ref = get_regression(inputdata['Ref_SD'], inputdata['Ane2_SD'])
-        # regression of SD between Ane2 and reference
-        results = results.append({title:'SD_regression_Ane2_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'SD_regression_Ane2_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = results_SD_ane2_ref
-    else:
-        results = results.append({title:'SD_regression_Ane2_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'SD_regression_Ane2_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-    if 'RSD_RepTI' in inputdata.columns and lenFlag == False:
-        results_RepTI_RSD_ref = get_regression(inputdata['Ref_RepTI'], inputdata['RSD_RepTI'])
-        # regression of RepTI between RSD and reference
-        results = results.append({title:'RepTI_regression_RSD_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'RepTI_regression_RSD_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = results_RepTI_RSD_ref
-    else:
-        results = results.append({title:'RepTI_regression_RSD_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'RepTI_regression_RSD_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-    if 'Ane2_RepTI' in inputdata.columns and lenFlag == False:
-        results_RepTI_ane2_ref = get_regression(inputdata['Ref_RepTI'], inputdata['Ane2_RepTI'])
-        # regression of RepTI between Ane2 and reference
-        results = results.append({title:'RepTI_regression_Ane2_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'RepTI_regression_Ane2_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = results_RepTI_ane2_ref
-    else:
-        results = results.append({title:'RepTI_regression_Ane2_Ref'}, ignore_index = True)
-        results.loc[results[title] == 'RepTI_regression_Ane2_Ref', ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-
+    
+    for p in pairList:
+        res_name = str(p[0].split('_')[1] + '_regression_' + p[0].split('_')[0] + '_' + p[1].split('_')[0])
+        
+        if p[1] in inputdata.columns and lenFlag ==False:
+            results_regr = get_regression(inputdata[p[0]], inputdata[p[1]])
+            results = results.append({title:res_name}, ignore_index = True)
+            results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = results_regr
+        else:
+            results = results.append({title:res_name}, ignore_index = True)
+            results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
+            
     # labels not required
     labelsExtra = ['RSD_SD_Ht1','RSD_TI_Ht1', 'RSD_WS_Ht1', 'RSD_RepTI_Ht1',
                    'RSD_SD_Ht2', 'RSD_TI_Ht2', 'RSD_WS_Ht2', 'RSD_RepTI_Ht2', 'RSD_SD_Ht3', 'RSD_TI_Ht3', 'RSD_WS_Ht3',
@@ -5739,7 +5692,7 @@ def train_test_split(trainPercent, inputdata, stepOverride = False):
 
     return inputdata
 
-def QuickMetrics(inputdata,results_df, lm_corr_dict,testID):
+def QuickMetrics(inputdata,results_df,lm_corr_dict,testID):
 
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
@@ -6468,23 +6421,25 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
         # RepTI MBE
         Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_MBE_j_, Result_df_mean_1mps,Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef)
         # TI RMSE
-        for val in TI_RMSE_j_:
-            for i in val:
-                dat = i['mean']
-                new_data = dat.add_prefix(str('mean' + '_'))
-                if new_data.columns.name == 'bins':
-                    Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                elif new_data.columns.name == 'bins_p5':
-                    Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
+        if TI_RMSE_j_ is not None:
+            for val in TI_RMSE_j_:
+                for i in val:
+                    dat = i['mean']
+                    new_data = dat.add_prefix(str('mean' + '_'))
+                    if new_data.columns.name == 'bins':
+                        Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
+                    elif new_data.columns.name == 'bins_p5':
+                        Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
         # RepTI RMSE
-        for val in RepTI_RMSE_j_:
-            for i in val:
-                dat = i['mean']
-                new_data = dat.add_prefix(str('mean' + '_'))
-                if new_data.columns.name == 'bins':
-                    Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                elif new_data.columns.name == 'bins_p5':
-                    Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
+        if RepTI_RMSE_j_ is not None:
+            for val in RepTI_RMSE_j_:
+                for i in val:
+                    dat = i['mean']
+                    new_data = dat.add_prefix(str('mean' + '_'))
+                    if new_data.columns.name == 'bins':
+                        Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
+                    elif new_data.columns.name == 'bins_p5':
+                        Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
 
         # TI DIff
         Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_j_,Result_df_mean_1mps, Result_df_mean_05mps,Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef)
@@ -6896,10 +6851,10 @@ def get_inputfiles():
     parser = argparse.ArgumentParser()
     parser.add_argument("-in","--input_filename", help="print this requires the input filename")
     parser.add_argument("-config","--config_file", help="this requires the excel configuration file")
+    parser.add_argument("-globalModel", "--global_model_to_test", help="specify the global model to test on the data",default='RF_model_1_SS_LTERRA_MLb.pkl')
     parser.add_argument("-rtd","--rtd_files", help="this requires input directory for wincube rtd files",default=False)
     parser.add_argument("-res","--results_file", help="this requires the excel results file")
-    parser.add_argument("-NRRELV3a", "--NRRELV3a", action="store_true",
-                        help = "indicates that tool is running the global compiled version")
+    parser.add_argument("-saveModel", "--save_model_location", help="this argument specifies the location to save output global model", default=False)
     parser.add_argument("-timetestFlag", "--timetestFlag", action="store_true",
                         help = "initiates timing tests for model generation")
     args = parser.parse_args()
@@ -6907,21 +6862,23 @@ def get_inputfiles():
     print('the input configuration file is {}'.format(args.config_file))
     print('results will output to {}'.format(args.results_file))
     print('windcube 1 HZ rtd. files are located {}'.format(args.rtd_files))
-    return args.input_filename, args.config_file, args.rtd_files, args.results_file, args.NRRELV3a, args.timetestFlag
+    print('Testing {} as global model'.format(args.global_model_to_test))
+    return args.input_filename, args.config_file, args.rtd_files, args.results_file, args.save_model_location, args.timetestFlag, args.global_model_to_test
 
 
 if __name__ == '__main__':
-    # Python 2 caveat: Temporary warning due to bugs in python 2 version
+    # Python 2 caveat: Only working for Python 3 currently
     if sys.version_info[0] < 3:
         raise Exception("Tool will not run at this time. You must be using Python 3, as running on Python 2 will encounter errors.")
     # ------------------------
     # set up and configuration
     # ------------------------
-    input_filename, config_file, rtd_files, results_filename, NRRELV3a, timetestFlag = get_inputfiles()
+    input_filename, config_file, rtd_files, results_filename, saveModel, timetestFlag, globalModel = get_inputfiles()
     siteMetadata = get_SiteMetadata(config_file)
     filterMetadata = get_FilteringMetadata(config_file)
-    correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,NRRELV3a)
+    correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,globalModel)
     inputdata, Timestamps = get_inputdata(input_filename, config_file)
+    print (Timestamps)
     inputdata, a, lab_a = get_refTI_bins(inputdata)
     RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
     print ('%%%%%%%%%%%%%%%%%%%%%%%%% Processing Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
@@ -6941,7 +6898,6 @@ if __name__ == '__main__':
         inputdata['RSD_RepTI'] = RepTI_computed
     elif RSDtype['Selection']=='Triton':
         print ('RSD type is triton, not that output uncorrected TI is instrument corrected')
-
     # ------------------------
     # Baseline Results
     # ------------------------
@@ -6956,7 +6912,7 @@ if __name__ == '__main__':
     TimeTestA = pd.DataFrame()
     TimeTestB = pd.DataFrame()
     TimeTestC = pd.DataFrame()
-
+    
     if timetestFlag == True:
         # A) increase % of test train split -- check for convergence --- basic metrics recorded baseline but also for every corrections
         splitList = np.linspace(0.0, 100.0, num = 20, endpoint =False)
@@ -6989,12 +6945,14 @@ if __name__ == '__main__':
             TimeTestC_corrections_df = {}
             TimeTestC_baseline_df = pd.DataFrame()
             while windowEnd < len(inputdata):
-                print (str('Before observation #' + str(windowStart) + ' ' + 'After observation #' + str(windowEnd)))
+                print (str('After observation #' + str(windowStart) + ' ' + 'Before observation #' + str(windowEnd)))
                 windowStart += numberofObsinOneDay*7
                 windowEnd = windowStart + (numberofObsinOneDay*90)
                 inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [windowStart,windowEnd])
-                TimeTestC_baseline_df, TimeTestC_corrections_df = QuickMetrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
-                                                                               str('Before_' + str(windowStart) + '_' + 'After_' + str(windowEnd)))
+                print (inputdata_test)
+                
+               # TimeTestC_baseline_df, TimeTestC_corrections_df = QuickMetrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
+               #                                                                str('After_' + str(windowStart) + '_' + 'Before_' + str(windowEnd)))
     else:
         TimeTestA_baseline_df = pd.DataFrame()
         TimeTestB_baseline_df = pd.DataFrame()
