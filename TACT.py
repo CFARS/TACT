@@ -291,35 +291,7 @@ def get_inputdata(filename, config_file):
             print ('ERROR: input data does not have an RSD_TI column or an RSD_SD column. Please fix input data')
             sys.exit()
         
-    # Calculate Representative TI (Representative TI = TI * 1.28 TI Std. Dev.) (Characteristic TI = TI * 1 TI Std. Dev.)
-    if 'Ref_SD' in inputdata.columns:
-        inputdata['Ref_RepTI'] = inputdata['Ref_TI'] + 1.28 * inputdata['Ref_SD']
-    else:
-        print ('Warning: Representative TI for Reference will not be calculated because Ref_SD not specified in config file')
-        inputdata['Ref_RepTI'] = len(inputdata['Ref_TI']) * [np.NaN]
-    if 'Ane2_SD' in inputdata.columns:
-        inputdata['Ane2_RepTI'] = inputdata['Ane2_TI'] + 1.28 * inputdata['Ane2_SD']
-    else:
-        print ('Warning: Representative TI for redundant anemometer will not be calculated because Ane2_SD not specified in config file')
-        inputdata['Ane2_RepTI'] = len(inputdata['Ane2_TI']) * [np.NaN]
-    if 'RSD_SD' in inputdata.columns:
-        inputdata['RSD_RepTI'] = inputdata['RSD_TI'] + 1.28 * inputdata['RSD_SD']
-    else:
-        print ('Warning: Representative TI for RSD will not be calculated because RSD_SD not specified in config file')
-        inputdata['RSD_RepTI'] = len(inputdata['RSD_TI']) * [np.NaN]
-
-    # are there any other available heights to calculate a representative TI?
-    availableData = pd.read_excel(config_file, usecols=[1],nrows=1000).dropna()['Header_CFARS_Python'].to_list()
-    SD_cols = [s for s in availableData if 'SD_Ht' in s]
-
-    for c in SD_cols:
-        identifier_inst = c.split('_')[0]
-        identifier_ht = c.split('_')[2]
-        ti_col = [s for s in availableData if 'TI' in s]
-        ti_inst_col = [s for s in ti_col if identifier_inst in s]
-        ti_inst_ht_col = [s for s in ti_inst_col if identifier_ht in s]
-        new_col_name = str(identifier_inst + '_RepTI_' + identifier_ht)
-        inputdata[new_col_name] = inputdata[ti_inst_ht_col[0]] + 1.28 * inputdata[c]
+    # Representative TI by bin (Representative TI = TI * 1.28 TI Std. Dev.) (Characteristic TI = TI * 1 TI Std. Dev.)
 
     inputdata['bins'] = inputdata['Ref_WS'].round(0)  # this acts as bin because the bin defination is between the two half integer values
     bins_p5_interval = pd.interval_range(start=.25, end=20, freq=.5, closed='left')  # this is creating a interval range of .5 starting at .25
@@ -747,7 +719,7 @@ def get_all_regressions(inputdata,title = None):
     # get the ws regression results for all the col required pairs. Title is the name of subset of data being evaluated
     # Note the order in input to regression function. x is reference.
 
-    pairList = [['Ref_WS','RSD_WS'],['Ref_WS','Ane2_WS'],['Ref_TI','RSD_TI'],['Ref_TI','Ane2_TI'],['Ref_SD','RSD_SD'],['Ref_SD','Ane2_SD'],['Ref_RepTI','RSD_RepTI'],['Ref_RepTI','Ane2_RepTI']]
+    pairList = [['Ref_WS','RSD_WS'],['Ref_WS','Ane2_WS'],['Ref_TI','RSD_TI'],['Ref_TI','Ane2_TI'],['Ref_SD','RSD_SD'],['Ref_SD','Ane2_SD']]
 
     lenFlag = False
     if len(inputdata) < 2:
@@ -767,16 +739,16 @@ def get_all_regressions(inputdata,title = None):
             results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
             
     # labels not required
-    labelsExtra = ['RSD_SD_Ht1','RSD_TI_Ht1', 'RSD_WS_Ht1', 'RSD_RepTI_Ht1',
-                   'RSD_SD_Ht2', 'RSD_TI_Ht2', 'RSD_WS_Ht2', 'RSD_RepTI_Ht2', 'RSD_SD_Ht3', 'RSD_TI_Ht3', 'RSD_WS_Ht3',
-                   'RSD_RepTI_Ht3', 'RSD_WS_Ht4', 'RSD_SD_Ht4', 'RSD_TI_Ht4', 'RSD_RepTI_Ht4']
-    labelsRef = ['Ref_WS', 'Ref_TI', 'Ref_SD', 'Ref_RepTI']
-    labelsAne = ['Ane_SD_Ht1', 'Ane_TI_Ht1', 'Ane_WS_Ht1', 'Ane_RepTI_Ht1', 'Ane_SD_Ht2', 'Ane_TI_Ht2', 'Ane_WS_Ht2', 'Ane_RepTI_Ht2',
-                 'Ane_SD_Ht3', 'Ane_TI_Ht3', 'Ane_WS_Ht3', 'Ane_RepTI_Ht3', 'Ane_WS_Ht4', 'Ane_SD_Ht4','Ane_TI_Ht4', 'Ane_RepTI_Ht4']
+    labelsExtra = ['RSD_SD_Ht1','RSD_TI_Ht1', 'RSD_WS_Ht1','RSD_SD_Ht2', 'RSD_TI_Ht2',
+                   'RSD_WS_Ht2', 'RSD_SD_Ht3', 'RSD_TI_Ht3', 'RSD_WS_Ht3',
+                   'RSD_WS_Ht4', 'RSD_SD_Ht4', 'RSD_TI_Ht4']
+    labelsRef = ['Ref_WS', 'Ref_TI', 'Ref_SD']
+    labelsAne = ['Ane_SD_Ht1', 'Ane_TI_Ht1', 'Ane_WS_Ht1', 'Ane_SD_Ht2', 'Ane_TI_Ht2', 'Ane_WS_Ht2',
+                 'Ane_SD_Ht3', 'Ane_TI_Ht3', 'Ane_WS_Ht3', 'Ane_WS_Ht4', 'Ane_SD_Ht4','Ane_TI_Ht4']
 
     for l in labelsExtra:
         parts = l.split('_')
-        reg_type = list(set(parts).intersection(['WS', 'TI', 'SD', 'RepTI']))
+        reg_type = list(set(parts).intersection(['WS', 'TI', 'SD']))
         if 'RSD' in l:
             ht_type = parts[2]
             ref_type = [s for s in labelsAne if reg_type[0] in s]
@@ -796,47 +768,31 @@ def get_all_regressions(inputdata,title = None):
 
     return results
 
-def post_correction_stats(inputdata,results,ref_col,TI_col,refRepTI_col,RepTI_col):
+def post_correction_stats(inputdata,results,ref_col,TI_col):
 
     if isinstance(inputdata, pd.DataFrame):
         fillEmpty = False
-        if ref_col in inputdata.columns and TI_col in inputdata.columns and refRepTI_col in inputdata.columns and RepTI_col in inputdata.columns:
+        if ref_col in inputdata.columns and TI_col in inputdata.columns:
             model_corrTI = get_regression(inputdata[ref_col], inputdata[TI_col])
-            model_corrRepTI = get_regression(inputdata[refRepTI_col], inputdata[RepTI_col])
             name1 = 'TI_regression_' + TI_col + '_' + ref_col
-            name2 = 'RepTI_regression_' + RepTI_col + '_' + ref_col
             results.loc[name1, ['m']] = model_corrTI[0]
             results.loc[name1, ['c']] = model_corrTI[1]
             results.loc[name1, ['rsquared']] = model_corrTI[2]
             results.loc[name1, ['difference']] = model_corrTI[3]
             results.loc[name1, ['mse']] = model_corrTI[4]
             results.loc[name1, ['rmse']] = model_corrTI[5]
-            results.loc[name2, ['m']] = model_corrRepTI[0]
-            results.loc[name2, ['c']] = model_corrRepTI[1]
-            results.loc[name2, ['rsquared']] = model_corrRepTI[2]
-            results.loc[name2, ['difference']] = model_corrRepTI[3]
-            results.loc[name2, ['mse']] = model_corrRepTI[4]
-            results.loc[name2, ['rmse']] = model_corrRepTI[5]
         else:
             fillEmpty = True
     else:
         fillEmpty = True
     if fillEmpty:
         name1 = 'TI_regression_' + TI_col + '_' + ref_col
-        name2 = 'RepTI_regression_' + RepTI_col + '_' + ref_col
         results.loc[name1, ['m']] = 'NaN'
         results.loc[name1, ['c']] = 'NaN'
         results.loc[name1, ['rsquared']] = 'NaN'
         results.loc[name1, ['difference']] = 'NaN'
         results.loc[name1, ['mse']] = 'NaN'
         results.loc[name1, ['rmse']] = 'NaN'
-        results.loc[name2, ['m']] = 'NaN'
-        results.loc[name2, ['c']] = 'NaN'
-        results.loc[name2, ['rsquared']] = 'NaN'
-        results.loc[name2, ['difference']] = 'NaN'
-        results.loc[name2, ['mse']] = 'NaN'
-        results.loc[name2, ['rmse']] = 'NaN'
-
     return results
 
 def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, height):
@@ -876,32 +832,26 @@ def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, hei
     WS_ane_extrap = power_law(inputdata[col_ref], ht_extrap, ht_ref, shearTimeseries)
     SD_ane_extrap = power_law(inputdata[col_ref_sd], ht_extrap, ht_ref, -shearTimeseries)
     TI_ane_extrap = SD_ane_extrap / WS_ane_extrap
-    RepTI_ane_extrap = TI_ane_extrap * 1.28*SD_ane_extrap
 
     # Extract available TI values
     TI_RSD = inputdata[col_extrap_RSD].values
     SD_RSD = inputdata[col_extrap_RSD_SD].values
-    RepTI_RSD = TI_RSD * 1.28*SD_RSD
     if extrapolation_type == 'truth':
         TI_ane_truth = inputdata[col_extrap_ane].values
-        RepTI_ane_truth = TI_ane_truth * 1.28*inputdata[col_extrap_ane_SD].values
 
     # Insert new columns into DataFrame
     inputdata['TI_RSD'] = TI_RSD
     inputdata['TI_ane_extrap'] = TI_ane_extrap
-    inputdata['RepTI_RSD'] = RepTI_RSD
-    inputdata['RepTI_ane_extrap'] = RepTI_ane_extrap
     if extrapolation_type == 'truth':
         inputdata['TI_ane_truth'] = TI_ane_truth
-        inputdata['RepTI_ane_truth'] = RepTI_ane_truth
 
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
 
-    results = post_correction_stats(inputdata,results, 'TI_RSD','TI_ane_extrap','RepTI_RSD','RepTI_ane_extrap')
-    restults = post_correction_stats(inputdata,results, 'TI_ane_truth', 'TI_RSD','RepTI_ane_truth', 'RepTI_RSD')
+    results = post_correction_stats(inputdata,results, 'TI_RSD','TI_ane_extrap')
+    restults = post_correction_stats(inputdata,results, 'TI_ane_truth', 'TI_RSD')
     if extrapolation_type == 'truth':
-        results = post_correction_stats(inputdata,results, 'TI_ane_truth','TI_ane_extrap','RepTI_ane_truth','RepTI_ane_extrap')
+        results = post_correction_stats(inputdata,results, 'TI_ane_truth','TI_ane_extrap')
 
     return inputdata, results, shearTimeseries
 
@@ -954,15 +904,15 @@ def perform_SS_SF_correction(inputdata):
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata = False
@@ -974,7 +924,7 @@ def perform_SS_SF_correction(inputdata):
         full['filt_RSD_TI'] = filtered_RSD_TI
         full = full.dropna()
         if len(full) < 2:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI',)
             m = np.NaN
             c = np.NaN
         else:
@@ -985,7 +935,7 @@ def perform_SS_SF_correction(inputdata):
             RSD_TI = (float(model[0])*RSD_TI) + float(model[1])
             inputdata_test['corrTI_RSD_TI'] = RSD_TI
             inputdata_test['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata_test['RSD_SD']
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
             filtered_Ref_TI = inputdata_train['Ane_TI_Ht1'][inputdata_train['Ane_TI_Ht1'] < 0.3]
             filtered_RSD_TI = inputdata_train['RSD_TI_Ht1'][inputdata_train['RSD_TI_Ht1'] < 0.3]
@@ -994,14 +944,14 @@ def perform_SS_SF_correction(inputdata):
             full['filt_RSD_TI'] = filtered_RSD_TI
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
             else:
                 model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
                 RSD_TI = inputdata_test['RSD_TI_Ht1'].copy()
                 RSD_TI = (model[0]*RSD_TI) + model[1]
                 inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
             filtered_Ref_TI = inputdata_train['Ane_TI_Ht2'][inputdata_train['Ane_TI_Ht2'] < 0.3]
             filtered_RSD_TI = inputdata_train['RSD_TI_Ht2'][inputdata_train['RSD_TI_Ht2'] < 0.3]
@@ -1010,14 +960,14 @@ def perform_SS_SF_correction(inputdata):
             full['filt_RSD_TI'] = filtered_RSD_TI
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
             else:
                 model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
                 RSD_TI = inputdata_test['RSD_TI_Ht2'].copy()
                 RSD_TI = (model[0]*RSD_TI) + model[1]
                 inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
             filtered_Ref_TI = inputdata_train['Ane_TI_Ht3'][inputdata_train['Ane_TI_Ht3'] < 0.3]
             filtered_RSD_TI = inputdata_train['RSD_TI_Ht3'][inputdata_train['RSD_TI_Ht3'] < 0.3]
@@ -1026,14 +976,14 @@ def perform_SS_SF_correction(inputdata):
             full['filt_RSD_TI'] = filtered_RSD_TI
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
             else:
                 model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
                 RSD_TI = inputdata_test['RSD_TI_Ht3'].copy()
                 RSD_TI = (model[0]*RSD_TI) + model[1]
                 inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
             filtered_Ref_TI = inputdata_train['Ane_TI_Ht4'][inputdata_train['Ane_TI_Ht4'] < 0.3]
             filtered_RSD_TI = inputdata_train['RSD_TI_Ht4'][inputdata_train['RSD_TI_Ht4'] < 0.3]
@@ -1042,14 +992,14 @@ def perform_SS_SF_correction(inputdata):
             full['filt_RSD_TI'] = filtered_RSD_TI
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
             else:
                 model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
                 RSD_TI = inputdata_test['RSD_TI_Ht4'].copy()
                 RSD_TI = (model[0]*RSD_TI) + model[1]
                 inputdata_test['corrTI_RSD_TI_Ht4'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI_Ht4'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     results['correction'] = ['SS-SF'] * len(results)
     results = results.drop(columns=['sensor','height'])
@@ -1083,15 +1033,15 @@ def perform_G_Sa_correction(inputdata,override):
             inputdata = pd.DataFrame()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata = False
@@ -1101,7 +1051,7 @@ def perform_G_Sa_correction(inputdata,override):
         full['RSD_TI'] = inputdata_test['RSD_TI']
         full = full.dropna()
         if len(full) < 2:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
@@ -1112,14 +1062,14 @@ def perform_G_Sa_correction(inputdata,override):
             RSD_TI = (m*RSD_TI) + c
             inputdata_test['corrTI_RSD_TI'] = RSD_TI
             inputdata_test['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata_test['RSD_SD']
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht1']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht1']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1130,14 +1080,14 @@ def perform_G_Sa_correction(inputdata,override):
                 RSD_TI = (m*RSD_TI) + c
                 inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht2']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht2']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1148,14 +1098,14 @@ def perform_G_Sa_correction(inputdata,override):
                 RSD_TI = (m*RSD_TI) + c
                 inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht3']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht3']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1166,14 +1116,14 @@ def perform_G_Sa_correction(inputdata,override):
                 RSD_TI = (m*RSD_TI) + c
                 inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht4']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht4']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1184,7 +1134,7 @@ def perform_G_Sa_correction(inputdata,override):
                 RSD_TI = (m*RSD_TI) + c
                 inputdata_test['corrTI_RSD_TI_Ht4'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI_Ht4'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     results['correction'] = ['G-Sa'] * len(results)
     results = results.drop(columns=['sensor','height'])
@@ -1200,26 +1150,11 @@ def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col
     # get col names      
     name_ref = Ref_TI_col.split('_TI')
     name_rsd = RSD_TI_col.split('_TI')    
-    if name_ref[1] == '':
-        nameRep_ref = str(name_ref[0]+'_RepTI')
-        nameRep_RSD = str(name_rsd[0]+'_RepTI')
-    else:
-        nameRep_ref = str(name_ref[0]+'_RepTI'+Ref_TI_col.split('_TI')[1])
-        nameRep_RSD = str(name_rsd[0]+'_RepTI'+RSD_TI_col.split('_TI')[1])
     name = RSD_TI_col.split('_TI')
-    if len(name) > 1:
-        corrRepname = str('corrRepTI_RSD_RepTI' + name[1])
-    else:
-        corrRepname = 'corrRepTI_RSD_RepTI'
-
-    rsd_repTI_name = nameRep_RSD
-    ref_repTI_name = nameRep_ref
-    corr_rsd_repTI_name = corrRepname
     corrTI_name = str('corrTI_'+RSD_TI_col)
     
-    
     if len(inputdata) < 2:
-        results = post_correction_stats([None],results, Ref_TI_col, corrTI_name, ref_repTI_name,corr_rsd_repTI_name)
+        results = post_correction_stats([None],results, Ref_TI_col, corrTI_name)
         m = np.NaN
         c = np.NaN
     else:
@@ -1227,21 +1162,17 @@ def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col
         tmp = str('corr'+ RSD_SD_col)
         inputdata_test[tmp] = inputdata_test[RSD_SD_col].copy()
         inputdata_test[str('corrTI_'+  RSD_TI_col)] = inputdata_test[RSD_TI_col].copy()
-        inputdata_test[corrRepname] = inputdata_test[nameRep_RSD].copy()
         
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), tmp] = ((1.116763*inputdata_test[tmp]) + 0.024685) - (((1.116763*inputdata_test[tmp]) + 0.024685)*0.00029)
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), corrTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), corrRepname] = inputdata_test[corrTI_name] + 1.28*inputdata_test[tmp]
 
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)), tmp] = ((1.064564*inputdata_test[tmp]) + 0.040596) - (((1.064564*inputdata_test[tmp]) + 0.040596)*-0.00161)
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)), corrTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)), corrRepname] = inputdata_test[corrTI_name] + 1.28*inputdata_test[tmp]
 
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), tmp] = ((0.97865*inputdata_test[tmp]) + 0.124371) - (((0.97865*inputdata_test[tmp]) + 0.124371)*-0.00093)
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), corrTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), corrRepname] = inputdata_test[corrTI_name] + 1.28*inputdata_test[tmp]      
         
-        results = post_correction_stats(inputdata_test,results, Ref_TI_col, corrTI_name, ref_repTI_name,corr_rsd_repTI_name)
+        results = post_correction_stats(inputdata_test,results, Ref_TI_col, corrTI_name)
         
     return inputdata_test,results
 
@@ -1253,15 +1184,15 @@ def perform_G_C_correction(inputdata):
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata_test = inputdata.copy()
@@ -1294,15 +1225,15 @@ def perform_G_SFc_correction(inputdata):
     c = 0.0225
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         inputdata = False
     else:
         full = pd.DataFrame()
@@ -1310,65 +1241,60 @@ def perform_G_SFc_correction(inputdata):
         full['RSD_TI'] = inputdata['RSD_TI']
         full = full.dropna()
         if len(full) < 2:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         else:
             RSD_TI = inputdata['RSD_TI'].copy()
             RSD_TI = (float(m)*RSD_TI) + float(c)
             inputdata['corrTI_RSD_TI'] = RSD_TI
-            inputdata['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata['RSD_SD']
-            results = post_correction_stats(inputdata,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
             full = pd.DataFrame()
             full['Ane_TI_Ht1'] = inputdata['Ane_TI_Ht1']
             full['RSD_TI_Ht1'] = inputdata['RSD_TI_Ht1']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
             else:
                 RSD_TI = inputdata['RSD_TI_Ht1'].copy()
                 RSD_TI = (m*RSD_TI) + c
                 inputdata['corrTI_RSD_TI_Ht1'] = RSD_TI
-                inputdata['corrRepTI_RSD_RepTI_Ht1'] = RSD_TI + 1.28 * inputdata['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
             full = pd.DataFrame()
             full['Ane_TI_Ht2'] = inputdata['Ane_TI_Ht2']
             full['RSD_TI_Ht2'] = inputdata['RSD_TI_Ht2']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
             else:
                 RSD_TI = inputdata['RSD_TI_Ht2'].copy()
                 RSD_TI = (m*RSD_TI) + c
                 inputdata['corrTI_RSD_TI_Ht2'] = RSD_TI
-                inputdata['corrRepTI_RSD_RepTI_Ht2'] = RSD_TI + 1.28 * inputdata['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
             full = pd.DataFrame()
             full['Ane_TI_Ht3'] = inputdata['Ane_TI_Ht3']
             full['RSD_TI_Ht3'] = inputdata['RSD_TI_Ht3']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
             else:
                 RSD_TI = inputdata['RSD_TI_Ht3'].copy()
                 RSD_TI = (m*RSD_TI) + c
                 inputdata['corrTI_RSD_TI_Ht3'] = RSD_TI
-                inputdata['corrRepTI_RSD_RepTI_Ht3'] = RSD_TI + 1.28 * inputdata['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
             full = pd.DataFrame()
             full['Ane_TI_Ht4'] = inputdata['Ane_TI_Ht4']
             full['RSD_TI_Ht4'] = inputdata['RSD_TI_Ht4']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
             else:
                 RSD_TI = inputdata['RSD_TI_Ht4'].copy()
                 RSD_TI = (m*RSD_TI) + c
                 inputdata['corrTI_RSD_TI_Ht4'] = RSD_TI
-                inputdata['corrRepTI_RSD_RepTI_Ht4'] = RSD_TI + 1.28 * inputdata['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     results['correction'] = ['G-SFa'] * len(results)
     results = results.drop(columns=['sensor','height'])
@@ -1384,15 +1310,15 @@ def perform_SS_LTERRA_ML_correction(inputdata):
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata = False
@@ -1404,12 +1330,11 @@ def perform_SS_LTERRA_ML_correction(inputdata):
         all_test['y_test'] = inputdata_test['Ref_TI'].copy()
         all_test['x_test'] = inputdata_test['RSD_TI'].copy()
         all_test['TI_test'] = inputdata_test['RSD_TI'].copy()
-        all_test['Ref_RepTI'] = inputdata_test['Ref_RepTI'].copy()
         all_test['RSD_SD'] = inputdata_test['RSD_SD'].copy()
         all_train = all_train.dropna()
         all_test = all_test.dropna()
         if len(all_train) < 5 and len(all_test) < 5:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
@@ -1417,10 +1342,9 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             c = np.NaN
             TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
             all_test['corrTI_RSD_TI'] = TI_pred_RF
-            all_test['corrRepTI_RSD_RepTI'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
             all_test['Ref_TI'] = all_test['y_test']
             inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
-            results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
 
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns and 'RSD_SD_Ht1' in inputdata.columns:
             all_train = pd.DataFrame()
@@ -1430,12 +1354,11 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['y_test'] = inputdata_test['Ane_TI_Ht1'].copy()
             all_test['x_test'] = inputdata_test['RSD_TI_Ht1'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht1'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht1'] + 1.28*inputdata_test['Ane_SD_Ht1']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht1'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1443,10 +1366,9 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  c = np.NaN
                  TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht1'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht1'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht2'].copy()
@@ -1455,12 +1377,11 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['y_test'] = inputdata_test['Ane_TI_Ht2'].copy()
             all_test['x_test'] = inputdata_test['RSD_TI_Ht2'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht2'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht2'] + 1.28*inputdata_test['Ane_SD_Ht2']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht2'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1468,10 +1389,9 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  c = np.NaN
                  TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht2'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht2'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht3'].copy()
@@ -1480,12 +1400,11 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['y_test'] = inputdata_test['Ane_TI_Ht3'].copy()
             all_test['x_test'] = inputdata_test['RSD_TI_Ht3'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht3'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht3'] + 1.28*inputdata_test['Ane_SD_Ht3']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht3'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1493,10 +1412,9 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  c = np.NaN
                  TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht3'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht3'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht4'].copy()
@@ -1505,11 +1423,10 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['y_test'] = inputdata_test['Ane_TI_Ht4'].copy()
             all_test['x_test'] = inputdata_test['RSD_TI_Ht4'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht4'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht4'] + 1.28*inputdata_test['Ane_SD_Ht4']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht4'].copy()
             all_train = all_train.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1517,10 +1434,9 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  c = np.NaN
                  TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht4'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht4'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4')
 
     if inputdata_test_result.empty:
         inputdata_test_result = inputdata_test
@@ -1536,15 +1452,15 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata = False
@@ -1564,12 +1480,11 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
         all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
         all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
         all_test['TI_test'] = inputdata_test['RSD_TI'].copy()
-        all_test['Ref_RepTI'] = inputdata_test['Ref_RepTI'].copy()
         all_test['RSD_SD'] = inputdata_test['RSD_SD'].copy()
         all_train = all_train.dropna()
         all_test = all_test.dropna()
         if len(all_train) < 5 and len(all_test) < 5:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
@@ -1581,7 +1496,7 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             all_test['corrRepTI_RSD_RepTI'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
             all_test['Ref_TI'] = all_test['y_test']
             inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
-            results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns and 'RSD_SD_Ht1' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht1'].copy()
@@ -1598,12 +1513,11 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
             all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht1'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht1'] + 1.28*inputdata_test['Ane_SD_Ht1']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht1'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1612,10 +1526,9 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
                  TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
                                                   all_test[all_testY_cols],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht1'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht1'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht2'].copy()
@@ -1632,12 +1545,11 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
             all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht2'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht2'] + 1.28*inputdata_test['Ane_SD_Ht2']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht2'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1646,10 +1558,9 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
                  TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
                                                   all_test[all_testY_cols],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht2'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht2'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht3'].copy()
@@ -1666,12 +1577,11 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
             all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht3'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht3'] + 1.28*inputdata_test['Ane_SD_Ht3']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht3'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1680,10 +1590,9 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
                  TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
                                                   all_test[all_testY_cols],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht3'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht3'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht4'].copy()
@@ -1700,11 +1609,10 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
             all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht4'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht4'] + 1.28*inputdata_test['Ane_SD_Ht4']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht4'].copy()
             all_train = all_train.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1713,10 +1621,9 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
                  TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
                                                   all_test[all_testY_cols],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht4'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht4'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     if inputdata_test_result.empty:
         inputdata_test_result = inputdata_test
@@ -1806,15 +1713,15 @@ def perform_SS_NN_correction(inputdata):
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata = False
@@ -1842,12 +1749,11 @@ def perform_SS_NN_correction(inputdata):
         all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
         all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
         all_test['TI_test'] = inputdata_test['RSD_TI'].copy()
-        all_test['Ref_RepTI'] = inputdata_test['Ref_RepTI'].copy()
         all_test['RSD_SD'] = inputdata_test['RSD_SD'].copy()
         all_train = all_train.dropna()
         all_test = all_test.dropna()
         if len(all_train) < 5 and len(all_test) < 5:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
@@ -1857,10 +1763,9 @@ def perform_SS_NN_correction(inputdata):
                                              all_train['y_train'], all_test[['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']],
                                              all_test['y_test'],'RF', all_test['TI_test'])
             all_test['corrTI_RSD_TI'] = TI_pred_RF
-            all_test['corrRepTI_RSD_RepTI'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
             all_test['Ref_TI'] = all_test['y_test']
             inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
-            results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns and 'RSD_SD_Ht1' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht1'].copy()
@@ -1877,12 +1782,11 @@ def perform_SS_NN_correction(inputdata):
             all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
             all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht1'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht1'] + 1.28*inputdata_test['Ane_SD_Ht1']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht1'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1892,10 +1796,9 @@ def perform_SS_NN_correction(inputdata):
                                                   all_train['y_train'], all_test[['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']],
                                                   all_test['y_test'],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht1'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht1'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht2'].copy()
@@ -1912,12 +1815,11 @@ def perform_SS_NN_correction(inputdata):
             all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
             all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht2'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht2'] + 1.28*inputdata_test['Ane_SD_Ht2']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht2'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1927,10 +1829,9 @@ def perform_SS_NN_correction(inputdata):
                                                   all_train['y_train'], all_test[['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']],
                                                   all_test['y_test'],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht2'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht2'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht3'].copy()
@@ -1947,12 +1848,11 @@ def perform_SS_NN_correction(inputdata):
             all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
             all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht3'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht3'] + 1.28*inputdata_test['Ane_SD_Ht3']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht3'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1962,10 +1862,9 @@ def perform_SS_NN_correction(inputdata):
                                                   all_train['y_train'], all_test[['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']],
                                                   all_test['y_test'],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht3'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht3'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht4'].copy()
@@ -1982,11 +1881,10 @@ def perform_SS_NN_correction(inputdata):
             all_test['x_test_DIR'] = inputdata_test['RSD_Direction'].copy()
             all_test['x_test_Hour'] = inputdata_test['Hour'].copy()
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht4'].copy()
-            all_test['Ref_RepTI'] = inputdata_test['Ane_TI_Ht4'] + 1.28*inputdata_test['Ane_SD_Ht4']
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht4'].copy()
             all_train = all_train.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1996,10 +1894,9 @@ def perform_SS_NN_correction(inputdata):
                                                   all_train['y_train'], all_test[['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']],
                                                   all_test['y_test'],'RF', all_test['TI_test'])
                  all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
-                 all_test['corrRepTI_RSD_RepTI_Ht4'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
                  all_test['Ane_TI_Ht4'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     if inputdata_test_result.empty:
         inputdata_test_result = inputdata_test
@@ -4094,7 +3991,6 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
                     RSD_TI = inputdata_test['RSD_TI'].copy()
                     RSD_TI = (model[0]*RSD_TI) + model[1]
                     inputdata_test['corrTI_RSD_TI'] = RSD_TI
-                    inputdata_test['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata_test['RSD_SD']
                 items_corrected.append(inputdata_test)
         del temp
         className += 1
@@ -4102,7 +3998,7 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
     correctedData = items_corrected[0] 
     for item in items_corrected[1:]:
         correctedData = pd.concat([correctedData, item])
-    results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+    results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
 
     results['correction'] = ['SS-SS'] * len(results)
     results = results.drop(columns=['sensor','height'])
@@ -4119,15 +4015,15 @@ def perform_SS_S_correction(inputdata):
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata = False
@@ -4137,7 +4033,7 @@ def perform_SS_S_correction(inputdata):
         full['RSD_TI'] = inputdata_test['RSD_TI']
         full = full.dropna()
         if len(full) < 2:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
@@ -4147,15 +4043,14 @@ def perform_SS_S_correction(inputdata):
             RSD_TI = inputdata_test['RSD_TI'].copy()
             RSD_TI = (model[0]*RSD_TI) + model[1]
             inputdata_test['corrTI_RSD_TI'] = RSD_TI
-            inputdata_test['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata_test['RSD_SD']
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht1']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht1']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4163,15 +4058,14 @@ def perform_SS_S_correction(inputdata):
                 RSD_TI = inputdata_test['RSD_TI_Ht1'].copy()
                 RSD_TI = (model[0]*RSD_TI) + model[1]
                 inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht2']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht2']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4179,15 +4073,14 @@ def perform_SS_S_correction(inputdata):
                 RSD_TI = inputdata_test['RSD_TI_Ht2'].copy()
                 RSD_TI = (model[0]*RSD_TI) + model[1]
                 inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht3']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht3']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4195,15 +4088,14 @@ def perform_SS_S_correction(inputdata):
                 RSD_TI = inputdata_test['RSD_TI_Ht3'].copy()
                 RSD_TI = (model[0]*RSD_TI) + model[1]
                 inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht4']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht4']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4211,8 +4103,7 @@ def perform_SS_S_correction(inputdata):
                 RSD_TI = inputdata_test['RSD_TI_Ht4'].copy()
                 RSD_TI = (model[0]*RSD_TI) + model[1]
                 inputdata_test['corrTI_RSD_TI_Ht4'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht4'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     results['correction'] = ['SS-S'] * len(results)
     results = results.drop(columns=['sensor','height'])
@@ -4229,15 +4120,15 @@ def perform_SS_WS_correction(inputdata):
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_WS_Ht1' in inputdata.columns and 'RSD_WS_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_WS_Ht2' in inputdata.columns and 'RSD_WS_Ht2' in inputdata.columns:
-             results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+             results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_WS_Ht3' in inputdata.columns and 'RSD_WS_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_WS_Ht4' in inputdata.columns and 'RSD_WS_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata = False
@@ -4247,7 +4138,7 @@ def perform_SS_WS_correction(inputdata):
         full['RSD_WS'] = inputdata_test['RSD_WS']
         full = full.dropna()
         if len(full) < 2:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
@@ -4260,15 +4151,14 @@ def perform_SS_WS_correction(inputdata):
             inputdata_test['RSD_corrWS'] = RSD_corrWS
             RSD_TI = RSD_SD/inputdata_test['RSD_corrWS']
             inputdata_test['corrTI_RSD_TI'] = RSD_TI
-            inputdata_test['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata_test['RSD_SD']
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_WS_Ht1' in inputdata.columns and 'RSD_WS_Ht1' in inputdata.columns and 'RSD_SD_Ht1' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht1']
             full['RSD_WS'] = inputdata_test['RSD_WS_Ht1']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results,'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results,'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4279,15 +4169,14 @@ def perform_SS_WS_correction(inputdata):
                 inputdata_test['RSD_corrWS_Ht1'] = RSD_corrWS
                 RSD_TI = inputdata_test['RSD_SD_Ht1']/inputdata_test['RSD_corrWS_Ht1']
                 inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_WS_Ht2' in inputdata.columns and 'RSD_WS_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht2']
             full['RSD_WS'] = inputdata_test['RSD_WS_Ht2']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results,'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results,'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4297,15 +4186,14 @@ def perform_SS_WS_correction(inputdata):
                 inputdata_test['RSD_corrWS_Ht2'] = RSD_corrWS
                 RSD_TI = inputdata_test['RSD_SD_Ht2']/inputdata_test['RSD_corrWS_Ht2']
                 inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_WS_Ht3' in inputdata.columns and 'RSD_WS_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht3']
             full['RSD_WS'] = inputdata_test['RSD_WS_Ht3']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results,'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results,'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4315,15 +4203,14 @@ def perform_SS_WS_correction(inputdata):
                 inputdata_test['RSD_corrWS_Ht3'] = RSD_corrWS
                 RSD_TI = inputdata_test['RSD_SD_Ht3']/inputdata_test['RSD_corrWS_Ht3']
                 inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_WS_Ht4' in inputdata.columns and 'RSD_WS_Ht4' in inputdata.columns and 'RSD_SD_Ht4' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht4']
             full['RSD_WS'] = inputdata_test['RSD_WS_Ht4']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results,'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results,'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4333,8 +4220,7 @@ def perform_SS_WS_correction(inputdata):
                 inputdata_test['RSD_corrWS_Ht4'] = RSD_corrWS
                 RSD_TI = inputdata_test['RSD_SD_Ht4']/inputdata_test['RSD_corrWS_Ht4']
                 inputdata_test['corrTI_RSD_TI_Ht4'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht4'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     results['correction'] = ['SS-WS'] * len(results)
     results = results.drop(columns=['sensor','height'])
@@ -4351,15 +4237,15 @@ def perform_SS_WS_Std_correction(inputdata):
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_WS_Ht1' in inputdata.columns and 'RSD_WS_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_WS_Ht2' in inputdata.columns and 'RSD_WS_Ht2' in inputdata.columns:
-             results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+             results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_WS_Ht3' in inputdata.columns and 'RSD_WS_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_WS_Ht4' in inputdata.columns and 'RSD_WS_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
         inputdata = False
@@ -4371,7 +4257,7 @@ def perform_SS_WS_Std_correction(inputdata):
         full['RSD_Sd'] = inputdata_test['RSD_SD']
         full = full.dropna()
         if len(full) < 2:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
@@ -4389,8 +4275,7 @@ def perform_SS_WS_Std_correction(inputdata):
             inputdata_test['RSD_corrSD'] = RSD_corrSD               
             RSD_TI = inputdata_test['RSD_corrSD']/inputdata_test['RSD_corrWS']
             inputdata_test['corrTI_RSD_TI'] = RSD_TI
-            inputdata_test['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata_test['RSD_SD']
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_WS_Ht1' in inputdata.columns and 'RSD_WS_Ht1' in inputdata.columns and 'RSD_SD_Ht1' in inputdata.columns and 'Ane_SD_Ht1' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht1']
@@ -4399,7 +4284,7 @@ def perform_SS_WS_Std_correction(inputdata):
             full['RSD_SD'] = inputdata_test['RSD_SD_Ht1']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results,'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results,'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4413,8 +4298,7 @@ def perform_SS_WS_Std_correction(inputdata):
                 inputdata_test['RSD_corrSD_Ht1'] = RSD_corrSD
                 RSD_TI = inputdata_test['RSD_corrSD_Ht1']/inputdata_test['RSD_corrWS_Ht1']
                 inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_WS_Ht2' in inputdata.columns and 'RSD_WS_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht2']
@@ -4423,7 +4307,7 @@ def perform_SS_WS_Std_correction(inputdata):
             full['RSD_SD'] = inputdata_test['RSD_SD_Ht2']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results,'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results,'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4437,8 +4321,7 @@ def perform_SS_WS_Std_correction(inputdata):
                 inputdata_test['RSD_corrSD_Ht2'] = RSD_corrSD
                 RSD_TI = inputdata_test['RSD_corrSD_Ht2']/inputdata_test['RSD_corrWS_Ht2']
                 inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_WS_Ht3' in inputdata.columns and 'RSD_WS_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht3']
@@ -4447,7 +4330,7 @@ def perform_SS_WS_Std_correction(inputdata):
             full['RSD_SD'] = inputdata_test['RSD_SD_Ht3']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results,'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results,'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4461,8 +4344,7 @@ def perform_SS_WS_Std_correction(inputdata):
                 inputdata_test['RSD_corrSD_Ht3'] = RSD_corrSD
                 RSD_TI = inputdata_test['RSD_corrSD_Ht3']/inputdata_test['RSD_corrWS_Ht3']
                 inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_WS_Ht4' in inputdata.columns and 'RSD_WS_Ht4' in inputdata.columns and 'RSD_SD_Ht4' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht4']
@@ -4471,7 +4353,7 @@ def perform_SS_WS_Std_correction(inputdata):
             full['RSD_SD'] = inputdata_test['RSD_SD_Ht4']
             full = full.dropna()
             if len(full) < 2:
-                results = post_correction_stats([None],results,'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results,'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -4485,8 +4367,7 @@ def perform_SS_WS_Std_correction(inputdata):
                 inputdata_test['RSD_corrSD_Ht4'] = RSD_corrSD
                 RSD_TI = inputdata_test['RSD_corrSD_Ht4']/inputdata_test['RSD_corrWS_Ht4']
                 inputdata_test['corrTI_RSD_TI_Ht4'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht4'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats(inputdata_test,results,'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     results['correction'] = ['SS-WS-Std'] * len(results)
     results = results.drop(columns=['sensor','height'])
@@ -4503,15 +4384,15 @@ def perform_Match_input(inputdata):
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
     else:
@@ -4520,75 +4401,70 @@ def perform_Match_input(inputdata):
         full['RSD_WS'] = inputdata_test['RSD_WS']
         full = full.dropna()
         if len(full) < 10:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
             WS_output = hist_match(inputdata_train,inputdata_test,'Ref_WS', 'RSD_WS')
             SD_output = hist_match(inputdata_train,inputdata_test,'Ref_SD', 'RSD_SD')
             inputdata_test['corrTI_RSD_TI'] = SD_output/ WS_output
-            inputdata_test['corrRepTI_RSD_RepTI'] = inputdata_test['corrTI_RSD_TI'] + 1.28 * inputdata_test['RSD_SD']
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_WS_Ht1' in inputdata.columns and 'Ane_SD_Ht1' in inputdata.columns and 'RSD_WS_Ht1' in inputdata.columns and 'RSD_SD_Ht1' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht1']
             full['RSD_WS'] = inputdata_test['RSD_WS_Ht1']
             full = full.dropna()
             if len(full) < 10:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
                 WS_output = hist_match(inputdata_train, inputdata_test, 'Ane_WS_Ht1', 'RSD_WS_Ht1')
                 SD_output = hist_match(inputdata_train, inputdata_test, 'Ane_SD_Ht1', 'RSD_SD_Ht1')
                 inputdata_test['corrTI_RSD_TI_Ht1'] = SD_output/ WS_output
-                inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = inputdata_test['corrTI_RSD_TI_Ht1'] + 1.28 * inputdata_test['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_WS_Ht2' in inputdata.columns and 'Ane_SD_Ht2' in inputdata.columns and 'RSD_WS_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht2']
             full['RSD_WS'] = inputdata_test['RSD_WS_Ht2']
             full = full.dropna()
             if len(full) < 10:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
                 WS_output = hist_match(inputdata_train,inputdata_test,'Ane_WS_Ht2', 'RSD_WS_Ht2')
                 SD_output = hist_match(inputdata_train,inputdata_test,'Ane_SD_Ht2', 'RSD_SD_Ht2')
                 inputdata_test['corrTI_RSD_TI_Ht2'] = SD_output/ WS_output
-                inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = inputdata_test['corrTI_RSD_TI_Ht2'] + 1.28 * inputdata_test['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_WS_Ht3' in inputdata.columns and 'Ane_SD_Ht3' in inputdata.columns and 'RSD_WS_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht3']
             full['RSD_WS'] = inputdata_test['RSD_WS_Ht3']
             full = full.dropna()
             if len(full) < 10:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
                 WS_output = hist_match(inputdata_train, inputdata_test, 'Ane_WS_Ht3', 'RSD_WS_Ht3')
                 SD_output = hist_match(inputdata_train, inputdata_test, 'Ane_SD_Ht3', 'RSD_SD_Ht3')
                 inputdata_test['corrTI_RSD_TI_Ht3'] = SD_output/ WS_output
-                inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = inputdata_test['corrTI_RSD_TI_Ht3'] + 1.28 * inputdata_test['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_WS_Ht4' in inputdata.columns and 'Ane_SD_Ht4' in inputdata.columns and 'RSD_WS_Ht4' in inputdata.columns and 'RSD_SD_Ht4' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_WS'] = inputdata_test['Ane_WS_Ht4']
             full['RSD_WS'] = inputdata_test['RSD_WS_Ht4']
             full = full.dropna()
             if len(full) < 10:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
                 WS_output = hist_match(inputdata_train, inputdata_test, 'Ane_WS_Ht4', 'RSD_WS_Ht4')
                 SD_output = hist_match(inputdata_train, inputdata_test, 'Ane_SD_Ht4', 'RSD_SD_Ht4')
                 inputdata_test['corrTI_RSD_TI_Ht4'] = SD_output/ WS_output
-                inputdata_test['corrRepTI_RSD_RepTI_Ht4'] = inputdata_test['corrTI_RSD_TI_Ht4'] + 1.28 * inputdata_test['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     results['correction'] = ['SS-Match_input'] * len(results)
     results = results.drop(columns=['sensor','height'])
@@ -4602,15 +4478,15 @@ def perform_Match(inputdata):
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
         m = np.NaN
         c = np.NaN
     else:
@@ -4619,70 +4495,65 @@ def perform_Match(inputdata):
         full['RSD_TI'] = inputdata_test['RSD_TI']
         full = full.dropna()
         if len(full) < 10:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
             c = np.NaN
         else:
             output = hist_match(inputdata_train,inputdata_test,'Ref_TI', 'RSD_TI')
             inputdata_test['corrTI_RSD_TI'] = output
-            inputdata_test['corrRepTI_RSD_RepTI'] = output + 1.28 * inputdata_test['RSD_SD']
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI','Ref_RepTI','corrRepTI_RSD_RepTI')
+            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht1']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht1']
             full = full.dropna()
             if len(full) < 10:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
                 c = np.NaN
             else:
                 output = hist_match(inputdata_train, inputdata_test, 'Ane_TI_Ht1', 'RSD_TI_Ht1')
                 inputdata_test['corrTI_RSD_TI_Ht1'] = output
-                inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = output + 1.28 * inputdata_test['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1','Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht2']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht2']
             full = full.dropna()
             if len(full) < 10:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
                 c = np.NaN
             else:
                 output = hist_match(inputdata_train,inputdata_test,'Ane_TI_Ht2', 'RSD_TI_Ht2')
                 inputdata_test['corrTI_RSD_TI_Ht2'] = output
-                inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = output + 1.28 * inputdata_test['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2','Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht3']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht3']
             full = full.dropna()
             if len(full) < 10:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
                 output = hist_match(inputdata_train, inputdata_test, 'Ane_TI_Ht3', 'RSD_TI_Ht3')
                 inputdata_test['corrTI_RSD_TI_Ht3'] = output
-                inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = output + 1.28 * inputdata_test['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ane_TI_Ht4']
             full['RSD_TI'] = inputdata_test['RSD_TI_Ht4']
             full = full.dropna()
             if len(full) < 10:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
                 output = hist_match(inputdata_train, inputdata_test, 'Ane_TI_Ht4', 'RSD_TI_Ht4')
                 inputdata_test['corrTI_RSD_TI_Ht4'] = output
-                inputdata_test['corrRepTI_RSD_RepTI_Ht4'] = output + 1.28 * inputdata_test['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4')
+                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     import matplotlib.pyplot as plt
 #    plt.plot(inputdata_test['Ref_TI'])
@@ -4798,23 +4669,6 @@ def get_TI_MBE_Diff_j(inputdata):
     else:
         print ('Warning: No RSD TI. Cannot compute error stats for this category')
 
-    # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref RepTI (UNCORRECTED)
-    if 'RSD_RepTI' in inputdata.columns:
-        inputdata['RSD_RepTI'] = inputdata['RSD_RepTI'].astype(float)
-        inputdata['Ref_RepTI'] = inputdata['Ref_RepTI'].astype(float)
-        inputdata['RepTI_diff_RSD_Ref'] = inputdata['RSD_RepTI'] - inputdata['Ref_RepTI']  # caliculating the diff in ti for each timestamp
-        inputdata['RepTI_error_RSD_Ref'] = inputdata['RepTI_diff_RSD_Ref'] / inputdata['Ref_RepTI']  # calculating the error for each timestamp (diff normalized to ref_TI)
-        inputdata['RepTI_SquaredDiff_RSD_Ref'] = inputdata['RepTI_diff_RSD_Ref'] * inputdata['RepTI_diff_RSD_Ref']  # calculating squared diff each Timestamp
-        RepTI_MBE_j_RSD_Ref, RepTI_MBE_jp5_RSD_Ref = get_stats_per_WSbin(inputdata, 'RepTI_error_RSD_Ref')
-        RepTI_Diff_j_RSD_Ref, RepTI_Diff_jp5_RSD_Ref = get_stats_per_WSbin(inputdata, 'RepTI_diff_RSD_Ref')
-        RepTI_RMSE_j_RSD_Ref, RepTI_RMSE_jp5_RSD_Ref = get_RMSE_per_WSbin(inputdata, 'RepTI_SquaredDiff_RSD_Ref')
-
-        RepTI_MBE_j_.append([RepTI_MBE_j_RSD_Ref, RepTI_MBE_jp5_RSD_Ref])
-        RepTI_Diff_j_.append([RepTI_Diff_j_RSD_Ref, RepTI_Diff_jp5_RSD_Ref])
-        RepTI_RMSE_j_.append([RepTI_RMSE_j_RSD_Ref, RepTI_RMSE_jp5_RSD_Ref])
-    else:
-        print ('Warning: No corrected Representative RSD TI. Cannot compute error stats for this category')
-
     # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref TI (CORRECTED)
     if 'corrTI_RSD_TI' in inputdata.columns:
         inputdata['TI_diff_corrTI_RSD_Ref'] = inputdata['corrTI_RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
@@ -4829,21 +4683,6 @@ def get_TI_MBE_Diff_j(inputdata):
         TI_RMSE_j_.append([TI_RMSE_j_corrTI_RSD_Ref, TI_RMSE_jp5_corrTI_RSD_Ref])
     else:
         print ('Warning: No corrected RSD TI. Cannot compute error stats for this category')
-
-    # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref RepTI (CORRECTED)
-    if 'corrRepTI_RSD_RepTI' in inputdata.columns:
-        inputdata['RepTI_diff_corrRepTI_RSD_Ref'] = inputdata['corrRepTI_RSD_RepTI'] - inputdata['Ref_RepTI']  # caliculating the diff in ti for each timestamp
-        inputdata['RepTI_error_corrRepTI_RSD_Ref'] = inputdata['RepTI_diff_corrRepTI_RSD_Ref'] / inputdata['Ref_RepTI']  # calculating the error for each timestamp (diff normalized to ref_TI)
-        inputdata['RepTI_SquaredDiff_corrRepTI_RSD_Ref'] = inputdata['RepTI_diff_corrRepTI_RSD_Ref'] * inputdata['RepTI_diff_corrRepTI_RSD_Ref']  # calculating squared diff each Timestamp
-        RepTI_MBE_j_corrRepTI_RSD_Ref, RepTI_MBE_jp5_corrRepTI_RSD_Ref = get_stats_per_WSbin(inputdata, 'RepTI_error_corrRepTI_RSD_Ref')
-        RepTI_Diff_j_corrRepTI_RSD_Ref, RepTI_Diff_jp5_corrRepTI_RSD_Ref = get_stats_per_WSbin(inputdata, 'RepTI_diff_corrRepTI_RSD_Ref')
-        RepTI_RMSE_j_corrRepTI_RSD_Ref, RepTI_RMSE_jp5_corrRepTI_RSD_Ref = get_RMSE_per_WSbin(inputdata, 'RepTI_SquaredDiff_corrRepTI_RSD_Ref')
-
-        RepTI_MBE_j_.append([RepTI_MBE_j_corrRepTI_RSD_Ref, RepTI_MBE_jp5_corrRepTI_RSD_Ref])
-        RepTI_Diff_j_.append([RepTI_Diff_j_corrRepTI_RSD_Ref, RepTI_Diff_jp5_corrRepTI_RSD_Ref])
-        RepTI_RMSE_j_.append([RepTI_RMSE_j_corrRepTI_RSD_Ref, RepTI_RMSE_jp5_corrRepTI_RSD_Ref])
-    else:
-        print ('Warning: No Representative RSD TI. Cannot compute error stats for this category')
 
 
     # get the bin wise stats for DIFFERENCE and ERROR and RMSE between redundant anemometer and Ref TI
@@ -4881,16 +4720,6 @@ def get_TI_Diff_r(inputdata):
     else:
         print ('Warning: No RSD TI. Cannot compute error stats for this category')
 
-    # get the bin wise stats for DIFFERENCE between RSD and Ref RepTI (UNCORRECTED)
-    if 'RSD_RepTI' in inputdata.columns:
-        inputdata['RSD_RepTI'] = inputdata['RSD_RepTI'].astype(float)
-        inputdata['Ref_RepTI'] = inputdata['Ref_RepTI'].astype(float)
-        inputdata['RepTI_diff_RSD_Ref'] = inputdata['RSD_RepTI'] - inputdata['Ref_RepTI']  # caliculating the diff in ti for each timestamp
-        RepTI_Diff_r_RSD_Ref = get_stats_per_TIbin(inputdata, 'RepTI_diff_RSD_Ref')
-        RepTI_Diff_r_.append([RepTI_Diff_r_RSD_Ref])
-    else:
-        print ('Warning: No corrected Representative RSD TI. Cannot compute error stats for this category')
-
     # get the bin wise stats for DIFFERENCE between RSD and Ref TI (CORRECTED)
     if 'corrTI_RSD_TI' in inputdata.columns:
         inputdata['TI_error_corrTI_RSD_Ref'] = inputdata['TI_diff_corrTI_RSD_Ref'] / inputdata['Ref_TI']  # calculating the error for each timestamp (diff normalized to ref_TI)
@@ -4898,14 +4727,6 @@ def get_TI_Diff_r(inputdata):
         TI_Diff_r_.append([TI_Diff_r_corrTI_RSD_Ref])
     else:
         print ('Warning: No corrected RSD TI. Cannot compute error stats for this category')
-
-    # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref RepTI (CORRECTED)
-    if 'corrRepTI_RSD_RepTI' in inputdata.columns:
-        inputdata['RepTI_diff_corrRepTI_RSD_Ref'] = inputdata['corrRepTI_RSD_RepTI'] - inputdata['Ref_RepTI']  # caliculating the diff in ti for each timestamp
-        RepTI_Diff_r_corrRepTI_RSD_Ref = get_stats_per_TIbin(inputdata, 'RepTI_diff_corrRepTI_RSD_Ref')
-        RepTI_Diff_r_.append([RepTI_Diff_r_corrRepTI_RSD_Ref])
-    else:
-        print ('Warning: No Representative RSD TI. Cannot compute error stats for this category')
 
     # get the bin wise stats for DIFFERENCE and ERROR and RMSE between redundant anemometer and Ref TI
     if 'Ane2_TI' in inputdata.columns:
@@ -4943,30 +4764,6 @@ def get_TI_bybin(inputdata):
     else:
         results.append(pd.DataFrame(['NaN', 'NaN']))
 
-    if 'Ref_RepTI' in inputdata.columns:
-        Ref_RepTI_j, Ref_RepTI_jp5 = get_stats_per_WSbin(inputdata, 'Ref_RepTI')
-        results.append([Ref_RepTI_j, Ref_RepTI_jp5])
-    else:
-        results.append(pd.DataFrame(['NaN', 'NaN']))
-
-    if 'RSD_RepTI' in inputdata.columns:
-        RSD_RepTI_j, RSD_RepTI_jp5 = get_stats_per_WSbin(inputdata, 'RSD_RepTI')
-        results.append([RSD_RepTI_j, RSD_RepTI_jp5])
-    else:
-        results.append(pd.DataFrame(['NaN', 'NaN']))
-
-    if 'Ane2_RepTI' in inputdata.columns:
-        Ane2_RepTI_j, Ane2_RepTI_jp5 = get_stats_per_WSbin(inputdata, 'Ane2_RepTI')
-        results.append([Ane2_RepTI_j, Ane2_RepTI_jp5])
-    else:
-        results.append(pd.DataFrame(['NaN', 'NaN']))
-
-    if 'corrRepTI_RSD_RepTI' in inputdata.columns:
-        corrRepTI_RSD_RepTI_j, corrRepTI_RSD_RepTI_jp5 = get_stats_per_WSbin(inputdata, 'corrRepTI_RSD_RepTI')
-        results.append([corrRepTI_RSD_RepTI_j, corrRepTI_RSD_RepTI_jp5])
-    else:
-        results.append(pd.DataFrame(['NaN', 'NaN']))
-
     return results
 
 def get_TI_byTIrefbin(inputdata):
@@ -4988,30 +4785,6 @@ def get_TI_byTIrefbin(inputdata):
     if 'Ane2_TI' in inputdata.columns:
         Ane2_TI_r = get_stats_per_TIbin(inputdata, 'Ane2_TI')
         results.append([Ane2_TI_r])
-    else:
-        results.append(pd.DataFrame(['NaN']))
-
-    if 'Ref_RepTI' in inputdata.columns:
-        Ref_RepTI_r = get_stats_per_TIbin(inputdata, 'Ref_RepTI')
-        results.append([Ref_RepTI_r])
-    else:
-        results.append(pd.DataFrame(['NaN']))
-
-    if 'RSD_RepTI' in inputdata.columns:
-        RSD_RepTI_r = get_stats_per_TIbin(inputdata, 'RSD_RepTI')
-        results.append([RSD_RepTI_r])
-    else:
-        results.append(pd.DataFrame(['NaN']))
-
-    if 'Ane2_RepTI' in inputdata.columns:
-        Ane2_RepTI_r = get_stats_per_TIbin(inputdata, 'Ane2_RepTI')
-        results.append([Ane2_RepTI_r])
-    else:
-        results.append(pd.DataFrame(['NaN']))
-
-    if 'corrRepTI_RSD_RepTI' in inputdata.columns:
-        corrRepTI_RSD_RepTI_r = get_stats_per_TIbin(inputdata, 'corrRepTI_RSD_RepTI')
-        results.append([corrRepTI_RSD_RepTI_r])
     else:
         results.append(pd.DataFrame(['NaN']))
 
@@ -5318,17 +5091,12 @@ def extrap_configResult(inputdataEXTRAP, resLists, method, lm_corr, appendString
         inputdataEXTRAP = inputdataEXTRAP.drop(columns=['corrWS_RSD_TI'])
     if 'Ane2_TI' in inputdataEXTRAP:
         inputdataEXTRAP = inputdataEXTRAP.drop(columns=['Ane2_TI'])
-        inputdataEXTRAP = inputdataEXTRAP.drop(columns=['Ane2_RepTI'])
     if extrapolation_type == 'truth':
         inputdataEXTRAP['RSD_TI'] = inputdataEXTRAP['TI_ane_truth']
-        inputdataEXTRAP['RSD_RepTI'] = inputdataEXTRAP['RepTI_ane_truth']
     else:
         inputdataEXTRAP = inputdataEXTRAP.drop(columns=['RSD_TI'])
-        inputdataEXTRAP = inputdataEXTRAP.drop(columns=['RSD_RepTI'])
     inputdataEXTRAP['Ref_TI'] = inputdataEXTRAP['TI_ane_extrap']
-    inputdataEXTRAP['Ref_RepTI'] = inputdataEXTRAP['RepTI_ane_extrap']
     inputdataEXTRAP['corrTI_RSD_TI'] = inputdataEXTRAP['TI_RSD']
-    inputdataEXTRAP['corrRepTI_RSD_RepTI'] = inputdataEXTRAP['RepTI_RSD']
 
     # Run through the standard functions
     try:
@@ -5699,19 +5467,28 @@ def QuickMetrics(inputdata,results_df,lm_corr_dict,testID):
 
     # baseline results
     results_ = get_all_regressions(inputdata_test,title='baselines')
-    results_RSD_Ref = results_.loc[results_['baselines'].isin(['TI_regression_RSD_Ref'])].reset_index()
-    results_Ane2_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ane2_Ref'])].reset_index()
+    results_RSD_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ref_RSD'])].reset_index()
+    results_Ane2_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ref_Ane2'])].reset_index()
+    results_RSD_Ref_SD = results_.loc[results_['baselines'].isin(['SD_regression_Ref_RSD'])].reset_index()
+    results_Ane2_Ref_SD = results_.loc[results_['baselines'].isin(['SD_regression_Ref_Ane2'])].reset_index()
+    results_RSD_Ref_WS = results_.loc[results_['baselines'].isin(['WS_regression_Ref_RSD'])].reset_index()
+    results_Ane2_Ref_WS = results_.loc[results_['baselines'].isin(['WS_regression_Ref_Ane2'])].reset_index()
     results_RSD_Ref.loc[0,'testID'] = [testID]
     results_Ane2_Ref.loc[0,'testID'] = [testID]
-    results_df = pd.concat([results_df,results_RSD_Ref,results_Ane2_Ref],axis = 0)
-
+    results_RSD_Ref_SD.loc[0,'testID'] = [testID]
+    results_Ane2_Ref_SD.loc[0,'testID'] = [testID]
+    results_RSD_Ref_WS.loc[0,'testID'] = [testID]
+    results_Ane2_Ref_WS.loc[0,'testID'] = [testID]
+    results_df = pd.concat([results_df,results_RSD_Ref,results_Ane2_Ref,results_RSD_Ref_SD,results_Ane2_Ref_SD,
+                            results_RSD_Ref_WS,results_Ane2_Ref_WS],axis = 0)
+ 
     # Run a few corrections with this timing test aswell
     inputdata_corr, lm_corr, m, c = perform_SS_S_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_S' )] = lm_corr
     inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_SF' )] = lm_corr
     inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(inputdata.copy())
-    lm_corr_dict[str(str(testID) + ' :SS_WS' )] = lm_corr
+    lm_corr_dict[str(str(testID) + ' :SS_WS-Std' )] = lm_corr
     inputdata_corr, lm_corr = perform_Match(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :Match' )] = lm_corr
     inputdata_corr, lm_corr = perform_Match_input(inputdata.copy())
@@ -6878,7 +6655,6 @@ if __name__ == '__main__':
     filterMetadata = get_FilteringMetadata(config_file)
     correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,globalModel)
     inputdata, Timestamps = get_inputdata(input_filename, config_file)
-    print (Timestamps)
     inputdata, a, lab_a = get_refTI_bins(inputdata)
     RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
     print ('%%%%%%%%%%%%%%%%%%%%%%%%% Processing Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
@@ -6937,22 +6713,20 @@ if __name__ == '__main__':
             inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [0,windowEnd])
             TimeTestB_baseline_df, TimeTestB_corrections_df = QuickMetrics(inputdata_test,TimeTestB_baseline_df, TimeTestB_corrections_df,str(numberofDaysInTest-i))
 
-        # C) If experiment is greater than 3 months, slide a 3 month window (1 week step)
+        # C) If experiment is greater than 3 months, slide a 6 week window (1 week step)
         if len(inputdata) > (numberofObsinOneDay*90): # check to see if experiment is greater than 3 months
-            print ('Testing model generation time period sensitivity...3 month window pick')
+            print ('Testing model generation time period sensitivity...6 week window pick')
             windowStart = 0
-            windowEnd = (numberofObsinOneDay*90)
+            windowEnd = (numberofObsinOneDay*42)
             TimeTestC_corrections_df = {}
             TimeTestC_baseline_df = pd.DataFrame()
             while windowEnd < len(inputdata):
                 print (str('After observation #' + str(windowStart) + ' ' + 'Before observation #' + str(windowEnd)))
                 windowStart += numberofObsinOneDay*7
-                windowEnd = windowStart + (numberofObsinOneDay*90)
-                inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [windowStart,windowEnd])
-                print (inputdata_test)
-                
-               # TimeTestC_baseline_df, TimeTestC_corrections_df = QuickMetrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
-               #                                                                str('After_' + str(windowStart) + '_' + 'Before_' + str(windowEnd)))
+                windowEnd = windowStart + (numberofObsinOneDay*42)
+                inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [windowStart,windowEnd])  
+                TimeTestC_baseline_df, TimeTestC_corrections_df = QuickMetrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
+                                                                              str('After_' + str(windowStart) + '_' + 'Before_' + str(windowEnd)))
     else:
         TimeTestA_baseline_df = pd.DataFrame()
         TimeTestB_baseline_df = pd.DataFrame()
