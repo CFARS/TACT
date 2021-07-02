@@ -1,13 +1,13 @@
 """
 This is the main script to analyze projects without an NDA in place.
 Authors: Nikhil Kondabala, Alexandra Arntsen, Andrew Black, Barrett Goudeau, Nigel Swytink-Binnema, Nicolas Jolin
-Updated: 11/30/2020
+Updated: 7/01/2021
 
 Example command line execution: 
 
-python TIAT.py -in /Users/aearntsen/CFARSPhase3/test/518Tower_Windcube_Filtered_subset.csv -config /Users/aearntsen/CFARSPhase3/test/configuration_518Tower_Windcube_Filtered_subset_ex.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/CFARSPhase3/test/out.xlsx --timetestFlag
+python TACT.py -in /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/518Tower_Windcube_Filtered_subset.csv -config /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/configuration_518Tower_Windcube_Filtered_subset_ex.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/out.xlsx --timetestFlag
 
-python phase3_implementation_noNDA.py -in /Users/aearntsen/cfarsMaster/CFARSPhase3/test/NRG_canyonCFARS_data.csv -config /Users/aearntsen/cfarsMaster/CFARSPhase3/test/Configuration_template_phase3_NRG_ZX.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMaster/CFARSPhase3/test/out.xlsx --timetestFlag
+python phase3_implementation_noNDA.py -in /Users/aearntsen/cfarsMaster/cfarsMASTER/CFARSPhase3/test/NRG_canyonCFARS_data.csv -config /Users/aearntsen/cfarsMaster/CFARSPhase3/test/Configuration_template_phase3_NRG_ZX.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMaster/CFARSPhase3/test/out.xlsx --timetestFlag
 
 """
 
@@ -5511,6 +5511,18 @@ def enablePrint():
     '''
     sys.stdout = sys.__stdout__
 
+def record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False):
+
+    if isinstance(inputdata_corr, pd.DataFrame) == False:
+        pass
+    else: 
+        corr_cols = [s for s in inputdata_corr.columns.to_list() if 'corr' in s]
+        corr_cols = [s for s in corr_cols if not ('diff' in s or 'Diff' in s or 'error' in s)]
+        for c in corr_cols:
+            TI_10minuteAdjusted[str(c + '_' + method)] = inputdata_corr[c]
+    
+    return TI_10minuteAdjusted
+
 def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inputdata_corr, Timestamps, method, emptyclassFlag = False):
     if isinstance(inputdata_corr, pd.DataFrame) == False:
         emptyclassFlag = True
@@ -6651,6 +6663,8 @@ if __name__ == '__main__':
     # set up and configuration
     # ------------------------
     input_filename, config_file, rtd_files, results_filename, saveModel, timetestFlag, globalModel = get_inputfiles()
+    outpath_dir = os.path.dirname(results_filename)
+    outpath_file = os.path.basename(results_filename)
     siteMetadata = get_SiteMetadata(config_file)
     filterMetadata = get_FilteringMetadata(config_file)
     correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,globalModel)
@@ -6915,6 +6929,9 @@ if __name__ == '__main__':
             count_05mps_alpha_RSD.append(None)
 
 
+    # intialize 10 minute output
+    TI_10minuteAdjusted = pd.DataFrame()
+
     for method in correctionsMetadata:
 
         # ************************************ #
@@ -6934,6 +6951,7 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: SS-S by stability class (TKE)')
@@ -7002,6 +7020,8 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            
             if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
                 print ('Applying Correction Method: SS-SF by stability class (TKE)')
                 # stability subset output for primary height (all classes)
@@ -7070,6 +7090,8 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: SS-SS by stability class (TKE). SAME as Baseline')
                 ResultsLists_class = initialize_resultsLists('class_')
@@ -7122,6 +7144,7 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
                 print ('Applying Correction Method: SS-WS by stability class (TKE)')
@@ -7188,6 +7211,7 @@ if __name__ == '__main__':
 
            baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                     Timestamps, method)
+           TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
            if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
                print ('Applying Correction Method: SS-WS-Std by stability class (TKE)')
@@ -7263,6 +7287,8 @@ if __name__ == '__main__':
             correctionName = 'SS_LTERRA_MLa'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: SS-LTERRA MLa by stability class (TKE)')
                 # stability subset output for primary height (all classes)
@@ -7327,6 +7353,8 @@ if __name__ == '__main__':
             lm_corr['correction'] = 'SS_LTERRA_MLc'
             correctionName = 'SS_LTERRA_MLc'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
+            
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: SS-LTERRA_MLc by stability class (TKE)')
@@ -7392,6 +7420,8 @@ if __name__ == '__main__':
             lm_corr['correction'] = 'SS_LTERRA_MLb'
             correctionName = 'SS_LTERRA_MLb'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
+            
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: SS-LTERRA_MLb by stability class (TKE)')
@@ -7534,6 +7564,7 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: SS-Match by stability class (TKE)')
@@ -7596,6 +7627,7 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: SS-Match2 by stability class (TKE)')
@@ -7662,6 +7694,7 @@ if __name__ == '__main__':
             correctionName = 'G_Sa'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: G-Sa by stability class (TKE)')
@@ -7732,6 +7765,7 @@ if __name__ == '__main__':
             correctionName = 'G_SFa'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: G-SFa by stability class (TKE)')
@@ -7800,6 +7834,7 @@ if __name__ == '__main__':
             correctionName = 'G_SFc'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: G-SFa by stability class (TKE)')
@@ -7869,6 +7904,7 @@ if __name__ == '__main__':
             correctionName = 'G_C'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
            
             if RSDtype['Selection'][0:4] == 'Wind':
                 print ('Applying Correction Method: G-C by stability class (TKE)')
@@ -8054,6 +8090,13 @@ if __name__ == '__main__':
         Distibution_statsList_stability = np.nan
         sampleTestsLists_stability = np.nan
 
+    # Write 10 minute Adjusted data to a csv file
+    outpath_dir = os.path.dirname(results_filename)
+    outpath_file = os.path.basename(results_filename)
+    outpath_file = str('TI_10minuteAdjusted_' + outpath_file.split('.xlsx')[0] + '.csv')
+    out_dir = os.path.join(outpath_dir,outpath_file)
+
+    TI_10minuteAdjusted.to_csv(out_dir)
 
     write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05mps, count_1mps_train, count_05mps_train,
                             count_1mps_test, count_05mps_test, name_1mps_tke, name_1mps_alpha_Ane, name_1mps_alpha_RSD,
