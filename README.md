@@ -1,4 +1,5 @@
-# <img src="https://cfars.github.io/images/CFARS_MembershipLogos_Logo_RGB.jpg" width="48" height="48" /> site_suitability_tool
+# <img src="https://cfars.github.io/images/CFARS_MembershipLogos_Logo_RGB.jpg" width="128" height="128" /> 
+# site_suitability_tool
 
 1) clone or download repository 
 
@@ -8,8 +9,10 @@
 
 4) Execute TACT.py
 
->>> python TACT.py -in PATH_TO_DATA.csv -config PATH_TO_CONFIG.xlsx -res PATH_TO_RESULTS_FILE.xlsx --timetestFlag
-
+``` bash
+python TACT.py -in PATH_TO_DATA.csv -config PATH_TO_CONFIG.xlsx -res PATH_TO_RESULTS_FILE.xlsx --timetestFlag
+```
+  
 5) Send results output and configuration files to aea@nrgsystems.com 
 
 *** contact aea@nrgsystems.com for assistance
