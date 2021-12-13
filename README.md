@@ -1,4 +1,4 @@
-# <img src="https://cfars.github.io/images/CFARS_MembershipLogos_Logo_RGB.jpg" width="1191" height="842" /> 
+# <img src="https://cfars.github.io/images/CFARS_MembershipLogos_Logo_RGB.jpg" alt="CFARS" /> 
 # site_suitability_tool
 
 1) clone or download repository 
