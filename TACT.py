@@ -6637,6 +6637,18 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
     wb.save(results_filename)
 
 def get_inputfiles():
+    """
+    
+    QUESTIONS
+
+    - are all these parsers necessary, or only those in the README.md?
+        - in
+        - config
+        - res
+        - timetestflag (timetestFlag?)
+    - can the extra/research args be kwargs in an obj.orient approach?
+    
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-in","--input_filename", help="print this requires the input filename")
     parser.add_argument("-config","--config_file", help="this requires the excel configuration file")
@@ -6665,12 +6677,48 @@ if __name__ == '__main__':
     input_filename, config_file, rtd_files, results_filename, saveModel, timetestFlag, globalModel = get_inputfiles()
     outpath_dir = os.path.dirname(results_filename)
     outpath_file = os.path.basename(results_filename)
-    siteMetadata = get_SiteMetadata(config_file)
-    filterMetadata = get_FilteringMetadata(config_file)
-    correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,globalModel)
+    siteMetadata = get_SiteMetadata(config_file)         # >> to config_file.py
+    filterMetadata = get_FilteringMetadata(config_file)  # >> to config_file.py
+    correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,globalModel)  # >> to config_file.py
     inputdata, Timestamps = get_inputdata(input_filename, config_file)
-    inputdata, a, lab_a = get_refTI_bins(inputdata)
+    inputdata, a, lab_a = get_refTI_bins(inputdata)      # >> to data_file.py
     RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
+
+    """
+    config_object
+
+    - site_suitability_tool/readers/config_file.py
+    - parameters
+        -
+    - object includes
+        - config_file
+        - input_filename
+        - rtd_files
+        - results_filename
+        - saveModel
+        - timetestFlag
+        - globalModel
+        -
+        - siteMetaData
+        - filterMetaData
+        - correctionsMetaData
+        - RSDtype
+        - extrap_metadata
+        - extrapolation_type
+
+    data_object
+        - config_object
+        - inputdata
+        - Timestamps
+        - a
+        - lab_a
+        - RSD_alphaFlag
+        - Ht_1_rsd
+        - Ht_2_rsd
+    
+    """
+
+
     print ('%%%%%%%%%%%%%%%%%%%%%%%%% Processing Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
     # -------------------------------
     # special handling for data types
