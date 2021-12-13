@@ -1,5 +1,5 @@
 from setuptools import setup, find_packages
-
+from TACT.version import __version__
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -7,9 +7,10 @@ with open("README.md", "r") as fh:
 with open('requirements.txt', 'r') as rf:
     install_requires = [m for m in rf.read().split("\n") if m]
 
+
 setup(
     name='TACT',
-    version='0.1.0',
+    version=__version__,
     description='CFARS Site Suitability TACT Tool',
     long_description=long_description,
     long_description_content_type='text/markdown',
