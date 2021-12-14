@@ -1,0 +1,1006 @@
+# -*- coding: utf-8 -*-
+"""
+LDR1 Validation Object
+
+"""
+import traceback
+
+try:
+    from Validation import Logger
+except ImportError:
+    print(traceback.format_exc())
+    pass
+
+import os
+import argparse
+import datetime as dt
+import pandas as pd
+import sys
+import matplotlib.pyplot as plt
+plt.ioff()  # setting to non-interactive
+import seaborn as sns
+from dateutil import parser
+import numpy as np
+from pathlib import Path
+import sys
+import math
+
+from Validation.readers.SpidarReader import Spidar
+from Validation.readers.LDR1Reader import LDR1
+from Validation import analysis as an
+from Validation.plotters.validationPlotter import ValidationPlotter
+from Validation.DataFilter import *
+
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+from sklearn.metrics import mean_squared_error
+
+class UnitValidation():
+
+    """
+    document parameters
+    """
+
+    def __init__(self, goldenUnit='1922AG0072', testUnit='', startDate='', endDate='', dtype='AVG', unitOffset='', filterLogic=''):
+        self.goldenUnit = goldenUnit
+        self.testUnit = testUnit
+        self.startDate = startDate
+        self.endDate = endDate
+        self.offset = unitOffset
+        self.dtype = dtype
+        self.data = self.get_data()
+        self.dataLoss = {}
+        self.ValidationAnalysis = an.ValidationAnalysis(self.data, startDate = self.startDate , endDate = self.endDate)
+        self.typeKey_golden = self.get_unitType(self.goldenUnit)
+        self.typeKey_test = self.get_unitType(self.testUnit)
+        self.get_columns()
+        self.get_pairs()
+        self.alerts = self.check_data()
+        self.heights = self.get_heights()
+        Logger.debug(f"heights = {self.heights}")
+        Logger.debug(f"windspeedPairs = {self.windspeedPairs}")
+        self.bincounts, self.intervals = self.get_bincounts()
+        self.dataFiltered = self.get_dataFiltered()
+        self.wind_speed_R2, self.wind_speed_slope = self.get_regrResults_spd(self.windspeedPairs)
+        self.wind_dir_R2, self.wind_dir_slope = self.get_regrResults_dir(self.dirPairs)
+        self.relativeAvailability_20 = self.compare_availability(20)
+        self.relativeAvailability_50 = self.compare_availability(50)
+        self.regression_R2, self.regression_slope = self.get_regrResults_spd(self.windspeedPairs,fit_intercept=True)
+        self.bincounts, self.intervals = self.get_bincounts()
+        self.new_offset = self.evaluate_offset()
+        self.status = self.get_status()
+
+        # Figures #
+        self.Plotter = ValidationPlotter(self.ValidationAnalysis)
+        self.windspeed_regr_plot = self.get_windspeed_regr_fig()
+        self.windspeed_timeseries = self.get_windspeed_timeseries_fig()
+        self.availability_ratio_timeseries = self.get_availability_ratio_timeseries_fig()
+        self.windspeed_histogram = self.get_windspeed_hist_fig()
+        self.aggregated_regression_fig = self.get_aggregated_regression()
+        self.windrose = self.get_windrose()
+        self.raindataFig = self.get_rain_fig()
+
+    def get_windrose(self):
+        from matplotlib import colors
+
+        fig, axes = plt.subplots(ncols=1, figsize=(10, 4), subplot_kw={"projection": "polar"})
+
+        L_ws = []
+        L_dir = []
+        L_bias = []
+        for p in self.windspeedPairs:
+            L_ws = L_ws + list(self.dataFiltered.filteredData[self.windspeedPairs[p][0]])
+            L_dir = L_dir + list(self.dataFiltered.filteredData[self.dirPairs[p][0]])
+            L_bias = L_bias + list(self.dataFiltered.filteredData[self.windspeedPairs[p][0]]-self.dataFiltered.filteredData[self.windspeedPairs[p][1]])
+            
+          #  fig,axes = self.Plotter.windRose_scatter(self.dataFiltered.filteredData[self.windspeedPairs[p][0]],self.dataFiltered.filteredData[self.dirPairs[p][0]],
+          #                                           self.dataFiltered.filteredData[self.windspeedPairs[p][0]]-self.dataFiltered.filteredData[self.windspeedPairs[p][1]], Fig=fig, ax=axes)
+        fig,axes = self.Plotter.windRose_scatter(L_ws,L_dir,L_bias, Fig=fig, ax=axes)
+       # divnorm=colors.TwoSlopeNorm(vmin=-3., vcenter=-0.75, vmax=1)
+       # pcolormesh(your_data, cmap="coolwarm", norm=divnorm)
+       # plt.colorbar(fig, ax=axes, pad=0.12, norm=divnorm)
+        plt.colorbar(fig, ax=axes, pad=0.12)
+        return fig
+
+    def get_rain_fig(self):
+
+        fig,axes = plt.subplots(figsize=(12,2))
+        self.Plotter.plot_scatter(self.dataFiltered.filteredData['Timestamp'],self.dataFiltered.filteredData['precipitation[0-1]_golden'], Fig=fig, ax = axes,plotID='rain')
+        plt.title('LDR1 rain observation')
+        plt.tight_layout()
+        return fig
+    
+    def get_status(self):
+
+        status = {}
+        for h in sorted(self.intervals, key=self.intervals.get, reverse=False): # gets highest height for which condition is met
+            L = []
+            for i in self.intervals[h]:
+                L.append(i)
+            idx = pd.IntervalIndex(L)  
+            data_int = pd.DataFrame({'intervals': idx, 'left': idx.left, 'right': idx.right})
+            left = list(data_int['left'].values)
+            right = list(data_int['right'].values)
+            if float(h) > 50.0 and float(h) < 150:
+                if any(x for x in left if float(x) > 0 and float(x) < 14):
+                    status['category'] = 'bin counts'
+                    status[str('message_' + str(h))] = str('still collecting data, bins not filled ' + str(h) + 'm: ' + str([x for x in left if float(x) > 0 and float(x) < 14]))
+        if 'category' in status and status['category'] == 'bin counts':
+            return status
+        else:
+            for h in sorted(self.relativeAvailability_50, key=self.relativeAvailability_50.get,
+                            reverse=False): # gets highest height for which condition is met
+                if float(h) > 50.0 and float(h) < 150.0:
+                    if float(self.relativeAvailability_50[h]) < 0.95:
+                        status['availability'] = str('availability of referece is too low at ' + str(h) + 'm')
+        if 'availability' in status:
+            return status
+        else:
+            failing = []
+            for h in sorted(self.wind_speed_R2, key=self.wind_speed_R2.get,
+                            reverse=False):
+                if float(h) > 50.0 and float(h) < 150.0:
+                    if round(float(self.wind_speed_R2[h]),3) < 0.975:
+                        failing.append(h)
+            if len(failing) > 0 and self.new_offset:
+                status['ws_R2'] = str('ws R2 too low at: '+ str(failing) + ', updating unit offset for next test')
+                return status
+            elif len(failing) > 0:
+                status['ws_R2'] = str('ws R2 too low at: '+ str(failing) + ', unidentified reason')
+                return status
+            else:
+                failing = []
+                for h in sorted(self.wind_speed_slope, key=self.wind_speed_slope.get,
+                                reverse=False):
+                    if float(h) > 50.0 and float(h) < 150.0:
+                        if round(float(self.wind_speed_slope[h]),2) < 0.98:
+                            failing.append(h)
+                if len(failing) > 0 and self.new_offset:
+                    status['ws_slope'] = str('ws slope out of bounds at: ' + failing +
+                                             ', updating unit offset for next test')
+                    return status
+                elif len(failing) > 0:
+                    status['ws_slope'] = str('ws slope out of bounds at: ' + failing +
+                                             ', unidentified reason')
+                    return status
+                else:
+                    failing = []
+                    for h in sorted(self.wind_speed_R2, key=self.wind_speed_R2.get,reverse=False):
+                        if float(h) > 50.0 and float(h) < 150.0:
+                            if round(float(self.wind_speed_R2[h]),3) < 0.975:
+                                failing.append(h)
+                    if len(failing) > 0 and self.new_offset:
+                        status['ws_R2'] = str('ws R2 too low at: '+ str(failing) + ', updating unit offset for next test')
+                        return status
+                    elif len(failing) > 0:
+                        status['ws_R2'] = str('ws R2 too low at: '+ str(failing) + ', unidentified reason')
+                        return status
+                    else:
+                        failing = []
+                        for h in sorted(self.wind_speed_slope, key=self.wind_speed_slope.get,
+                                        reverse=False):
+                            if float(h) > 50.0 and float(h) < 150.0:
+                                if round(float(self.wind_speed_slope[h]),2) < 0.98:
+                                    failing.append(h)
+                        if len(failing) > 0 and self.new_offset:
+                            status['ws_slope'] = str('ws slope out of bounds at: ' + str(failing) +
+                                                     ', updating unit offset for next test')
+                            return status
+                        elif len(failing) > 0:
+                            status['ws_slope'] = str('ws slope out of bounds at: ' + str(failing) +
+                                                     ', unidentified reason')
+                            return status
+                    
+        return status
+
+    def evaluate_offset(self):
+        
+        try:
+            value = []
+            for h in self.wind_speed_slope:
+                if h > 50 and h <= 160:
+                    value = value + [(self.wind_speed_slope[h]-1)*h]
+            average_offset = sum(value)/len(value)
+            if abs(average_offset - 0.5) > 0.5:
+                new_offset = int(float(self.offset)) + (average_offset - 0.5) * 100
+            else:
+                new_offset = None
+
+        except:
+            new_offset = None
+            
+        return new_offset
+    
+    def get_aggregated_regression(self):
+        fig, axes = plt.subplots(figsize=(12, 7))
+        for p in self.windspeedPairs:
+            self.Plotter.plot_scatter(self.dataFiltered.filteredData[self.windspeedPairs[p][0]],self.dataFiltered.filteredData[self.windspeedPairs[p][1]], Fig=fig,ax=axes, plotID='aggRegr')
+
+        xdat = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+
+        plt.plot(xdat,xdat,color = '#F58153', linestyle = '--', linewidth=2)
+        plt.xlabel('Reference Wind Speed (m/s)', size=24)
+        plt.xlim((0,18))
+        plt.ylim((0,18))
+        plt.xticks(size=18)
+        plt.yticks(size=18)
+        plt.title('Verification Results - Wind Speed (57m-160m)',size=26)
+        plt.ylabel('Test Wind Speed (m/s)', size=24)
+
+        return fig                                                            
+
+    def export_csv(self):
+
+        #initialize basic columns 
+        columnKeys = ['Timestamp']
+        pressCols = [s for s in self.dataFiltered.filteredData.columns.to_list() if 'ressure' in s]
+        tempCols = [s for s in self.dataFiltered.filteredData.columns.to_list() if 'emperature' in s]
+        humCols = [s for s in self.dataFiltered.filteredData.columns.to_list() if 'umidity' in s]
+        precipCols = [s for s in self.dataFiltered.filteredData.columns.to_list() if 'recipitation' in s]
+
+        columnKeys = columnKeys + pressCols + tempCols + humCols + precipCols
+        l = list(self.windspeedPairs.keys())
+        l.sort()
+
+        for h in l:
+            columnKeys = columnKeys + [self.windspeedPairs[h][0]] + [self.dirPairs[h][0]] + [self.qualityPairs[h][0]]
+            columnKeys = columnKeys + [self.windspeedPairs[h][1]] + [self.dirPairs[h][1]] + [self.qualityPairs[h][1]]
+
+        dataout = self.dataFiltered.filteredData[columnKeys]
+        results_location = os.path.join(r'\\FLOWSIM\Fusion\\',r'\Spidar\\')
+        dir_name = os.path.join(results_location,'Validation')
+        filename = str(self.goldenUnit + '_' + self.testUnit + '_' + self.startDate + '_' + self.endDate + '_' + str(self.offset) + '.csv')
+        outpath = os.path.join(dir_name,filename)
+        dataout.to_csv(outpath)
+        
+    def get_availability_ratio_timeseries_fig(self):
+        self.qualityPairs = dict(reversed(sorted(self.qualityPairs.items())))
+        nrows = len(self.qualityPairs)
+        l = list(self.qualityPairs.keys())
+        fig, axes = plt.subplots(nrows, 1, sharex=True)
+        for p in self.qualityPairs:
+            ind = l.index(p)
+            self.Plotter.plot_scatter(self.dataFiltered.filteredData['Timestamp'],self.dataFiltered.filteredData[self.qualityPairs[p][0]]/self.dataFiltered.filteredData[self.qualityPairs[p][1]], color = '#00B5E2', Fig=fig, ax = axes[ind],title = str(str(p) + 'm'),logY=True, plotID='ratio')
+            xx = [1]*len(self.dataFiltered.filteredData[self.qualityPairs[p][0]]/self.dataFiltered.filteredData[self.qualityPairs[p][1]])
+            self.Plotter.plot_scatter(self.dataFiltered.filteredData['Timestamp'],xx,linestyle='--',color='red',linewidth=0.5,Fig=fig,ax=axes[ind],plotID='timeseries')
+        for ax in axes:
+            ax.set_yticks([])
+            ax.minorticks_off() 
+
+        #fig.autofmt_xdate()
+        fig.suptitle('Availability Ratio (ref/test)')
+        return fig
+        
+    def get_windspeed_timeseries_fig(self):
+        
+        self.windspeedPairs = dict(reversed(sorted(self.windspeedPairs.items())))
+        nrows = len(self.windspeedPairs)
+        l = list(self.windspeedPairs.keys())
+        fig, axes = plt.subplots(nrows, 1, sharex=True)
+        for p in self.windspeedPairs:
+            ind = l.index(p)
+            self.Plotter.plot_scatter(self.dataFiltered.filteredData['Timestamp'],self.dataFiltered.filteredData[self.windspeedPairs[p][0]],
+                                      color = '#343841', Fig=fig, ax = axes[ind],title = str(str(p) + 'm'),plotID='timeseries')
+            self.Plotter.plot_scatter(self.dataFiltered.filteredData['Timestamp'],self.dataFiltered.filteredData[self.windspeedPairs[p][1]],
+                                     color = '#FEDF00', Fig=fig, ax = axes[ind],plotID='timeseries')
+            
+        fig.suptitle('wind speed timeseries')
+        return fig
+        
+    def get_windspeed_hist_fig(self):
+        self.bincounts = dict(reversed(sorted(self.bincounts.items())))
+        l = list(self.bincounts.keys())
+        ncols = 4
+        nrows = round(len(self.bincounts)/ncols)
+        if (ncols * nrows) < len(self.bincounts):
+            nrows = nrows + 1
+        # get the height bounds
+        fig, axes = plt.subplots(nrows,ncols,figsize = (7,5))
+        for h in self.bincounts:
+            bins = len(self.bincounts[h])
+            ind = l.index(h)
+            if ind + 1 <= ncols:
+                r = 0
+                c = ind
+            else:
+                if (math.floor((ind + 1)/ncols)) - ((ind+1)/ncols) == 0:
+                    r = math.floor((ind + 1)/ncols) - 1
+                    c = 3
+                else: 
+                    r = math.floor((ind + 1)/ncols)
+                    c = ind - (ncols*r)
+            self.Plotter.plot_histogram(self.bincounts[h],Fig=fig, ax=axes[r][c],title=str(str(h) + 'm'))
+        fig.suptitle('wind speed histograms')
+        #plt.tight_layout()
+        return fig
+
+    def get_windspeed_regr_fig(self):
+        self.windspeedPairs = dict(reversed(sorted(self.windspeedPairs.items())))
+        l = list(self.windspeedPairs)
+        ncols = 4
+        nrows = round(len(self.windspeedPairs)/ncols)
+        if (ncols * nrows) < len(self.windspeedPairs):
+            nrows = nrows + 1
+        # get the height bounds
+        fig, axes = plt.subplots(nrows,ncols,figsize = (7,5))
+        self.windspeedPairs = dict(sorted(self.windspeedPairs.items()))
+        for h in self.windspeedPairs:
+            ind = l.index(h)
+            if ind + 1 <= ncols:
+                r = 0
+                c = ind
+            else:
+                if (math.floor((ind + 1)/ncols)) - ((ind+1)/ncols) == 0:
+                    r = math.floor((ind + 1)/ncols) - 1
+                    c = 3
+                else: 
+                    r = math.floor((ind + 1)/ncols)
+                    c = ind - (ncols*r)
+            self.Plotter.plot_scatter(self.dataFiltered.filteredData[self.windspeedPairs[h][0]], self.dataFiltered.filteredData[self.windspeedPairs[h][1]],Fig=fig, ax=axes[r][c],title=str(str(h) + 'm'))
+            xdat = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+            self.Plotter.plot_scatter(xdat,xdat,color = '#F58153', linestyle = '--', linewidth=1, Fig=fig,ax=axes[r][c])
+        fig.suptitle('wind speed regression')
+       # plt.tight_layout()
+        
+        return fig
+            
+
+    def get_bincounts(self):
+
+        bincounts = {}
+        intervals = {}
+        for p in self.windspeedPairs:
+            temp = pd.DataFrame()
+            temp['Timestamp'] = self.data['Timestamp']
+            temp['ref'] = self.data[self.windspeedPairs[p][0]]
+            temp['golden'] = self.data[self.windspeedPairs[p][1]]
+            temp = temp.dropna()
+            
+            bincounts[p] = self.ValidationAnalysis.get_count_per_WSbin(temp, 'ref')[0]
+            intervals[p] = self.ValidationAnalysis.get_count_per_WSbin(temp, 'ref')[1]
+
+        return bincounts,intervals
+       
+    def get_unitType(self,Unit):
+        '''
+        key off of name structure? Subdirectories? Header?
+        Distinguish between spidar, newGen (prototypes and LDR1)
+        '''
+        typeKey = {}
+        typeKey['spidar']=False
+        typeKey['newGen']=False
+
+        if sys.platform == 'win32':
+            basepath = os.path.join(r'\\FLOWSIM\Fusion\\',r'\Spidar\\')
+        else:
+            basepath = '/media/share/'
+
+        unit_str = [name for name in os.listdir(basepath) if str(Unit) in name]
+        if len(unit_str) == 0:
+            print(f'WARNING: data not found for this unit: {Unit}')
+            sys.exit()
+        else:
+            datapaths = os.listdir(os.path.join(basepath,unit_str[0]))
+            if 'AutomaticGainControlWind' not in datapaths:
+                typeKey['spidar'] = True
+            else:
+                typeKey['newGen'] = True
+    
+        return typeKey
+
+    def get_columns(self):
+
+        self.windspeed_refCols, self.windspeed_testCols = self.ValidationAnalysis.get_ws_cols(self.data, self.typeKey_golden, self.typeKey_test, datatype = self.dtype)
+        self.quality_refCols, self.quality_testCols = self.ValidationAnalysis.get_q_cols(self.data, self.typeKey_golden, self.typeKey_test)
+        self.ws_stdDev_refCols, self.ws_stdDev_testCols = self.ValidationAnalysis.get_stdDev_cols(self.data, self.typeKey_golden, self.typeKey_test)
+        self.dir_refCols, self.dir_testCols = self.ValidationAnalysis.get_dir_cols(self.data, self.typeKey_golden, self.typeKey_test)
+
+    def get_pairs(self):
+
+        Logger.debug(f"windspeed_refCols = {self.windspeed_refCols}")
+        Logger.debug(f"windspeed_testCols = {self.windspeed_testCols}")
+        Logger.debug(f"winddir_refCols = {self.dir_refCols}")
+        Logger.debug(f"winddir_testCols = {self.dir_testCols}")
+
+        self.windspeedPairs = self.ValidationAnalysis.get_pairs(self.windspeed_refCols, self.windspeed_testCols, self.dataGolden, self.dataTest)
+        self.dirPairs = self.ValidationAnalysis.get_pairs(self.dir_refCols, self.dir_testCols, self.dataGolden, self.dataTest)
+        self.qualityPairs = self.ValidationAnalysis.get_pairs(self.quality_refCols, self.quality_testCols, self.dataGolden, self.dataTest)
+        self.stdPairs = self.ValidationAnalysis.get_pairs(self.ws_stdDev_refCols, self.ws_stdDev_testCols, self.dataGolden, self.dataTest)
+       
+    def get_modelRegression(self, inputdata, column1, column2, fit_intercept=False):
+        '''
+        :param inputdata: input data (dataframe)
+        :param column1: string, column name for x-variable
+        :param column2: string, column name for y-variable
+        :param columnNameOut: string, column name for predicted value
+        :return: dict with output of regression
+        '''
+        x = inputdata[column1].values.astype(float)
+        y = inputdata[column2].values.astype(float)
+        
+        mask = ~np.isnan(x) & ~np.isnan(y)
+        x = x[mask]
+        y = y[mask]
+        x = x.reshape(len(x), 1)
+        y = y.reshape(len(y), 1)
+
+        #-----------
+        regr = LinearRegression(fit_intercept=fit_intercept)
+     #   regr = LinearRegression(fit_intercept=False)
+     #   regr = LinearRegression(fit_intercept=True)
+        regr.fit(x, y)
+        
+        slope = regr.coef_[0][0]
+        intercept = regr.intercept_
+        predict = regr.predict(x)
+        y = y.astype(np.float)
+        r = np.corrcoef(x, y)[0, 1]
+        r2 = r2_score(y, predict)  # coefficient of determination, explained variance
+        mse = mean_squared_error(y, predict, multioutput='raw_values')[0]
+        rmse = np.sqrt(mse)
+        difference = abs((x - y).mean())
+        resultsDict = {'c': intercept, 'm': slope, 'r': r, 'r2': r2, 'mse': mse, 'rmse': rmse, 'predicted': predict,'difference': difference}
+
+        results = [slope, regr.intercept_ , r2 , difference, mse, rmse, predict]
+
+        #actually compute
+        x_mean = np.mean(x)
+        y_mean = np.mean(y)
+        Sxy = np.sum(x*y)-np.size(x)*x_mean*y_mean
+        Sxx = np.sum(x*x)-np.size(x)*x_mean*x_mean
+        b1=Sxy/Sxx
+        b0=y_mean-b1*x_mean
+        y_pred = b1*x+ b0
+        error = y-y_pred
+        se=np.sum(error**2)
+        mse = se/np.size(x)
+        rmse = np.sqrt(mse)
+        SSt = np.sum((y-y_mean)**2)
+        R2 = 1-(se/SSt)
+
+     #   results = [b1, b0, R2,999, mse, rmse, y_pred]
+    
+        return results
+
+    def get_regrResults_spd(self, pairs, fit_intercept=False):
+        
+        Results_R2 = {}
+        Results_m = {}
+        if fit_intercept == True:
+            Results_offset = {}
+        # Logger.debug(f"pairs: {pairs}")
+        for p in pairs:
+            temp = self.get_modelRegression(self.dataFiltered.filteredData, pairs[p][0], pairs[p][1], fit_intercept=fit_intercept)
+            Results_R2[float(p)] = temp[2]
+            Results_m[float(p)] = temp[0]
+            if fit_intercept==True:
+                Results_offset[float(p)] = temp[1]
+
+        if fit_intercept==True:
+            self.regression_offset = Results_offset
+            
+        return Results_R2, Results_m
+
+    def get_regrResults_dir(self, pairs):
+
+        Results_R2 = {}
+        Results_m = {}
+        
+        for p in pairs:
+            adj = pd.DataFrame()
+            adj['ref'] = self.dataFiltered.filteredData[pairs[p][0]]
+            adj['test'] = self.dataFiltered.filteredData[pairs[p][1]]
+            adj['diff'] = adj['test'] - adj['ref']
+            adj['test'].loc[adj['diff'] < -180] = adj['test'].loc[adj['diff'] < -180] + 360
+            adj['test'].loc[adj['diff'] > 180] = adj['test'].loc[adj['diff'] > 180] - 360
+            temp = self.get_modelRegression(adj,'ref','test',fit_intercept=False)
+            Results_R2[float(p)] = temp[2]
+            Results_m[float(p)] = temp[0]
+
+        return Results_R2, Results_m
+
+    def check_dataLoss(self,keyLabel):
+        
+        for c in self.windspeed_refCols:
+            temp = pd.DataFrame()
+            temp[c] = self.dataFiltered.filteredData[c]
+            temp = temp.dropna()
+            self.dataLoss[str(c + keyLabel)] = (len(temp)/(len(self.dataGolden.dataout['Timestamp']) + len(self.missing_golden)))*100
+        for c in self.windspeed_testCols:
+            temp = pd.DataFrame()
+            temp[c] = self.dataFiltered.filteredData[c]
+            temp = temp.dropna()
+            self.dataLoss[str(c + keyLabel)] = (len(temp)/(len(self.dataTest.dataout['Timestamp']) + len(self.missing_test)))*100
+
+    def get_dataFiltered(self):
+
+        self.dataFiltered = DataFilter(self.data.copy())
+        dataLoss = {}
+        self.dataLoss['system_acquisitionRate_golden'] = (len(self.dataGolden.dataout['Timestamp'])/ (len(self.dataGolden.dataout['Timestamp']) + len(self.missing_golden)))*100 # percent of data acquired during analysis window
+        self.dataLoss['system_acquisitionRate_test'] = (len(self.dataTest.dataout['Timestamp'])/ (len(self.dataGolden.dataout['Timestamp']) + len(self.missing_test)))*100 # percent of data acquired during analysis window
+
+       # print (self.dataFiltered.unfilteredData[['Speed_Mean_100_test', 'Direction_Mean_100_test','Quality_200_test']].head(30))
+       # print (self.dataFiltered.unfilteredData[['spd_100_horz_mean[m/s]_golden', 'dir_20_mean[Deg]_golden', 'wind_measure_20_quality[%]_golden']].head(30))
+        
+        # Wind Speed Filtering
+        ######################
+        self.dataFiltered._apply_ws_filter(self.windspeedPairs, self.dirPairs, WS_Thresh=10, ref='golden', keep='LT')
+        self.dataFiltered._apply_ws_filter(self.windspeedPairs, self.dirPairs, WS_Thresh=10, ref='test', keep='LT')
+
+       # print (self.dataFiltered.filteredData[['Speed_Mean_100_test', 'Direction_Mean_100_test','Quality_100_test']].head(30))
+       # print (self.dataFiltered.filteredData[['spd_100_horz_mean[m/s]_golden', 'dir_100_mean[Deg]_golden', 'wind_measure_100_quality[%]_golden']].head(30))
+        
+        self.check_dataLoss('_windspeed_filter')
+
+        # Wind Speed Filtering Based on bin analysis
+        ############################################
+
+        for h in self.intervals:
+            L = []
+            for i in self.intervals[h]:
+                L.append(i)
+            idx = pd.IntervalIndex(L)  
+            data_int = pd.DataFrame({'intervals': idx, 'left': idx.left, 'right': idx.right})
+            left = list(data_int['left'].values)
+            right = list(data_int['right'].values)
+            for l in left:
+                idx = left.index(l)
+                r = right[idx]
+                self.dataFiltered._apply_wsInt_filter(h,self.windspeedPairs,l,r)
+            
+        # Sector Filtering
+        ##################
+        self.dataFiltered._apply_sector_filter(self.dataGolden, self.dataTest, self.dirPairs,
+                                               self.windspeedPairs, best_sector=True, LowValue=90, HighValue=270)
+        
+        self.check_dataLoss('_windspeed_sector_filter')
+        print (self.dataLoss)
+
+        # Quality Filtering
+        ###################
+        self.dataFiltered._apply_quality_filter(self.qualityPairs, self.windspeedPairs, self.dirPairs, Q_Thresh=50, ref='golden', keep="GT")
+        self.dataFiltered._apply_quality_filter(self.qualityPairs, self.windspeedPairs, self.dirPairs, Q_Thresh=50, ref='test', keep="GT")
+
+       # print (self.dataFiltered.filteredData[['Speed_Mean_100_test', 'Direction_Mean_100_test','Quality_100_test']].head(30))
+       # print (self.dataFiltered.filteredData[['spd_100_horz_mean[m/s]_golden', 'dir_100_mean[Deg]_golden', 'wind_measure_100_quality[%]_golden']].head(30))
+
+        self.check_dataLoss('_windspeed_sector_q_filter')
+        
+        # Humidity Filtering
+        ####################
+        self.dataFiltered._apply_rh_filter(self.dataGolden, self.dataTest, self.windspeedPairs, self.dirPairs)
+
+        self.check_dataLoss('_windspeed_sector_q_rh_filter')
+
+        # Rain Filtering
+        ################
+        self.dataFiltered._apply_rain_filter(self.dataGolden, self.dataTest, self.windspeedPairs, self.dirPairs)
+
+        self.check_dataLoss('_windspeed_sector_q_rh_rain_filter')
+        
+        return self.dataFiltered
+
+    def get_heights(self):
+    
+        heights = list(self.windspeedPairs.keys())
+        heights = [float(h) for h in heights]
+        heights.sort()
+        
+        return heights
+    
+    def check_data(self):
+
+        from Validation import FlagAlerts
+
+        AlertPath = os.path.join(os.getcwd(),'Alerts.txt')
+        toEmail = FlagAlerts
+    
+        Alerts = {}
+        Alerts['Start'] = self.startDate
+        Alerts['End'] = self.endDate
+        Alerts['Golden'] = self.goldenUnit
+        Alerts['Test'] = self.testUnit 
+        AlertSend = False
+ 
+        # Heights Check: Make sure rangegates are matching (based off of get_pairs method)
+        # Check 1: Do Heights match exactly?
+        if len(set(self.dataGolden.rangegates).difference(self.dataTest.rangegates)) == 0:
+            print ("Passed Heights Equal Test: test unit and golden unit observation heights are the same")
+            # based on the assumption that same length means each height has a match
+        else :
+            message = "ALERT: Golden heigths and test heights are not the same, not a direct match"
+            print (message)
+            print (self.dataGolden.rangegates,self.dataTest.rangegates)
+            Alerts['Height Settings'] = message
+            # Check 2: Are all ref heights matachable in the test data?
+            # base this on pairs extracted
+            # Check to make sure that there are at least some mathches
+            if len(self.windspeedPairs) < 1:
+                message = "ALERT: Golden heigths and test heights have no matches. Check data and system config"
+                print (message)
+                print (self.dataGolden.rangegates,self.dataTest.rangegates)
+                Alerts['Height Settings'] = message
+                sys.exit()
+        
+        # Data Uptime Check: has the unit sampled the whole time? What about the Golden?
+        ntimestamps_missingGolden, ntimestamps_missingTest, missing_golden, missing_test = self.ValidationAnalysis.check_uptime(self.dataGolden, self.dataTest)
+        if ntimestamps_missingGolden > 0:
+            Alerts['Uptime Flag'] = self.goldenUnit
+            AlertSend = True
+        if ntimestamps_missingTest > 0:
+            Alerts['Uptime Flag'] = self.testUnit
+            AlertSend = True
+
+        # Send Alerts
+        #############
+        if AlertSend == False:
+            pass
+        else:
+            with open(AlertPath, 'w') as f:
+                for key, value in Alerts.items():
+                    f.write('%s:%s\n' % (key, value))
+                f.close()
+            if sys.platform == 'win32':
+                self.ValidationAnalysis.send_alert(Alerts, AlertSend, self.testUnit, toEmail, AlertPath) 
+            else:
+                # here is where 
+                print('Send error email')
+                for key, value in Alerts.items():
+                    print(f'{key}, {value}')
+
+        self.missing_golden = missing_golden
+        self.missing_test = missing_test
+
+        return Alerts
+    
+    def get_data(self):
+        """
+        get the dataframe of data from unit data
+        """
+        
+        self.dataGolden = self.get_dataframe(self.goldenUnit)
+        Logger.debug(f"dataGolden: {self.dataGolden}")
+        Logger.debug(f"{self.dataGolden.filenames}")
+        self.dataTest = self.get_dataframe(self.testUnit)
+        Logger.debug(f"dataTest: {self.dataTest}")
+        Logger.debug(f"{self.dataTest.filenames}")
+        Logger.debug(f"uv.dataout is {len(self.dataTest.dataout)} rows long")
+
+        # Append data keys
+        ##################
+        self.dataGolden.dataout.columns = [str(col) + '_golden' for col in self.dataGolden.dataout.columns]
+        self.dataGolden.dataout.rename(columns={'Timestamp_golden':'Timestamp'}, inplace=True)
+        self.dataTest.dataout.columns = [str(col) + '_test' for col in self.dataTest.dataout.columns]
+        self.dataTest.dataout.rename(columns={'Timestamp_test':'Timestamp'}, inplace=True)
+
+        # Merge Golden and Test dataframes
+        ##################################
+        data = pd.merge(self.dataGolden.dataout, self.dataTest.dataout, left_on=['Timestamp'], right_on=['Timestamp'])
+
+        return data
+
+    def get_dataframe(self,Unit):
+        '''
+        :param startDate: Start Date (ex. '2019-09-03')
+        :param endDate: End Date (ex. '2019-09-21')
+        :param unitSN: List of Serial Numbers to grab data from ex. ['1922AG0071']
+        :param typeKey is output from get_unitType method to define which type of unit the data is coming from
+        :return: Dataframe
+        '''
+        # Determine Reference and Test unit types
+        #########################################
+        typeKey = self.get_unitType(Unit)
+    
+        if sys.platform == 'win32':
+            basepath = os.path.join(r'\\FLOWSIM\Fusion\\',r'\Spidar\\')
+        else:
+            basepath = '/media/share/'
+
+        # get reference (golden) data
+        unitFiles = [name for name in os.listdir(basepath) if str(Unit) in name]
+        for f in unitFiles:
+            Logger.debug(f"{f}")
+        if len(unitFiles) == 0:
+            print ('WARNING: Reference Files not found')
+            sys.exit()
+        else:
+            unitDir = [name for name in os.listdir(basepath) if str(Unit) in name]
+            unitPath = os.path.join(basepath,unitDir[0])
+            if typeKey['spidar']==True:
+                if self.dtype == 'AVG':
+                    dataout = Spidar(filepath=unitPath, startDate=self.startDate, endDate=self.endDate, datatype='AVGWND')
+                else: 
+                    dataout = Spidar(filepath=unitPath, startDate=self.startDate, endDate=self.endDate, datatype='RAWWND')
+            else:
+                if self.dtype == 'AVG':
+                    dataout = LDR1(filepath=unitPath, startDate=self.startDate, endDate=self.endDate, datatype='AVGWND')
+                else:
+                    dataout = LDR1(filepath=unitPath, startDate=self.startDate, endDate=self.endDate, datatype='RAWWND')
+                        
+        return dataout
+
+    def compare_availability(self,thresh):
+ 
+        temp_golden = DataFilter(self.data.copy())
+        temp_golden._apply_quality_filter(self.qualityPairs,self .windspeedPairs, self.dirPairs, Q_Thresh = thresh, ref = 'golden', keep="GT")
+
+        temp_test = DataFilter(self.data.copy())
+        temp_test._apply_quality_filter(self.qualityPairs, self.windspeedPairs, self.dirPairs, Q_Thresh = thresh, ref = 'test', keep="GT")
+
+        Results = {}
+        for p in self.qualityPairs:
+            subset_golden = temp_golden.filteredData[self.qualityPairs[p][0]]
+            subset_golden = subset_golden.dropna()
+            subset_test = temp_test.filteredData[self.qualityPairs[p][1]]
+            subset_test = subset_test.dropna()
+            Results[p] = (len(subset_test)/len(temp_test.filteredData)) / (len(subset_golden)/len(temp_golden.filteredData))
+    
+        return Results
+
+    
+ 
+
+ 
+    # set up subplot array template
+#    nrows = len(windspeedPairs)
+#    l = list(windspeedPairs.keys())
+
+    # Plot windspeed timeseries
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in windspeedPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[windspeedPairs[p][0]], color = 'blue', Fig=fig, ax = axes[ind],title = str('Avg Wind Speed Unfiltered: ' + str(p)))
+#        Plotter.plot_scatter(data['Timestamp'],data[windspeedPairs[p][1]], color = 'blue', Fig=fig, ax = axes[ind],title = str('Avg Wind Speed Unfiltered: ' + str(p)))   
+    
+    # Plot Quality Timeseries
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in qualityPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[qualityPairs[p][0]], color = 'blue', Fig=fig, ax = axes[ind], title = str('Avg Quality Unfiltered: ' + str(p)))
+#        Plotter.plot_scatter(data['Timestamp'],data[qualityPairs[p][1]], color = 'red', Fig=fig, ax = axes[ind], title = str('Avg Quality Unfiltered: ' + str(p)))
+        
+    # Plot Wind Direction Timeseries
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in dirPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[dirPairs[p][0]], color = 'blue', Fig=fig, ax = axes[ind], title = str('Avg Wind Direction Unfiltered: ' + str(p)))
+#        Plotter.plot_scatter(data['Timestamp'],data[dirPairs[p][1]], color = 'red', Fig=fig, ax = axes[ind], title = str('Avg Wind Direction Unfiltered: ' + str(p)))
+        
+    # Plot Windspeed Std. Deviation Timeseries
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in stdPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[stdPairs[p][0]], color = 'blue',Fig=fig, ax = axes[ind], title = str('Std Wind Speed Unfiltered: ' + str(p)))
+#        Plotter.plot_scatter(data['Timestamp'],data[stdPairs[p][1]], color = 'red', Fig=fig, ax = axes[ind], title = str('Std Wind Speed Unfiltered: ' + str(p)))
+    
+    # Compute windspeed and quality and std deviation ratios timeseries for each height
+    ###################################################################################
+#    ratio_line = [1] * len(data['Timestamp'])
+    # Plot Wind Speed Timeseries Ratios
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in windspeedPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[windspeedPairs[p][0]]/data[windspeedPairs[p][1]], color = 'black', Fig=fig, ax = axes[ind], title = str('Ratio Wind Speed Unfiltered: ' + str(p)))
+#        Plotter.plot_scatter(data['Timestamp'],ratio_line, Fig=fig, ax = axes[ind], color = 'red')
+
+    # Plot Quality Timeseries Ratios
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in qualityPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[qualityPairs[p][0]]/data[qualityPairs[p][1]], color = 'black', Fig=fig, ax = axes[ind], title = str('Ratio Quality Unfiltered: ' + str(p)))
+#        Plotter.plot_scatter(data['Timestamp'],ratio_line, Fig=fig, ax = axes[ind], color = 'red')
+
+    # Plot Wind Direction Timeseries Ratios
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in dirPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[dirPairs[p][0]]/data[dirPairs[p][1]], color = 'black', Fig=fig, ax = axes[ind], title = str('Ratio Wind Direction Unfiltered: ' + str(p)))
+#        Plotter.plot_scatter(data['Timestamp'],ratio_line, Fig=fig, ax = axes[ind], color = 'red')
+    
+    # Plot Windspeed Std. Deviation Timeseries Ratios
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in stdPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[stdPairs[p][0]]/data[stdPairs[p][1]], color = 'black', Fig=fig, ax = axes[ind], title = str('Ratio Std Wind Speed Unfiltered: ' + str(p)))
+#        Plotter.plot_scatter(data['Timestamp'],ratio_line, Fig=fig, ax = axes[ind], color = 'red')
+        
+    # Compute windspeed and quality bais timeseries for each height
+    #################################################################
+    # Plot Wind Speed Timeseries bias
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in windspeedPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[windspeedPairs[p][0]]-data[windspeedPairs[p][1]], color = 'black', Fig=fig, ax = axes[ind], title = str('Bias Wind Speed Unfiltered: ' + str(p)))
+        
+    # Plot Quality Timeseries bias
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in qualityPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[qualityPairs[p][0]]-data[qualityPairs[p][1]], color = 'black', Fig=fig, ax = axes[ind], title = str('Bias Quality Unfiltered: ' + str(p)))
+
+    # Plot Wind Direction Timeseries bias
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in dirPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[dirPairs[p][0]]-data[dirPairs[p][1]], color = 'black', Fig=fig, ax = axes[ind], title = str('Bias Wind Direction Unfiltered: ' + str(p)))
+    
+    # Plot Windspeed Std. Deviation Timeseries bias
+#    fig, axes = plt.subplots(nrows, 1)
+#    for p in stdPairs:
+#        ind = l.index(p)
+#        Plotter.plot_scatter(data['Timestamp'],data[stdPairs[p][0]]-data[stdPairs[p][1]], color = 'black', Fig=fig, ax = axes[ind], title = str('Bias Std Wind Speed Unfiltered: ' + str(p)))
+
+    # Availability Analysis
+    #######################
+    # for each unit
+    # for Q thresh 10:90
+    # for each height take out only the data less than Q thresh and plot
+
+
+    # INITIALIZE DATA FILTERS
+    #########################
+#    filtData = DataFilter(data.copy())
+
+    # Assess Adequacy of Bin Coverage Unfiltered + Filtered
+    
+
+#    sns.set(style='white',rc={'axes.edgecolor': colorDict['grey'], 'axes.linewidth': 2, 'font.sans-serif': 'Flama','axes.labelsize': 15,'axes.labelcolor': colorDict['grey'],'ytick.left': True, 'xtick.bottom': True, 'xtick.color': colorDict['grey'],'ytick.color': colorDict['grey']})
+        
+    #a. R2 at each height timeseries in time
+    # indicate change in day in timestamp column so that we can record and answer every day
+#    temp = filtData.filteredData.copy()
+#    temp['Day'] = temp['Timestamp'].dt.day
+#    temp['shift'] = temp['Day'].shift(1)
+#    temp['shiftCheck'] = temp['Day'] != temp['shift']
+#    temp['analysisDay'] = temp['shiftCheck'].cumsum()
+#    uniqueDays = temp.analysisDay.unique()
+
+#    analysis_R2 = pd.DataFrame()
+#    for d in uniqueDays[1:]:
+#        subset = temp[temp['analysisDay'] <= d]
+#        temp_results = {}
+#        temp_results = get_R2Results(subset,dataGolden.rangegates,'ws',temp_results)
+#        temp_results['day of analysis'] = d
+#        analysis_R2 = analysis_R2.append(temp_results,ignore_index=True)
+
+#    for c in analysis_R2.columns.to_list()[1:]:
+#        plt.plot(analysis_R2['day of analysis'],analysis_R2[c])
+#        plt.xlabel('Day of Validation Period', size=24)
+#        plt.ylabel('R-squared', size=24)
+#        plt.xticks(rotation = 45)
+
+#    plt.plot(analysis_R2['day of analysis'],[0.975]*len(analysis_R2['day of analysis']),color='red',linestyle = '--',linewidth=2)
+#    plt.show()
+
+    #b. slope at each height timeseries in time
+#    analysis_Slope = pd.DataFrame()
+#    for d in uniqueDays[1:]:
+#        subset = temp[temp['analysisDay'] <= d]
+#        temp_results = {}
+#        temp_results = get_SlopeResults(subset,dataGolden.rangegates,'ws',temp_results)
+#        temp_results['day of analysis'] = d
+#        analysis_Slope = analysis_Slope.append(temp_results,ignore_index=True)
+
+        
+#    for c in analysis_Slope.columns.to_list()[1:]:
+#        plt.plot(analysis_Slope['day of analysis'],analysis_Slope[c])
+#        plt.xlabel('Day of Validation Period', size=24)
+#        plt.ylabel('Slope', size=24)
+#        plt.xticks(rotation = 45)
+
+#    plt.show()
+
+    #c. availability at each height timeseries in time
+#    analysis_availability = pd.DataFrame()
+#    for d in uniqueDays[1:]:
+#        subset = temp[temp['analysisDay'] <= d]
+#        temp_results = {}
+#        temp_results = compare_availability(subset,dataGolden.rangegates)
+#        temp_results['day of analysis'] = d
+#        analysis_availability = analysis_availability.append(temp_results,ignore_index=True)
+
+#    list_avail = analysis_availability.columns.to_list()
+#    list_avail = [s for s in list_avail if 'day of analysis' not in s]
+
+#    for c in list_avail:
+#        plt.plot(analysis_availability['day of analysis'],analysis_availability[c])
+#        plt.xlabel('Day of Validation Period', size=24)
+#        plt.ylabel('Availability', size=24)
+#        plt.xticks(rotation = 45)
+
+#    plt.show()
+
+
+
+
+
+#def calcRegressionDir(inputdata, column1, column2):
+#    from sklearn import datasets, linear_model
+#    from sklearn.metrics import mean_squared_error, r2_score
+#    from scipy.stats import linregress
+#    import re
+    # Apply primanex/pentalum correction
+
+    # Primanex Correction
+    # data['diff'] = data[dataComp] - data[dataRef]
+    #
+    # data[dataComp].loc[data['diff']<-180] = data[dataComp].loc[data['diff']<-180]+360
+    # data[dataComp].loc[data['diff']>180] = data[dataComp].loc[data['diff']>180]-360
+    # #
+
+#    column1 = column1[0]
+#    column2 = column2[0]
+
+#    inputdata['diff'] = inputdata[column2] - inputdata[column1]
+#    inputdata[column2].loc[inputdata['diff']<-180] =  inputdata[column2].loc[inputdata['diff']<-180]+360
+#    inputdata[column2].loc[inputdata['diff'] > 180] = inputdata[column2].loc[inputdata['diff'] > 180] - 360
+#    dataX = inputdata[column1]
+#    dataY = inputdata[column2]
+#    preFiltLen = len(dataX)
+#    mask = ~np.isnan(dataX) & ~np.isnan(dataY)
+#    postFiltLen = len(dataX[mask])
+#    stats = linregress(dataX[mask], dataY[mask])
+#    m = round(stats.slope, 4)
+#    b2 = round(stats.intercept, 4)
+#    r = round(stats.rvalue **2, 4)
+#    availability = round(((postFiltLen/preFiltLen)*100),1)
+#    pred = (dataX *m) + b2
+#    act = dataX
+#    meanDiffSq = np.nanmean(pred-act)
+
+#    rmse = round(np.sqrt(meanDiffSq), 3)
+
+#    stats = {'m': m, 'r2':r,'b':b2, 'rmse':rmse, 'RefData':dataX, 'CompData':dataY, 'Availability':availability}
+
+#    return stats    
+
+     
+#def valid_date(s):
+#    if s == '':
+#        pass
+#    else: 
+#        try:
+#            return dt.datetime.strptime(s, "%Y-%m-%d")
+#        except ValueError:
+#            msg = "Not a valid date: '{0}'.".format(s)
+#            raise argparse.ArgumentTypeError(msg)
+
+#def _file_details(f):
+#        """
+#        file details
+#        """
+#        tokens = f.split('_')
+#        time_str = tokens[4]
+#        time = str(parser.parse(time_str))
+#        details = time
+
+#        return details
+    
+#def _file_details_prototype(f):
+#    """
+#    file details
+#    """
+#    tokens = f.split('_')
+#    time_str = tokens[5]
+#    time = str(parser.parse(time_str))
+#    details = time
+
+#    return details
+    
+#def date_check(dateToCheck, start, end):
+#    """
+#    check if time is between start and end
+#    if start and/or end is blank pick all data
+#    """
+#    filedate = dt.datetime.strptime(dateToCheck.split(" ")[0], "%Y-%m-%d")
+#    if start:
+#        startdate = dt.datetime.strptime(start, "%Y-%m-%d")
+#        if startdate- dt.timedelta(days=1) >= filedate:
+#            return False
+#    if end:
+#        enddate = dt.datetime.strptime(end, "%Y-%m-%d")
+#        if enddate+dt.timedelta(days=1) <= filedate:
+#            return False
+
+#    return True
+#  
