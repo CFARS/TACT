@@ -6674,12 +6674,21 @@ if __name__ == '__main__':
     # ------------------------
     # set up and configuration
     # ------------------------
+    from TACT.readers.config import get_inputfiles
+
+    """parser"""
     input_filename, config_file, rtd_files, results_filename, saveModel, timetestFlag, globalModel = get_inputfiles()
+
+    """config object assignments"""
     outpath_dir = os.path.dirname(results_filename)
     outpath_file = os.path.basename(results_filename)
+
+    """metadata parser"""
     siteMetadata = get_SiteMetadata(config_file)         # >> to config_file.py
     filterMetadata = get_FilteringMetadata(config_file)  # >> to config_file.py
     correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,globalModel)  # >> to config_file.py
+
+    """data object assignments"""
     inputdata, Timestamps = get_inputdata(input_filename, config_file)
     inputdata, a, lab_a = get_refTI_bins(inputdata)      # >> to data_file.py
     RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
