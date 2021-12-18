@@ -1,5 +1,4 @@
-from setuptools import setup, find_packages
-from TACT.version import __version__
+from setuptools import setup
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -10,7 +9,7 @@ with open('requirements.txt', 'r') as rf:
 
 setup(
     name='TACT',
-    version=__version__,
+    version='0.1.0',
     description='CFARS Site Suitability TACT Tool',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -19,7 +18,7 @@ setup(
     author='CFARS Remote Sensing Subgroup: [names]',
     author_email='',
     keywords='CFARS TACT remote sensing lidar sodar',
-    packages=find_packages(),
+    packages=[],
     install_requires=install_requires,
     python_requires='>=3',
     zip_safe=True,
