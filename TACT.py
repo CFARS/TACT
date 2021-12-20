@@ -22,7 +22,6 @@ from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 import warnings
 import os
-from future.utils import itervalues, iteritems
 import math
 import datetime
 from future.utils import itervalues, iteritems
@@ -108,7 +107,7 @@ def get_phaseiii_metadata(config_file):
 
     return model, height
 
-
+""" MOVED TO TACT.readers.config
 def get_SiteMetadata(config_file):
     '''
     :param config_file: Input configuration file
@@ -206,6 +205,7 @@ def get_CorrectionsMetadata(config_file, globalModel):
 
     correctionsMetadata = correctionsManager
     return (correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type)
+"""
 
 def check_for_corrections(config_file):
     apply_correction = True
@@ -387,17 +387,19 @@ def check_for_extrapolations(ane_heights, RSD_heights):
 
     return extrapolation_type
 
+
 def get_optional_height_names(num=4):
-    """
+    '''
     Get list of possible column names for optional extrapolation. (of form Ane_WS_Ht1, for example)
     :param num: number of possible Additional Comparison Heights (int)
     :return: list of allowed names
-    """
+    '''
     optionalData = []
     for typ in ['Ane', 'RSD']:
         for ht in range(1, num+1):
             optionalData.append(["%s_%s_Ht%d" % (typ, var, ht) for var in ['WS', 'SD', 'TI']])
     return optionalData
+
 
 def get_shear_exponent(inputdata, extrap_metadata, height):
     """
@@ -523,6 +525,7 @@ def get_extrap_col_and_ht(height, num, primary_height, sensor='Ane', var='WS'):
 
     return col_name, height
 
+
 def get_all_heights(config_file, primary_height):
     all_heights = {'primary': primary_height}
 
@@ -540,7 +543,7 @@ def get_all_heights(config_file, primary_height):
 
 
 def check_for_additional_heights(config_file, height):
-    """
+    '''
     Check if columns are specified for other heights, and extract the column names.
     :param config_file: Input configuration file
     :param height: Primary comparison height (m)
@@ -549,7 +552,7 @@ def check_for_additional_heights(config_file, height):
     :return RSD_heights: dictionary of height labels and values for RSD
     :return ane_cols: list of column names corresponding to additional anemometer heights
     :return RSD_cols: list of column names corresponding to additional RSD heights
-    """
+    '''
     # Get dictionary of all heights
     all_heights = get_all_heights(config_file, height)
 
@@ -617,6 +620,7 @@ def check_for_additional_heights(config_file, height):
             + 'Please fix and restart to run')
 
     return all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols
+
 
 
 def get_regression(x, y):
@@ -1414,7 +1418,11 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
                  all_test['Ane_TI_Ht3'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3')
+
+                 ### THIS LINE IS BROKEN:
+                 results = post_correction_stats(inputdata_test_result, results, 'Ane_TI_Ht3', 'corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3')
+                 ### above ^^ 
+                 
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht4'].copy()
@@ -6636,6 +6644,8 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
 
     wb.save(results_filename)
 
+
+""" MOVED TO TACT.readers.config
 def get_inputfiles():
     parser = argparse.ArgumentParser()
     parser.add_argument("-in","--input_filename", help="print this requires the input filename")
@@ -6653,7 +6663,7 @@ def get_inputfiles():
     print('windcube 1 HZ rtd. files are located {}'.format(args.rtd_files))
     print('Testing {} as global model'.format(args.global_model_to_test))
     return args.input_filename, args.config_file, args.rtd_files, args.results_file, args.save_model_location, args.timetestFlag, args.global_model_to_test
-
+"""
 
 if __name__ == '__main__':
     # Python 2 caveat: Only working for Python 3 currently
@@ -6662,15 +6672,77 @@ if __name__ == '__main__':
     # ------------------------
     # set up and configuration
     # ------------------------
-    input_filename, config_file, rtd_files, results_filename, saveModel, timetestFlag, globalModel = get_inputfiles()
-    outpath_dir = os.path.dirname(results_filename)
-    outpath_file = os.path.basename(results_filename)
-    siteMetadata = get_SiteMetadata(config_file)
-    filterMetadata = get_FilteringMetadata(config_file)
-    correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,globalModel)
+    from TACT.readers.config import Config
+
+    """parser get_input_files"""
+    config = Config()
+    config.get_input_files()
+
+    input_filename = config.input_filename
+    config_file = config.config_file
+    rtd_files = config.rtd_files
+    results_filename = config.results_file
+    saveModel = config.save_model_location
+    timetestFlag = config.time_test_flag
+    globalModel  = config.global_model 
+
+    """config object assignments"""
+    outpath_dir = config.outpath_dir
+    outpath_file = config.outpath_file
+
+    """metadata parser"""
+    config.get_site_metadata()
+    siteMetadata = config.site_metadata
+
+    config.get_filtering_metadata()
+    filterMetadata = config.config_metadata
+
+    config.get_adjustments_metadata()
+    correctionsMetadata = config.adjustments_metadata
+    RSDtype = config.RSDtype
+    extrap_metadata = config.extrap_metadata
+    extrapolation_type = config.extrapolation_type 
+
+    """data object assignments"""
     inputdata, Timestamps = get_inputdata(input_filename, config_file)
-    inputdata, a, lab_a = get_refTI_bins(inputdata)
+    inputdata, a, lab_a = get_refTI_bins(inputdata)      # >> to data_file.py
     RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
+
+    """
+    config_object
+
+    - site_suitability_tool/readers/config_file.py
+    - parameters
+        -
+    - object includes
+        - config_file
+        - input_filename
+        - rtd_files
+        - results_filename
+        - saveModel
+        - time_test_flag
+        - global_model
+        -
+        - siteMetaData
+        - filterMetaData
+        - correctionsMetaData
+        - RSDtype
+        - extrap_metadata
+        - extrapolation_type
+
+    data_object
+        - config_object
+        - inputdata
+        - Timestamps
+        - a
+        - lab_a
+        - RSD_alphaFlag
+        - Ht_1_rsd
+        - Ht_2_rsd
+    
+    """
+
+
     print ('%%%%%%%%%%%%%%%%%%%%%%%%% Processing Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
     # -------------------------------
     # special handling for data types
