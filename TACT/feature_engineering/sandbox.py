@@ -91,6 +91,8 @@ def calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, H
     Notes: Can this be broken into multiple functions? One for Anems, one for RSDs
            Both could have a switch on whether to report the statistics of stability
            or at least varoutput. Simplest: input data Output: stability values and/or categories
+    TO DO:
+    - Change config_file to use config_data
     
     '''
 
