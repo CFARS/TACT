@@ -22,7 +22,6 @@ config = Config(
     time_test_flag=False, 
 )
 
-
 config.outpath_dir = os.path.dirname(config.results_file)
 config.outpath_file = os.path.basename(config.results_file)
 
@@ -37,7 +36,6 @@ globalModel  = config.global_model
 """config object assignments"""
 outpath_dir = config.outpath_dir
 outpath_file = config.outpath_file
-
 
 """metadata parser"""
 config.get_site_metadata()
@@ -54,19 +52,11 @@ extrapolation_type = config.extrapolation_type
 
 """data object assignments"""
 data = Data(input_filename=example_path+"example_project.csv",
-    config_file=example_path+"configuration_example_project.xlsx",
-    rtd_files='', 
-    results_file=example_path+'Test_IDE_results.xlsx',
-    save_model_location='',
-    time_test_flag=False)
+    config_file=example_path+"configuration_example_project.xlsx")
 
-
-#%%
 data.get_inputdata()
-
-#%%
-inputdata, a, lab_a = get_refTI_bins(inputdata)      # >> to data_file.py
-RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
+data.get_refTI_bins()
+data.check_for_alphaConfig()
 
 
 #%%

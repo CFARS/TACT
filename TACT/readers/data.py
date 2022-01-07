@@ -13,15 +13,41 @@ from string import printable
 import numpy as np
 
 class Data(Config):
-    #def __init__(self,Config);
-    #    logger.info(f"initiated Data object")
+    """ Class to hold data, derivative features, and metadata for TACT analysis
+    of a single site. Inherits from Config class
+    
+    Attributes
+    ----------
+    inputdata : pandas array
+        DataFrame with all anemometer, RSD data, and site atmospheric data
+    timestamps : DateTime array
+        array of timestamps for each row of inputdata
+    a : array
+        Edges of Reference TI bins
+    lab_a : array
+        Center values of Reference TI bins
+    RSD_alphaFlag : bool
+        whether there exists an additional upper of lower RSD height to 
+        compute wind shear
+    Ht_1_RSD : int
+        Lower height to compute wind shear from RSD
+    Ht_1_RSD : int
+        Upper height to compute wind shear from RSD
+        
+    """
 
 
     def get_inputdata(self):
-        '''
-        :param filename: File containing input data
-        :param config_file: Configuration file
-        :return: input data dataframe
+        ''' Ingests and formats data from inputdata and config data
+        
+        Parameters
+        ----------
+        None. Uses object attributes
+        
+        Returns
+        -------
+        Silent. Sets inputdata attribute to pandas array
+            
         '''
         filename = self.input_filename
         if str(filename).split('.')[-1] == 'csv':
@@ -55,10 +81,10 @@ class Data(Config):
         if self.inputdata.empty == True:
             print ('Error no data to analyze. Inputdata dataframe is empty. Check input data.')
             sys.exit()
-        
+        self.timestamps = self.inputdata['Timestamp']
 
         # Get Hour from timestamp and add as column
-        Timestamps_dt = pd.to_datetime(self.inputdata['Timestamp'])
+        Timestamps_dt = pd.to_datetime(self.timestamps)
 
         def hr_func(ts):
             h = ts.hour
@@ -72,7 +98,8 @@ class Data(Config):
             self.inputdata['Hour'] = Hour
 
         # drop timestamp colum from inputdata data frame, replace any 9999 cells with NaN's
-        self.inputdata.drop('Timestamp', 1).replace(9999, np.NaN,inplace=True)
+        self.inputdata.drop('Timestamp', axis=1, inplace=True)
+        self.inputdata.replace(9999, np.NaN, inplace=True)
         
         # flag any non-numeric data rows to the user
         nonNumericData_rows = self.inputdata[~self.inputdata.applymap(np.isreal).all(1)]
@@ -99,15 +126,20 @@ class Data(Config):
         # create bin p5 category for each observation
         self.inputdata['bins_p5'] = out.apply(lambda x: x.mid)  # the middle of the interval is used as a catagorical label
 
-        self.inputdata = self.inputdata[inputdata['Ref_TI'] != 0]  # we can only analyze where the ref_TI is not 0
+        self.inputdata = self.inputdata[self.inputdata['Ref_TI'] != 0]  # we can only analyze where the ref_TI is not 0
         
     
     def set_inputdataformat(self):
-        '''
-        Takes data from configuration file, and converts to a dictionary with a structure defined by the needs
-        of CFARS
-        :param config_file: input configuration file
-        :return: dictionary of data
+        '''Takes header data from configuration file, and converts to a
+        CFARS uniform headers, and returns dict of pairs
+        
+        Parameters
+        ----------
+        None. Uses object attributes
+        
+        Returns
+        ------
+        Dictionary of column name pairs
         '''
         
         df = pd.read_excel(self.config_file, usecols=[0, 1]).dropna()
@@ -159,24 +191,38 @@ class Data(Config):
         
         
     def get_refTI_bins(self):
-        '''
-        create column to group data by ref TI
+        ''' Create column to group data by ref TI bins
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Silent
+            Adds column RefTI_bins to self.inputdata
+            Sets attributes self.a, self.lab_a
         '''
 
         self.inputdata['RefTI_bins'] = self.inputdata['Ref_TI']
-        b = self.inputdata['RefTI_bins']
         a = np.linspace(0,1.0,40)
         self.a = [round(i,3) for i in a]
         lab_a = [(a + b) / 2 for a, b in zip(a,a[1:])]
         self.lab_a = [round(a,3) for a in lab_a]
         L_a = len(lab_a)
-        self.inputdata['RefTI_bins'] = pd.cut(inputdata['RefTI_bins'], bins = L_a, labels = lab_a)
+        self.inputdata['RefTI_bins'] = pd.cut(self.inputdata['RefTI_bins'], bins = L_a, labels = lab_a)
         
         
     def check_for_alphaConfig(self):
-        """
-        checks to see if the configurations are there to compute alpha from cup
-        checks to see if the configurations are there to compute alpha from RSD
+        """ Checks to see if there exist heights to compute wind shear from RSD
+        
+        Parameters
+        ----------
+        None
+        
+        Returns
+        -------
+        Silent
+            Sets Ht_1_rsd and Ht_2_rsd attributes. 
         """
         self.RSD_alphaFlag = False
 

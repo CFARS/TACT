@@ -6673,6 +6673,7 @@ if __name__ == '__main__':
     # set up and configuration
     # ------------------------
     from TACT.readers.config import Config
+    from TACT.readers.data import Data
 
     """parser get_input_files"""
     config = Config()
@@ -6704,10 +6705,21 @@ if __name__ == '__main__':
     extrapolation_type = config.extrapolation_type 
 
     """data object assignments"""
-    inputdata, Timestamps = get_inputdata(input_filename, config_file)
-    inputdata, a, lab_a = get_refTI_bins(inputdata)      # >> to data_file.py
-    RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
+    data=Data()
+    
+    data.get_inputdata(input_filename, config_file)
+    data.get_refTI_bins()      # >> to data_file.py
+    data.check_for_alphaConfig()
 
+    inputdata = data.inputdata
+    Timestamps = data.timestamps
+    a = data.a
+    lab_a = data.lab_a
+    RSD_alphaFlag = data.RSD_alphaFlag
+    Ht_1_rsd = data.Ht_1_rsd
+    Ht_2_rsd = data.Ht_2_rsd
+    
+    
     """
     config_object
 

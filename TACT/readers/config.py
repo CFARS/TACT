@@ -10,6 +10,49 @@ import re
 
 
 class Config(object):
+    
+    """ Class to hold all Configuration and metadata associated with TACT
+    analysis for a single site.
+    
+    Attributes
+    ----------
+    input_filename : str
+        full path of input data file    
+    config_file : str
+        full path of configuration Excel spreadsheet
+    rtd_files : str
+        full path of WindCube Real Time Data (RTD) files, if any
+    results_file : str
+        filename (new) of Excel spreadsheet with output results
+    save_model_location : str
+        folder to save derived adjustment model
+    time_test_flag : bool
+        Flag whether to test time sensitivity of model derivation
+    global_model
+        full path to L-TERRA or other adjustment model pickle file
+    outpath_dir : str
+        folder for new results_file
+    outpath_file : str
+        seemngly the same as results_file (?)
+        
+    site_metadata : 
+        TBD
+    config_metadata :
+        TBD
+    extrapolation_type :
+        TBD
+    extrap_metadata : 
+        TBD
+    available_data :
+        TBD
+    RSDtype :
+        TBD
+    adjustments_metadata :
+        TBD
+        
+    
+        
+    """
 
     def __init__(self, input_filename='', config_file='', rtd_files='', 
                     results_file='', save_model_location='', time_test_flag='', 
@@ -116,7 +159,7 @@ class Config(object):
         # check argument that specifies global model
         globalModel = self.global_model
         # check ability to compute extrapolated TI
-        all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = check_for_additional_heights(self.config_file, primaryHeight)
+        all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = self.check_for_additional_heights(primaryHeight)
         self.extrapolation_type = check_for_extrapolations(ane_heights, RSD_heights)
 
         if self.extrapolation_type is not None:
@@ -171,6 +214,103 @@ class Config(object):
             correctionsManager['Name global model'] = globalModel
 
         self.adjustments_metadata = correctionsManager
+        
+        
+    def check_for_additional_heights(self, height):
+        '''
+        Check if columns are specified for other heights, and extract the column names.
+        :param config_file: Input configuration file
+        :param height: Primary comparison height (m)
+        :return all_heights: dictionary of all height labels and values
+        :return ane_heights: dictionary of height labels and values for anemometers
+        :return RSD_heights: dictionary of height labels and values for RSD
+        :return ane_cols: list of column names corresponding to additional anemometer heights
+        :return RSD_cols: list of column names corresponding to additional RSD heights
+        '''
+        # Get dictionary of all heights
+        all_heights = self.get_all_heights(height)
+
+        df = pd.read_excel(self.config_file, usecols=[0, 1]).dropna()
+
+        # Run a quick check to make sure program exits gracefully if user makes a mistake in config
+        #  (i.e, not having necessary variables, duplicate variables etc.)
+        cfarsColList = df.Header_CFARS_Python.tolist()
+
+        # Check to see if we have additional heights
+        optional_height_names = get_optional_height_names()
+        all_cols = []
+        for cols in optional_height_names:
+            col_present = [col in cfarsColList for col in cols]
+            if not any(col_present):
+                continue
+            if (set(cols).issubset(set(cfarsColList))) == False:
+                missing = set(cols).difference(set(cfarsColList))
+                sys.exit(
+                    'You have not specified all variables for each measurement at an additional height.\n'
+                    + 'You are missing the following variables in the Header_CFARS_Python that are necessary:\n'
+                    + str(missing)
+                    + '\n Please fix and restart to run')
+            all_cols.extend(cols)
+
+        RSD_cols = [col for col in all_cols if 'RSD' in col]
+        ane_cols = [col for col in all_cols if 'Ane' in col]
+
+        # Get the height numbers of any Additional Comparison Heights
+        regexp = re.compile('[a-zA-Z_]+(?P<ht>\d+)')
+        ane_hts = [regexp.match(c) for c in ane_cols]
+        ane_hts = [c.groupdict()['ht'] for c in ane_hts if c is not None]
+        ane_hts = [int(h) for h in set(ane_hts)]
+        RSD_hts = [regexp.match(c) for c in RSD_cols]
+        RSD_hts = [c.groupdict()['ht'] for c in RSD_hts if c is not None]
+        RSD_hts = [int(h) for h in set(RSD_hts)]
+
+        # Check for Additional Comparison Heights not specified in the config file
+        missing_ane = set(ane_hts).difference(set(all_heights))
+        missing_RSD = set(RSD_hts).difference(set(all_heights))
+        missing = missing_ane.union(missing_RSD)
+        if len(missing) > 0:
+            sys.exit(
+                'You have not specified the Additional Comparison Height (m) for each height.\n'
+                + 'You are missing the following heights in the "Selection" column that are necessary:\n\n'
+                + 'Additional Comparison Height ' + str(missing) + '\n\n'
+                + 'Please fix and restart to run')
+
+        # Create dictionaries with all anemometer and RSD heights
+        # NOTE : here we assume it's okay if we don't have anemometer AND RSD data for EACH additional
+        #        comparison height
+        ane_heights = {ht: all_heights[ht] for ht in all_heights if ht in ane_hts}
+        ane_heights.update(primary=all_heights['primary'])
+        RSD_heights = {ht: all_heights[ht] for ht in all_heights if ht in RSD_hts}
+        RSD_heights.update(primary=all_heights['primary'])
+
+        # Do a final check in case there are any heights that were specified but no matching columns
+        missing = set(all_heights.values()).difference(set(RSD_heights.values()).
+                                                       union(set(ane_heights.values())))
+        if len(missing) > 0:
+            sys.exit(
+                'You have specified an Additional Comparison Height (m) that has no corresponding data columns.\n'
+                + 'The following heights in the "Selection" column have no data columns specified:\n\n'
+                + 'Additional Comparison Height ' + str(missing) + '\n\n'
+                + 'Please fix and restart to run')
+
+        return all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols
+
+
+    def get_all_heights(self, primary_height):
+        all_heights = {'primary': primary_height}
+
+        df = pd.read_excel(self.config_file, usecols=[3, 4]).dropna()
+
+        ix = ["Additional Comparison Height" in h for h in df['Site Metadata']]
+        additional_heights = df.loc[ix, :]
+        if len(additional_heights) > 0:
+            tmp = {i: additional_heights['Site Metadata'].str.contains(str(i)) for i in range(1, 5)}
+            for ht in tmp:
+                if not any(tmp[ht]):
+                    continue
+                all_heights[ht] = float(additional_heights['Selection'][tmp[ht].values])
+        return all_heights    
+
 
 
 def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type):
@@ -238,3 +378,17 @@ def check_for_extrapolations(ane_heights, RSD_heights):
             extrapolation_type = 'truth'
 
     return extrapolation_type
+
+
+def get_optional_height_names(num=4):
+    '''
+    Get list of possible column names for optional extrapolation. (of form Ane_WS_Ht1, for example)
+    :param num: number of possible Additional Comparison Heights (int)
+    :return: list of allowed names
+    '''
+    optionalData = []
+    for typ in ['Ane', 'RSD']:
+        for ht in range(1, num+1):
+            optionalData.append(["%s_%s_Ht%d" % (typ, var, ht) for var in ['WS', 'SD', 'TI']])
+    return optionalData
+
