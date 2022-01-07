@@ -31,6 +31,7 @@ from glob2 import glob
 import matplotlib.pyplot as plt
 from string import printable
 
+""" moved to TACT.readers.data
 def set_inputdataformat(config_file):
     '''
     Takes data from configuration file, and converts to a dictionary with a structure defined by the needs
@@ -85,7 +86,7 @@ def set_inputdataformat(config_file):
             sys.exit('You are missing: ' + str(missing) + 'to compare to the reference instead of RSD.\n' +
                      '\n Please fix and restart to run')
     return dict(zip(intColList, cfarsColList))
-
+"""
 
 def get_phaseiii_metadata(config_file):
     '''
@@ -217,7 +218,7 @@ def check_for_corrections(config_file):
         apply_correction = False
     return (apply_correction)
 
-
+""" moved to TACT.readers.data
 def get_inputdata(filename, config_file):
     '''
     :param filename: File containing input data
@@ -319,7 +320,7 @@ def get_refTI_bins(inputdata):
     inputdata['RefTI_bins'] = pd.cut(inputdata['RefTI_bins'], bins = L_a, labels = lab_a)
 
     return inputdata, a, lab_a
-
+"""
 
 def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type):
     """
@@ -5072,6 +5073,7 @@ def get_representative_TI_15mps(inputdata):
     results.columns = ['mean_15mps', 'std_15mps', 'Rep_TI']
     return results
 
+""" moved to TACT.readers.data
 def check_for_alphaConfig(config_file,inputdata):
     """
     checks to see if the configurations are there to compute alpha from cup
@@ -5092,6 +5094,7 @@ def check_for_alphaConfig(config_file,inputdata):
         Ht_2_rsd = None
 
     return RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd
+"""
 
 def extrap_configResult(inputdataEXTRAP, resLists, method, lm_corr, appendString = ''):
     # Temporarily fudge the names of variables so they fit with the standard functions
