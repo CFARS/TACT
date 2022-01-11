@@ -31,6 +31,7 @@ from glob2 import glob
 import matplotlib.pyplot as plt
 from string import printable
 
+""" moved to TACT.readers.data
 def set_inputdataformat(config_file):
     '''
     Takes data from configuration file, and converts to a dictionary with a structure defined by the needs
@@ -85,7 +86,7 @@ def set_inputdataformat(config_file):
             sys.exit('You are missing: ' + str(missing) + 'to compare to the reference instead of RSD.\n' +
                      '\n Please fix and restart to run')
     return dict(zip(intColList, cfarsColList))
-
+"""
 
 def get_phaseiii_metadata(config_file):
     '''
@@ -217,7 +218,7 @@ def check_for_corrections(config_file):
         apply_correction = False
     return (apply_correction)
 
-
+""" moved to TACT.readers.data
 def get_inputdata(filename, config_file):
     '''
     :param filename: File containing input data
@@ -319,7 +320,7 @@ def get_refTI_bins(inputdata):
     inputdata['RefTI_bins'] = pd.cut(inputdata['RefTI_bins'], bins = L_a, labels = lab_a)
 
     return inputdata, a, lab_a
-
+"""
 
 def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type):
     """
@@ -1412,16 +1413,13 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                 m = np.NaN
-                 c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
-                 all_test['Ane_TI_Ht3'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-
-                 ### THIS LINE IS BROKEN:
-                 results = post_correction_stats(inputdata_test_result, results, 'Ane_TI_Ht3', 'corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3')
-                 ### above ^^ 
+                m = np.NaN
+                c = np.NaN
+                TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+                all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
+                all_test['Ane_TI_Ht3'] = all_test['y_test']
+                inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+                results = post_correction_stats(inputdata_test_result, results, 'Ane_TI_Ht3', 'corrTI_RSD_TI_Ht3')
                  
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
@@ -1434,7 +1432,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht4'].copy()
             all_train = all_train.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1444,7 +1442,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
                  all_test['Ane_TI_Ht4'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     if inputdata_test_result.empty:
         inputdata_test_result = inputdata_test
@@ -5072,11 +5070,12 @@ def get_representative_TI_15mps(inputdata):
     results.columns = ['mean_15mps', 'std_15mps', 'Rep_TI']
     return results
 
+""" moved to TACT.readers.data
 def check_for_alphaConfig(config_file,inputdata):
-    """
+    '''
     checks to see if the configurations are there to compute alpha from cup
     checks to see if the configurations are there to compute alpha from RSD
-    """
+    '''
     RSD_alphaFlag = False
 
     # get list of available data columns and available ancillary data
@@ -5092,6 +5091,7 @@ def check_for_alphaConfig(config_file,inputdata):
         Ht_2_rsd = None
 
     return RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd
+"""
 
 def extrap_configResult(inputdataEXTRAP, resLists, method, lm_corr, appendString = ''):
     # Temporarily fudge the names of variables so they fit with the standard functions
@@ -6673,6 +6673,7 @@ if __name__ == '__main__':
     # set up and configuration
     # ------------------------
     from TACT.readers.config import Config
+    from TACT.readers.data import Data
 
     """parser get_input_files"""
     config = Config()
@@ -6704,10 +6705,21 @@ if __name__ == '__main__':
     extrapolation_type = config.extrapolation_type 
 
     """data object assignments"""
-    inputdata, Timestamps = get_inputdata(input_filename, config_file)
-    inputdata, a, lab_a = get_refTI_bins(inputdata)      # >> to data_file.py
-    RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
+    
+    data=Data(input_filename, config_file)
+    data.get_inputdata()
+    data.get_refTI_bins()      # >> to data_file.py
+    data.check_for_alphaConfig()
 
+    inputdata = data.inputdata
+    Timestamps = data.timestamps
+    a = data.a
+    lab_a = data.lab_a
+    RSD_alphaFlag = data.RSD_alphaFlag
+    Ht_1_rsd = data.Ht_1_rsd
+    Ht_2_rsd = data.Ht_2_rsd
+    
+    
     """
     config_object
 
