@@ -13,10 +13,10 @@ try:
     hostname = gethostname()
 
     if platform == 'win32':
-        home_dir = r"C:/{username}"
+        home_dir = f"C:/{username}"
 
     else:
-        home_dir = r"/home/{username}"
+        home_dir = f"/home/{username}"
 
     os.makedirs(os.path.join(home_dir, '.tact'), exist_ok=True)
 
