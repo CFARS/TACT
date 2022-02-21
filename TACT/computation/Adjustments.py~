@@ -26,8 +26,11 @@ class Adjustments():
     document parameters
     """
 
-    def __init__(self, adjustments):
+    def __init__(self, adjustments_list,baseResultsLists):
         self.raw_data = raw_data
+        self.adjusted_data =pd.DataFrame()
+        self.results_stats = [] # make this a dictionary of results with adjustment_list items as keys
+        
         
 
     def execute_GC_method(self):
