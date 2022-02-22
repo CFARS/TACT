@@ -5001,13 +5001,17 @@ def train_test_split(trainPercent, inputdata, stepOverride = False):
     return inputdata
 
 
-def QuickMetrics(inputdata,results_df,lm_corr_dict,testID):
+def quick_metrics(inputdata, results_df, lm_corr_dict, testID):
+    """"""
+    from TACT.computation.adjustments import Adjustments
+
+    _Adjuster = Adjustments(raw_data=inputdata)
 
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     # baseline results
-    results_ = get_all_regressions(inputdata_test,title='baselines')
+    results_ = get_all_regressions(inputdata_test, title='baselines')
     results_RSD_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ref_RSD'])].reset_index()
     results_Ane2_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ref_Ane2'])].reset_index()
     results_RSD_Ref_SD = results_.loc[results_['baselines'].isin(['SD_regression_Ref_RSD'])].reset_index()
@@ -5024,9 +5028,9 @@ def QuickMetrics(inputdata,results_df,lm_corr_dict,testID):
                             results_RSD_Ref_WS,results_Ane2_Ref_WS],axis = 0)
  
     # Run a few corrections with this timing test aswell
-    inputdata_corr, lm_corr, m, c = Adjustments.perform_SS_S_correction(inputdata.copy())
+    inputdata_corr, lm_corr, m, c = _Adjuster.perform_SS_S_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_S' )] = lm_corr
-    inputdata_corr, lm_corr, m, c = Adjustments.perform_SS_SF_correction(inputdata.copy())
+    inputdata_corr, lm_corr, m, c = _Adjuster.perform_SS_SF_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_SF' )] = lm_corr
     inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_WS-Std' )] = lm_corr
@@ -5038,7 +5042,7 @@ def QuickMetrics(inputdata,results_df,lm_corr_dict,testID):
     inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(inputdata.copy(),override)
     lm_corr_dict[str(str(testID) + ' :SS_G_SFa' )] = lm_corr
 
-    return results_df,lm_corr_dict
+    return results_df, lm_corr_dict
 
 
 def blockPrint():
@@ -5055,7 +5059,7 @@ def enablePrint():
     sys.stdout = sys.__stdout__
 
 
-def record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False):
+def record_TIadj(correctionName, inputdata_corr, Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False):
 
     if isinstance(inputdata_corr, pd.DataFrame) == False:
         pass
@@ -5068,7 +5072,9 @@ def record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAd
     return TI_10minuteAdjusted
 
 
-def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inputdata_corr, Timestamps, method, emptyclassFlag = False):
+def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inputdata_corr, 
+                            Timestamps, method, emptyclassFlag = False):
+    """"""
 
     if isinstance(inputdata_corr, pd.DataFrame) == False:
         emptyclassFlag = True
@@ -5248,8 +5254,7 @@ if __name__ == '__main__':
         - Timestamps
         - a
         - lab_a
-        - RSD_alphaFlag
-        - Ht_1_rsd
+        - R t_1_rsd
         - Ht_2_rsd
     
     """
@@ -5293,10 +5298,11 @@ if __name__ == '__main__':
         print ('Testing model generation time period sensitivity...% of data')
         TimeTestA_corrections_df = {}
         TimeTestA_baseline_df = pd.DataFrame()
+
         for s in splitList[1:]:
             print (str(str(s) + '%'))
             inputdata_test = train_test_split(s,inputdata.copy())
-            TimeTestA_baseline_df, TimeTestA_corrections_df = QuickMetrics(inputdata_test,TimeTestA_baseline_df,TimeTestA_corrections_df,str(100-s))
+            TimeTestA_baseline_df, TimeTestA_corrections_df = quick_metrics(inputdata_test, TimeTestA_baseline_df, TimeTestA_corrections_df,str(100-s))
 
         # B) incrementally Add days to training set sequentially -- check for convergence
         numberofObsinOneDay = 144
@@ -5309,7 +5315,7 @@ if __name__ == '__main__':
             print (str(str(i) + 'days'))
             windowEnd = (i+1)*(numberofObsinOneDay)
             inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [0,windowEnd])
-            TimeTestB_baseline_df, TimeTestB_corrections_df = QuickMetrics(inputdata_test,TimeTestB_baseline_df, TimeTestB_corrections_df,str(numberofDaysInTest-i))
+            TimeTestB_baseline_df, TimeTestB_corrections_df = quick_metrics(inputdata_test,TimeTestB_baseline_df, TimeTestB_corrections_df,str(numberofDaysInTest-i))
 
         # C) If experiment is greater than 3 months, slide a 6 week window (1 week step)
         if len(inputdata) > (numberofObsinOneDay*90): # check to see if experiment is greater than 3 months
@@ -5323,7 +5329,7 @@ if __name__ == '__main__':
                 windowStart += numberofObsinOneDay*7
                 windowEnd = windowStart + (numberofObsinOneDay*42)
                 inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [windowStart,windowEnd])  
-                TimeTestC_baseline_df, TimeTestC_corrections_df = QuickMetrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
+                TimeTestC_baseline_df, TimeTestC_corrections_df = quick_metrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
                                                                               str('After_' + str(windowStart) + '_' + 'Before_' + str(windowEnd)))
     else:
         TimeTestA_baseline_df = pd.DataFrame()
@@ -5446,10 +5452,10 @@ if __name__ == '__main__':
         reg_results_class5_alpha['Ane'] = get_all_regressions(inputdata_class5, title = str('alpha_stability_Ane' + 'class5'))
 
     # ------------------------
-    # TI Adjustments
+    # TI AdjuAdjustments.perform_SS_S_correctionstments
     # ------------------------
-    from TACT.computation.adjustments import *
-    
+    from TACT.computation.adjustments import Adjustments
+
     baseResultsLists = initialize_resultsLists('')
 
     # get number of observations in each bin
@@ -5519,7 +5525,7 @@ if __name__ == '__main__':
     TI_10minuteAdjusted = pd.DataFrame()
 
     # initialize Adjustments object
-    Adjustments = Adjustments(inputdata.copy(),correctionsMetadata,baseResultsLists)
+    Adjuster = Adjustments(inputdata.copy(), correctionsMetadata, baseResultsLists)
     
     for method in correctionsMetadata:
 
@@ -5531,7 +5537,7 @@ if __name__ == '__main__':
             pass
         else:
             print ('Applying Correction Method: SS-S')
-            inputdata_corr, lm_corr, m, c = Adjustments.perform_SS_S_correction(inputdata.copy())
+            inputdata_corr, lm_corr, m, c = Adjuster.perform_SS_S_correction(inputdata.copy())
             print("SS-S: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -5548,7 +5554,7 @@ if __name__ == '__main__':
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c = Adjustments.perform_SS_S_correction(item[primary_idx].copy())
+                    inputdata_corr, lm_corr, m, c = Adjuster.perform_SS_S_correction(item[primary_idx].copy())
                     print("SS-S: y = " + str(m) + " * x + " + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5565,7 +5571,7 @@ if __name__ == '__main__':
                 className = 1
                 print (str('class ' + str(className)))
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = Adjustments.perform_SS_S_correction(item.copy())
+                    iputdata_corr, lm_corr, m, c = Adjuster.perform_SS_S_correction(item.copy())
                     print ("SS-S: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5581,7 +5587,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = Adjustments.perform_SS_S_correction(item.copy())
+                    iputdata_corr, lm_corr, m, c = Adjuster.perform_SS_S_correction(item.copy())
                     print ("SS-S: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5601,7 +5607,7 @@ if __name__ == '__main__':
         else:
             print ('Applying Correction Method: SS-SF')
            # inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(inputdata.copy())
-            inputdata_corr, lm_corr, m, c = Adjustments.perform_SS_SF_correction(inputdata.copy())
+            inputdata_corr, lm_corr, m, c = Adjuster.perform_SS_SF_correction(inputdata.copy())
             print("SS-SF: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -5618,7 +5624,7 @@ if __name__ == '__main__':
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c = Adjustments.perform_SS_SF_correction(item[primary_idx].copy())
+                    inputdata_corr, lm_corr, m, c = Adjuster.perform_SS_SF_correction(item[primary_idx].copy())
                     print("SS-SF: y = " + str(m) + " * x + " + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5634,7 +5640,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = Adjustments.perform_SS_SF_correction(item.copy())
+                    iputdata_corr, lm_corr, m, c = Adjuster.perform_SS_SF_correction(item.copy())
                     print ("SS-SF: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5651,7 +5657,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = Adjustments.perform_SS_SF_correction(item.copy())
+                    iputdata_corr, lm_corr, m, c = Adjuster.perform_SS_SF_correction(item.copy())
                     print ("SS-SF: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height

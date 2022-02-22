@@ -94,7 +94,11 @@ def write_resultstofile(df, ws, r_start, c_start):
     rows = dataframe_to_rows(df)
     for r_idx, row in enumerate(rows, r_start):
         for c_idx, value in enumerate(row, c_start):
-            ws.cell(row=r_idx, column=c_idx, value=value)
+            try:
+                ws.cell(row=r_idx, column=c_idx, value=value)
+            except ValueError:
+                ws.cell(row=r_idx, column=c_idx, value=value[0])
+
 
 
 def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05mps, count_1mps_train, count_05mps_train,
