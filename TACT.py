@@ -5448,7 +5448,7 @@ if __name__ == '__main__':
     # ------------------------
     # TI Adjustments
     # ------------------------
-    from TACT.computation.Adjustments import *
+    from TACT.computation.adjustments import *
     
     baseResultsLists = initialize_resultsLists('')
 
