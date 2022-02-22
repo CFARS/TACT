@@ -5,12 +5,14 @@ CONFIG=Example/configuration_example_project.xlsx
 OUTFILE=test/test_output.xlsx
 TIOUTFILE=test/TI_10minuteAdjusted_test_output.csv
 
+REMOVEFILES=0
+
 source venv/bin/activate
 pip install -e .
 python3 TACT.py -in $INFILE -config $CONFIG -res $OUTFILE --timetestFlag
 deactivate
 
-if [ -f $OUTFILE ]; 
+if [ -f $OUTFILE ] && [ $REMOVEFILES -eq 1 ]; 
 then
     rm $OUTFILE
 else
@@ -18,7 +20,7 @@ else
     exit 1
 fi
 
-if [ -f $TIOUTFILE ];
+if [ -f $TIOUTFILE ] && [ $REMOVEFILES -eq 1];
 then
     rm $TIOUTFILE
 else
