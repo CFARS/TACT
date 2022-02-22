@@ -1,9 +1,9 @@
-*env/
-*.ipynb_checkpoints/
 *__pycache__/
 *.egg-info/
-
-.vscode/
+*.ipynb_checkpoints/
+*.vscode/
+*env/
+*venv/
 
 *.~lock*
 *.csv
