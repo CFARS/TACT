@@ -5,32 +5,52 @@ CONFIG=Example/configuration_example_project.xlsx
 OUTFILE=test/test_output.xlsx
 TIOUTFILE=test/TI_10minuteAdjusted_test_output.csv
 
-REMOVEFILES=0
-
 source venv/bin/activate
 pip install -e .
 python3 TACT.py -in $INFILE -config $CONFIG -res $OUTFILE --timetestFlag
 deactivate
 
-if [ -f $OUTFILE ] && [ $REMOVEFILES -eq 1 ]; 
+# check outputs
+
+if [ "$1" -eq "keep" ] || [ "$1" -eq "0" ];
 then
-    rm $OUTFILE
+    REMOVEFILES=0
 else
-    printf "ERROR: $OUTFILE not created! Exiting\n"
-    exit 1
+    REMOVEFILES=1
 fi
 
-if [ -f $TIOUTFILE ] && [ $REMOVEFILES -eq 1];
+if [ $REMOVEFILES -eq 1 ]; 
 then
-    rm $TIOUTFILE
-else
-    printf "ERROR: $TIOUTFILE not created! Exiting\n"
-    exit 2
-fi
+    if [ -f $OUTFILE ];
+    then
+        rm $OUTFILE
+    else
+        printf "ERROR: $OUTFILE not created! Exiting\n"
+        exit 1
+    fi
 
-if [ $REMOVEFILES -eq 1 ];
-then
+    if [ -f $TIOUTFILE ];
+    then    
+        rm $TIOUTFILE
+    else 
+        printf "ERROR: $TIOUTFILE not created! Exiting\n"
+        exit 2
+    fi
+
     printf "INFO: example_data_test passed!\n"
+
 else
-    printf "Files created, review to ensure all tests passed\n"
+    if [ -f $OUTFILE ];
+    then
+        printf "$OUTFILE created\n"
+    else
+        printf "$OUTFILE NOT created\n"
+    fi
+
+    if [ -f $TIOUTFILE ];
+    then    
+        printf "$TIOUTFILE created"
+    else
+        printf "$TIOUTFILE created"
+    fi
 fi
