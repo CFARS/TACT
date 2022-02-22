@@ -28,4 +28,9 @@ else
     exit 2
 fi
 
-printf "INFO: example_data_test passed!\n"
+if [ $REMOVEFILES -eq 1 ];
+then
+    printf "INFO: example_data_test passed!\n"
+else
+    printf "Files created, review to ensure all tests passed\n"
+fi

@@ -5,6 +5,8 @@
 
 .vscode/
 
+*.~lock*
+*.csv
 *.db
 *.DS_Store
 *.env
@@ -15,9 +17,17 @@
 *.pdf
 *.pkl
 *.py~
+*.swo
 *.swp
 *.txt
+*.xlsx
 *.zip
 
 !.gitignore
 !dev_notebook.ipynb
+!CFARS*.pdf
+!Column_Key.xlsx
+!Configuration_template.xlsx
+!Example/*csv
+!Example/*xlsx
+!UserGuide.pdf
