@@ -12,14 +12,14 @@ deactivate
 
 # check outputs
 
-if [ "$1" -eq "keep" ] || [ "$1" -eq "0" ];
+if [ "$1" == "keep" ];
 then
     REMOVEFILES=0
 else
     REMOVEFILES=1
 fi
 
-if [ $REMOVEFILES -eq 1 ]; 
+if [ $REMOVEFILES == 1 ]; 
 then
     if [ -f $OUTFILE ];
     then
@@ -49,8 +49,8 @@ else
 
     if [ -f $TIOUTFILE ];
     then    
-        printf "$TIOUTFILE created"
+        printf "$TIOUTFILE created\n"
     else
-        printf "$TIOUTFILE created"
+        printf "$TIOUTFILE created\n"
     fi
 fi
