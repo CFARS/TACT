@@ -7,6 +7,7 @@ from future.utils import itervalues, iteritems
 import os
 import pandas as pd
 import re
+import sys
 
 
 class Config(object):
@@ -49,9 +50,6 @@ class Config(object):
         TBD
     adjustments_metadata :
         TBD
-        
-    
-        
     """
 
     def __init__(self, input_filename='', config_file='', rtd_files='', 

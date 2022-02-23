@@ -10,6 +10,10 @@ python TACT.py -in /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/518Tower_Windcu
 python phase3_implementation_noNDA.py -in /Users/aearntsen/cfarsMaster/cfarsMASTER/CFARSPhase3/test/NRG_canyonCFARS_data.csv -config /Users/aearntsen/cfarsMaster/CFARSPhase3/test/Configuration_template_phase3_NRG_ZX.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMaster/CFARSPhase3/test/out.xlsx --timetestFlag
 
 """
+try:
+    from TACT import logger
+except ImportError:
+    pass
 
 import pandas as pd
 import numpy as np
@@ -465,7 +469,7 @@ def get_modelRegression(inputdata, column1, column2, fit_intercept=True):
     return results
 
 
-def get_all_regressions(inputdata,title = None):
+def get_all_regressions(inputdata, title=None):
     # get the ws regression results for all the col required pairs. Title is the name of subset of data being evaluated
     # Note the order in input to regression function. x is reference.
 
@@ -475,8 +479,10 @@ def get_all_regressions(inputdata,title = None):
     if len(inputdata) < 2:
         lenFlag = True
 
-    results = pd.DataFrame(columns=[title,'m', 'c', 'rsquared', 'mean difference', 'mse', 'rmse'])
+    results = pd.DataFrame(columns=[title, 'm', 'c', 'rsquared', 'mean difference', 'mse', 'rmse'])
     
+    logger.debug(f"getting regr for {title}")
+
     for p in pairList:
         res_name = str(p[0].split('_')[1] + '_regression_' + p[0].split('_')[0] + '_' + p[1].split('_')[0])
         
@@ -488,6 +494,21 @@ def get_all_regressions(inputdata,title = None):
             results = results.append({title:res_name}, ignore_index = True)
             results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
             
+    # DRC >> method to eliminate pandas futurewarning in console. unfortunately, breaks file write.
+    # for p in pairList:
+    #     res_name = str(p[0].split('_')[1] + '_regression_' + p[0].split('_')[0] + '_' + p[1].split('_')[0])
+        
+    #     if p[1] in inputdata.columns and lenFlag == False:
+    #         results_regr = get_regression(inputdata[p[0]], inputdata[p[1]])
+
+    #     else:
+    #         results_regr = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
+            
+    #     logger.debug(f"results_regr: {results_regr}")
+    #     results = pd.concat([results, pd.DataFrame(results_regr)], ignore_index=True)
+
+    logger.debug(results)
+
     # labels not required
     labelsExtra = ['RSD_SD_Ht1','RSD_TI_Ht1', 'RSD_WS_Ht1','RSD_SD_Ht2', 'RSD_TI_Ht2',
                    'RSD_WS_Ht2', 'RSD_SD_Ht3', 'RSD_TI_Ht3', 'RSD_WS_Ht3',
@@ -508,6 +529,9 @@ def get_all_regressions(inputdata,title = None):
             res_name = res_name + parts[2] + '_' + ref_type[0].split('_')[0] + ref_type[0].split('_')[2]
         else:
             res_name = res_name + '_Ref'
+        
+        logger.debug(res_name)
+
         if l in inputdata.columns and lenFlag == False:
             res = get_regression(inputdata[ref_type[0]],inputdata[l])
             results = results.append({title:res_name}, ignore_index = True)
@@ -515,6 +539,38 @@ def get_all_regressions(inputdata,title = None):
         else:
             results = results.append({title:res_name}, ignore_index = True)
             results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
+
+# DRC >> method to eliminate pandas futurewarning in console. unfortunately, breaks file write.
+#    for l in labelsExtra:
+
+#        parts = l.split('_')
+#        reg_type = list(set(parts).intersection(['WS', 'TI', 'SD']))
+
+#        if 'RSD' in l:
+#            ht_type = parts[2]
+#            ref_type = [s for s in labelsAne if reg_type[0] in s]
+#            ref_type = [s for s in ref_type if ht_type in s]
+
+#        res_name = str(reg_type[0] + '_regression_' + parts[0])
+
+#        if 'Ht' in parts[2]:
+#            res_name = res_name + parts[2] + '_' + ref_type[0].split('_')[0] + ref_type[0].split('_')[2]
+
+#        else:
+#            res_name = res_name + '_Ref'
+
+#        logger.debug(res_name)
+
+#        if l in inputdata.columns and lenFlag == False:
+#            res = get_regression(inputdata[ref_type[0]],inputdata[l])
+
+#        else:
+#            res = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
+
+#        logger.debug(res)
+#        results = pd.concat([results, pd.DataFrame(res)], ignore_index=True)
+
+    logger.debug(results)
 
     return results
 

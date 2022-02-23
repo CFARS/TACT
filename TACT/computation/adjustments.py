@@ -3,23 +3,19 @@
 TACT Adjustments
 
 """
-import os
-import datetime as dt
+try:
+    from TACT import logger
+except ImportError:
+    pass
 import pandas as pd
 import sys
 import matplotlib.pyplot as plt
 plt.ioff()  # setting to non-interactive
-import seaborn as sns
-from dateutil import parser
 import numpy as np
-from pathlib import Path
 import sys
-import math
-
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
-from sklearn import linear_model
 
 
 class Adjustments():
@@ -41,23 +37,39 @@ class Adjustments():
         df['x'] = x
         df['y'] = y
         df = df.dropna()
+
+        feature_name = "x"
+        target_name = "y"
+
+        data, target = df[[feature_name]], df[target_name]
+
         if len(df) > 1:
-            x = df['x']
-            y = df['y']
-            x = x.astype(float)
-            y = y.astype(float)
-            lm = linear_model.LinearRegression()
-            lm.fit(x.to_frame(), y.to_frame())
-            result = [lm.coef_[0][0], lm.intercept_[0]]         #slope and intercept?
-            result.append(lm.score(x.to_frame(), y.to_frame())) #r score?
-            result.append(abs((x - y).mean()))                  # mean diff?
-            x = x.to_numpy().reshape(len(x), 1)
-            y = y.to_numpy().reshape(len(y), 1)
-            predict = lm.predict(x)
-            mse = mean_squared_error(y, predict, multioutput='raw_values')
+
+            x = df['x'].astype(float)
+            y = df['y'].astype(float)
+ 
+            # lm.fit(x.to_frame(), y.to_frame())
+            # result = [lm.coef_[0][0], lm.intercept_[0]]         #slope and intercept?
+            # result.append(lm.score(x.to_frame(), y.to_frame())) #r score?
+            # result.append(abs((x - y).mean()))                  # mean diff?
+            # x = x.to_numpy().reshape(len(x), 1)
+            # y = y.to_numpy().reshape(len(y), 1)
+            # predict = lm.predict(x)
+            # mse = mean_squared_error(y, predict, multioutput='raw_values')
+
+            lm = LinearRegression()
+            lm.fit(data, target)
+            predict = lm.predict(data)
+
+            result = [lm.coef_[0], lm.intercept_]         #slope and intercept?
+            result.append(lm.score(data, target))         #r score?
+            result.append(abs((x - y).mean()))            # mean diff?
+
+            mse = mean_squared_error(target, predict, multioutput='raw_values')
             rmse = np.sqrt(mse)
             result.append(mse[0])
             result.append(rmse[0])
+
         else:
             result = [None, None, None, None, None, None]
         # results order: m, c, r2, mean difference, mse, rmse
@@ -230,11 +242,11 @@ class Adjustments():
             full = full.dropna()
 
             if len(full) < 2:
-                results = self.post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI',)
+                results = self.post_correction_stats([None], results, 'Ref_TI','corrTI_RSD_TI',)
                 m = np.NaN
                 c = np.NaN
             else:
-                model = self.get_regression(filtered_RSD_TI,filtered_Ref_TI)
+                model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
                 m = model[0]
                 c = model[1]
                 RSD_TI = inputdata_test['RSD_TI'].copy()
