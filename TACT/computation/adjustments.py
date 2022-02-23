@@ -24,7 +24,7 @@ class Adjustments():
     document parameters
     """
 
-    def __init__(self, raw_data, adjustments_list='' ,baseResultsLists=''):
+    def __init__(self, raw_data='', adjustments_list='' ,baseResultsLists=''):
         self.raw_data = raw_data
         self.adjusted_data =pd.DataFrame()
         self.results_stats = [] # make this a dictionary of results with adjustment_list items as keys
@@ -48,15 +48,6 @@ class Adjustments():
             x = df['x'].astype(float)
             y = df['y'].astype(float)
  
-            # lm.fit(x.to_frame(), y.to_frame())
-            # result = [lm.coef_[0][0], lm.intercept_[0]]         #slope and intercept?
-            # result.append(lm.score(x.to_frame(), y.to_frame())) #r score?
-            # result.append(abs((x - y).mean()))                  # mean diff?
-            # x = x.to_numpy().reshape(len(x), 1)
-            # y = y.to_numpy().reshape(len(y), 1)
-            # predict = lm.predict(x)
-            # mse = mean_squared_error(y, predict, multioutput='raw_values')
-
             lm = LinearRegression()
             lm.fit(data, target)
             predict = lm.predict(data)
@@ -72,7 +63,10 @@ class Adjustments():
 
         else:
             result = [None, None, None, None, None, None]
+            result = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
         # results order: m, c, r2, mean difference, mse, rmse
+
+        logger.debug(result)
 
         return result
 

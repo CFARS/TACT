@@ -49,8 +49,8 @@ else
 
     if [ -f $TIOUTFILE ];
     then    
-        printf "$TIOUTFILE created"
+        printf "$TIOUTFILE created\n"
     else
-        printf "$TIOUTFILE created"
+        printf "$TIOUTFILE created\n"
     fi
 fi
