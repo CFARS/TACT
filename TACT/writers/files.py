@@ -308,7 +308,13 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
     a.cell(row=rowNumber+1, column=1, value='End Timestamp')
     a.cell(row=rowNumber+1, column=2, value=str(Timestamps[-1]))
     a.cell(row=rowNumber+1, column=4, value='End Timestamp (Train)')
-    a.cell(row=rowNumber+1, column=5, value=str(timestamp_train[0]))
+
+    try:
+        timestamp_train_ts = str(timestamp_test[-1])
+    except:
+        timestamp_train_ts = np.nan
+    
+    a.cell(row=rowNumber+1, column=5, value=timestamp_train_ts)
     a.cell(row=rowNumber+1, column=7, value='End Timestamp (Test)')
     a.cell(row=rowNumber+1, column=8, value=timestamp_minus1)
     rowNumber +=3
