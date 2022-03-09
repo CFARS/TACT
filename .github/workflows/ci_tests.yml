@@ -20,4 +20,4 @@ jobs:
         with:
           python-version: 3.6
       - name: Run bash test script
-        run: ./test/example_test_data.sh
+        run: ./test/example_data_test.sh
