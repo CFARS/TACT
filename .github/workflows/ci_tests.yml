@@ -4,7 +4,6 @@ on:
     branches:
       - development
       - master
-      - drc_07-add-github-actions
   pull_request:
     branches:
       - development
