@@ -10,7 +10,12 @@ python TACT.py -in /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/518Tower_Windcu
 python phase3_implementation_noNDA.py -in /Users/aearntsen/cfarsMaster/cfarsMASTER/CFARSPhase3/test/NRG_canyonCFARS_data.csv -config /Users/aearntsen/cfarsMaster/CFARSPhase3/test/Configuration_template_phase3_NRG_ZX.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMaster/CFARSPhase3/test/out.xlsx --timetestFlag
 
 """
+try:
+    from TACT import logger
+except ImportError:
+    pass
 
+from TACT.computation.adjustments import Adjustments
 import pandas as pd
 import numpy as np
 import sys
@@ -21,8 +26,8 @@ import re
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 import warnings
+
 import os
-from future.utils import itervalues, iteritems
 import math
 import datetime
 from future.utils import itervalues, iteritems
@@ -32,372 +37,6 @@ from glob2 import glob
 import matplotlib.pyplot as plt
 from string import printable
 
-def set_inputdataformat(config_file):
-    '''
-    Takes data from configuration file, and converts to a dictionary with a structure defined by the needs
-    of CFARS
-    :param config_file: input configuration file
-    :return: dictionary of data
-    '''
-    
-    df = pd.read_excel(config_file, usecols=[0, 1]).dropna()
-
-    df = df[((df['Header_YourData'] != 'RSD_model') &
-             (df['Header_YourData'] != 'height_meters') &
-             [re.search("correction", val) is None for val in df.Header_YourData])]
-
-    # Run a quick check to make sure program exits gracefully if user makes a mistake in config
-    #  (i.e, not having necessary variables, duplicate variables etc.)
-    intColList = df.Header_YourData.tolist()
-    # look for degrees symbol and remove it
-    for item in intColList:
-        if set(item).difference(printable):
-            filtered_string = ''.join(filter(lambda x: x in printable, item))
-            intColList = [filtered_string if x==item else x for x in intColList]
-        else:
-            pass
-    cfarsColList = df.Header_CFARS_Python.tolist()
-
-    if len(intColList) != len(set(intColList)):
-        sys.exit(
-            'Looks like you have duplicate variables in the "Header_YourData" portion of the table, please correct and run again')
-
-    if len(cfarsColList) != len(set(cfarsColList)):
-        sys.exit(
-            'Looks like you have duplicate variables in the "Header_CFARS_Python" portion of the table, please correct and run again')
-
-    # Run another quick check to ensure data fields that are necessary for analysis are entered. We MUST have reference
-    requiredData = ['Ref_TI', 'Ref_WS', 'Ref_SD', 'Timestamp']
-    if (set(requiredData).issubset(set(cfarsColList))) == False:
-        missing = set(requiredData).difference(set(cfarsColList))
-        sys.exit(
-            'You are missing the following variables in the Header_CFARS_Python that are necessary:\n' + str(missing) +
-            '\n Please fix and restart to run')
-    # Check to see if we have an RSD to compare with
-    requiredData = ['RSD_TI', 'Ref_TI', 'RSD_WS', 'Ref_WS', 'Timestamp', 'Ref_SD']
-    if (set(requiredData).issubset(set(cfarsColList))) == False:
-        missing = set(requiredData).difference(set(cfarsColList))
-        print('You are unable to apply all RSD correction methods, skipping RSD corrections due to missing:\n' + str(
-            missing) +
-              '\n Please fix in order to run correction methods')
-        requiredData = ['Ane2_TI', 'Ane2_WS', 'Ane2_SD']
-        if (set(requiredData).issubset(set(cfarsColList))) == False:
-            missing = set(requiredData).difference(set(cfarsColList))
-            sys.exit('You are missing: ' + str(missing) + 'to compare to the reference instead of RSD.\n' +
-                     '\n Please fix and restart to run')
-    return dict(zip(intColList, cfarsColList))
-
-
-def get_phaseiii_metadata(config_file):
-    '''
-    :param config_file: Input configuration file
-    :return: metadata containing information about model used for correction, height of correction
-    '''
-    df = pd.read_excel(config_file, usecols=[3, 4]).dropna()
-    try:
-        model = df.Selection[df['Site Metadata'] == 'RSD Type:'].values[0]
-    except:
-        print('No Model Listed. Model coded as "unknown"')
-        model = "unknown"
-
-    try:
-        height = df.Selection[df['Site Metadata'] ==  'Primary Comparison Height (m):'].values[0]
-    except:
-        print('No height listed. Height coded as "unknown"')
-        height = "unknown"
-
-    return model, height
-
-
-def get_SiteMetadata(config_file):
-    '''
-    :param config_file: Input configuration file
-    :return: metadata containing information about site
-    '''
-    if isinstance(config_file,pd.DataFrame):
-        siteMetadata = config_file
-    else:
-        siteMetadata = pd.read_excel(config_file, usecols=[3, 4, 5], nrows=20)
-    return (siteMetadata)
-
-def get_FilteringMetadata(config_file):
-    '''
-    :param config_file: Input configuration file
-    :return: metadata containing information about filtering applied to data
-    '''
-    configMetadata = pd.read_excel(config_file, usecols=[7, 8, 9], nrows=8)
-    return (configMetadata)
-
-def get_CorrectionsMetadata(config_file, globalModel):
-    '''
-    :param config_file: Input configuration file, name of globalModel tested
-    :return: metadata containing information about which corrections will be applied
-             to this data set and why
-    '''
-    # get list of available data columns and available ancillary data
-    availableData = pd.read_excel(config_file, usecols=[1],nrows=1000).dropna()['Header_CFARS_Python'].to_list()
-    # check for .rtd files
-    rtd = False
-    mainPath = os.path.split(config_file)[0]
-    if os.path.isdir(os.path.join(mainPath,'rtd_files')):
-        rtd = True
-    # read height data
-    availableHtData = [s for s in availableData if 'Ht' in s]
-    configHtData = pd.read_excel(config_file, usecols=[3, 4], nrows=17).iloc[[3,12,13,14,15]]
-    primaryHeight = configHtData['Selection'].to_list()[0]
-    # read RSD Type
-    RSDtype = pd.read_excel(config_file, usecols=[4], nrows=8).iloc[6]
-    # read NDA status
-    ndaStatus = pd.read_excel(config_file, usecols=[12], nrows=3).iloc[1]
-    # check argument that specifies global model
-    globalModel = globalModel
-    # check ability to compute extrapolated TI
-    all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = check_for_additional_heights(config_file, primaryHeight)
-    extrapolation_type = check_for_extrapolations(ane_heights, RSD_heights)
-    if extrapolation_type is not None:
-        extrap_metadata = get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type)
-    else:
-        extrap_metadata = pd.DataFrame([['extrapolation type', 'None',
-                                         "No extrapolation due to insufficient anemometer heights"]],
-                                       columns=['Type', 'Height (m)', 'Comparison Height Number'])
-
-    # Make dictionary of potential methods, Note: SS-LTERRA-WC-1HZ, G-LTERRA-WC-1HZ, and G-Std are windcube only (but we want to test on zx) so they are false until we know sensor
-    correctionsManager = {'SS-SF':True,'SS-S':True,'SS-SS':True,'SS-Match2':True,'SS-WS':True,'SS-WS-Std':True,
-                          'SS-LTERRA-WC-1HZ':False,'SS-LTERRA-MLa':True,'SS-LTERRA-MLb':True,'SS-LTERRA-MLc':True,'TI-Extrap':False,
-                          'G-Sa':True,'G-SFa':True,'G-Sc':True,'G-SFc':True,'G-Std':False,'G-Match':True,'G-Ref-S':True,
-                          'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True}
-    # input data checking
-    subset = ['Ref_TI','RSD_TI']
-    result = all(elem in availableData for elem in subset)
-    if result:
-        pass
-    else:
-        if RSDtype['Selection']!='No RSD':
-            print('Error encountered. Input data does not, but should have TI from reference and/or TI from RSD')
-            sys.exit()
-        else:
-            subset2 = ['Ref_TI','Ane2_TI']
-            result2 = all(elem in availableData for elem in subset2)
-            if result2:
-                pass
-            else:
-                print('Error encountered. Input data does not have enough TI data (second Anemometer) to compare. Check input and config')
-                sys.exit()
-
-    # enable methods
-    if RSDtype['Selection'][0:4] == 'Wind': # if rsd is windcube
-        correctionsManager['G-C']=True
-        if rtd_files == False:
-            print ('Rtd file location not specified. Not running 1Hz adjustment. To change this behavior, use argument -rtd_files')
-        else:
-            correctionsManager['SS-LTERRA-WC-1HZ']=True
-            correctionsManager['G-LTERRA-WC-1HZ'] = True
-    subset3 = ['RSD_SD']
-    result3 = all(elem in availableData for elem in subset3)
-    if result3:
-        pass
-    else:
-        print ('Error encountered. Input data does not include RSD standard deviation and cannot utilize some corrections methods. Please modify input data to include standard deviation.')
-        sys.exit()
-
-    if extrapolation_type is not None:
-        correctionsManager['TI-Extrap']=True
-        correctionsManager['Name global model'] = globalModel
-
-    correctionsMetadata = correctionsManager
-    return (correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type)
-
-def check_for_corrections(config_file):
-    apply_correction = True
-    colLabels = pd.read_excel(config_file, usecols=[0, 1])
-    colLabels = list(colLabels.dropna()['Header_CFARS_Python'])
-    rsd_cols = [s for s in colLabels if 'RSD' in s]
-    requiredData = ['RSD_TI', 'RSD_WS']
-    if (set(requiredData).issubset(set(rsd_cols))) == False:
-        apply_correction = False
-    return (apply_correction)
-
-
-def get_inputdata(filename, config_file):
-    '''
-    :param filename: File containing input data
-    :param config_file: Configuration file
-    :return: input data dataframe
-    '''
-
-    if filename.split('.')[-1] == 'csv':
-        inputdata = pd.read_csv(filename)
-    elif filename.split('.')[-1] == 'xlsx':
-        inputdata = pd.read_excel(filename)
-    else:
-        print('Unkown input file type for the input data , please consider changing it to csv')
-        sys.exit()
-    try:
-        rename_cols = set_inputdataformat(config_file)
-    except Exception as e:
-        print('There is an error in the configuration file')
-        sys.exit()
-
-    # Look for degrees symbols delete it from input data dir columns, or any non-printable character
-    ColList = inputdata.columns.tolist()
-    for item in ColList:
-        if set(item).difference(printable):
-            filtered_string = ''.join(filter(lambda x: x in printable, item))
-            ColList = [filtered_string if x==item else x for x in ColList]
-        else:
-            pass
-    # rename input columns to standardized columns
-    inputdata.columns = ColList
-    inputdata = inputdata.rename(index=str, columns=rename_cols)
-    keepCols = list(rename_cols.values())
-    delCols = [x for x in inputdata.columns.to_list() if x not in keepCols]
-    inputdata = inputdata.drop(columns=delCols)
-
-    if inputdata.empty == True:
-        print ('Error no data to analyze. Inputdata dataframe is empty. Check input data.')
-        sys.exit()
-    Timestamps = inputdata['Timestamp']
-
-    # Get Hour from timestamp and add as column
-    Timestamps_dt = pd.to_datetime(Timestamps)
-
-    def hr_func(ts):
-        h = ts.hour
-        m = ts.minute/60        
-        return h+m
-
-    if 'Hour' in inputdata.columns.to_list():
-        pass
-    else:
-        Hour = Timestamps_dt.apply(hr_func)
-        inputdata['Hour'] = Hour
-
-    # drop timestamp colum from inputdata data frame, replace any 9999 cells with NaN's
-    inputdata = inputdata.drop('Timestamp', 1).replace(9999, np.NaN)
-    
-    # flag any non-numeric data rows to the user
-    nonNumericData_rows = inputdata[~inputdata.applymap(np.isreal).all(1)]
-    if len(nonNumericData_rows) > 0:
-        print ('Error encountered. Input data contains non numeric values, please handle this in input data before running the tool.')
-        sys.exit()
-
-    # make sure we have a TI column
-    if 'RSD_TI' in inputdata.columns.to_list():
-        pass
-    else:
-        if 'RSD_SD' in inputdata.columns.to_list():
-            inputdata['RSD_TI'] = inputdata['RSD_SD']/inputdata['RSD_WS']
-        else:
-            print ('ERROR: input data does not have an RSD_TI column or an RSD_SD column. Please fix input data')
-            sys.exit()
-        
-    # Representative TI by bin (Representative TI = TI * 1.28 TI Std. Dev.) (Characteristic TI = TI * 1 TI Std. Dev.)
-
-    inputdata['bins'] = inputdata['Ref_WS'].round(0)  # this acts as bin because the bin defination is between the two half integer values
-    bins_p5_interval = pd.interval_range(start=.25, end=20, freq=.5, closed='left')  # this is creating a interval range of .5 starting at .25
-    out = pd.cut(x=inputdata['Ref_WS'], bins=bins_p5_interval)
-
-    # create bin p5 category for each observation
-    inputdata['bins_p5'] = out.apply(lambda x: x.mid)  # the middle of the interval is used as a catagorical label
-
-    inputdata = inputdata[inputdata['Ref_TI'] != 0]  # we can only analyze where the ref_TI is not 0
-
-    return inputdata, Timestamps
-
-def get_refTI_bins(inputdata):
-    '''
-    create column to group data by ref TI
-    '''
-
-    inputdata['RefTI_bins'] = inputdata['Ref_TI']
-    b = inputdata['RefTI_bins']
-    a = np.linspace(0,1.0,40)
-    a = [round(i,3) for i in a]
-    lab_a = [(a + b) / 2 for a, b in zip(a,a[1:])]
-    lab_a = [round(a,3) for a in lab_a]
-    L_a = len(lab_a)
-    inputdata['RefTI_bins'] = pd.cut(inputdata['RefTI_bins'], bins = L_a, labels = lab_a)
-
-    return inputdata, a, lab_a
-
-
-def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type):
-    """
-    get metadata for TI extrapolation
-    :param ane_heights: dictionary of height labels and values for anemometers
-    :param RSD_heights: dictionary of height labels and values for RSD
-    :param extrapolation_type: str to decide what type of extrapolation to perform
-    :return extrap_metadata: DataFrame with metadata required for TI extrapolation
-    """
-    unique_ane_hts = set(ane_heights.values()).difference(set(['unknown']))
-    unique_RSD_hts = set(RSD_heights.values()).difference(set(['unknown']))
-    overlapping_hts = unique_ane_hts.intersection(unique_RSD_hts)
-
-    # Get extrapolation height and number/label
-    if extrapolation_type == 'simple':
-        # At least two anemometer heights exist, but no "truth" measurement at extrapolated height
-        extrap_height = max(unique_RSD_hts)
-    elif extrapolation_type == 'truth':
-        # At least three anemometer heights exist, one of which is the same as RSD at extrap ht
-        extrap_height = max(overlapping_hts)
-    extrap_height_num = [num for num, ht in iteritems(RSD_heights) if ht == extrap_height][0]
-
-    # Get anemometer heights and numbers/labels
-    ane_hts_input_num = [num for num, ht in iteritems(ane_heights)
-                         if ht in unique_ane_hts.difference(set([extrap_height]))]
-    ane_hts_input = [ane_heights[num] for num in ane_hts_input_num]
-
-    # Combine into DataFrame
-    extrap_metadata = pd.DataFrame({'height': ane_hts_input, 'num': ane_hts_input_num})
-    extrap_metadata['type'] = 'input'
-    extrap_metadata = extrap_metadata.append(
-        pd.DataFrame([[extrap_height, extrap_height_num, 'extrap']],
-                     columns=extrap_metadata.columns),
-        ignore_index=True)
-    extrap_metadata = extrap_metadata.loc[:, ['type', 'height', 'num']]
-
-    return extrap_metadata
-
-
-def check_for_extrapolations(ane_heights, RSD_heights):
-    """
-    Check if columns are specified for other anemometer heights, and extract the column names.
-    :param ane_heights: dictionary of height labels and values for anemometers
-    :param RSD_heights: dictionary of height labels and values for RSD
-    :return extrapolation_type: None or str to decide what type of extrapolation to perform
-    Notes on what we need for extrapolation analysis
-    """
-    unique_ane_hts = set(ane_heights.values()).difference(set(['unknown']))
-    unique_RSD_hts = set(RSD_heights.values()).difference(set(['unknown']))
-    overlapping_hts = unique_ane_hts.intersection(unique_RSD_hts)
-
-    extrapolation_type = None
-    if len(unique_ane_hts) == 2 and (max(unique_RSD_hts) > max(unique_ane_hts)):
-        print ('simple')
-        extrapolation_type = 'simple'
-    elif len(unique_ane_hts) > 2:
-        # We still need at least two ane heights that are lower than one RSD height
-        tmp = [sum([ht > a for a in unique_ane_hts]) >= 2 for ht in unique_RSD_hts]
-        if any(tmp):
-            extrapolation_type = 'simple'
-        # Otherwise we can have two ane heights that are lower than one overlapping height
-        tmp = [sum([ht > a for a in unique_ane_hts]) >= 2 for ht in overlapping_hts]
-        if any(tmp):
-            extrapolation_type = 'truth'
-
-    return extrapolation_type
-
-def get_optional_height_names(num=4):
-    """
-    Get list of possible column names for optional extrapolation. (of form Ane_WS_Ht1, for example)
-    :param num: number of possible Additional Comparison Heights (int)
-    :return: list of allowed names
-    """
-    optionalData = []
-    for typ in ['Ane', 'RSD']:
-        for ht in range(1, num+1):
-            optionalData.append(["%s_%s_Ht%d" % (typ, var, ht) for var in ['WS', 'SD', 'TI']])
-    return optionalData
 
 def get_shear_exponent(inputdata, extrap_metadata, height):
     """
@@ -439,6 +78,7 @@ def get_shear_exponent(inputdata, extrap_metadata, height):
    # shear = reg_extrap['m']
 
     return shearTimeseries
+
 
 def hist_match(inputdata_train, inputdata_test, refCol, testCol):
 
@@ -500,6 +140,7 @@ def hist_match(inputdata_train, inputdata_test, refCol, testCol):
 
     return output_res
 
+
 def get_extrap_col_and_ht(height, num, primary_height, sensor='Ane', var='WS'):
     """
     Determine name of column and height to use for extrapolation purposes
@@ -523,132 +164,6 @@ def get_extrap_col_and_ht(height, num, primary_height, sensor='Ane', var='WS'):
 
     return col_name, height
 
-def get_all_heights(config_file, primary_height):
-    all_heights = {'primary': primary_height}
-
-    df = pd.read_excel(config_file, usecols=[3, 4]).dropna()
-
-    ix = ["Additional Comparison Height" in h for h in df['Site Metadata']]
-    additional_heights = df.loc[ix, :]
-    if len(additional_heights) > 0:
-        tmp = {i: additional_heights['Site Metadata'].str.contains(str(i)) for i in range(1, 5)}
-        for ht in tmp:
-            if not any(tmp[ht]):
-                continue
-            all_heights[ht] = float(additional_heights['Selection'][tmp[ht].values])
-    return all_heights
-
-
-def check_for_additional_heights(config_file, height):
-    """
-    Check if columns are specified for other heights, and extract the column names.
-    :param config_file: Input configuration file
-    :param height: Primary comparison height (m)
-    :return all_heights: dictionary of all height labels and values
-    :return ane_heights: dictionary of height labels and values for anemometers
-    :return RSD_heights: dictionary of height labels and values for RSD
-    :return ane_cols: list of column names corresponding to additional anemometer heights
-    :return RSD_cols: list of column names corresponding to additional RSD heights
-    """
-    # Get dictionary of all heights
-    all_heights = get_all_heights(config_file, height)
-
-    df = pd.read_excel(config_file, usecols=[0, 1]).dropna()
-
-    # Run a quick check to make sure program exits gracefully if user makes a mistake in config
-    #  (i.e, not having necessary variables, duplicate variables etc.)
-    cfarsColList = df.Header_CFARS_Python.tolist()
-
-    # Check to see if we have additional heights
-    optional_height_names = get_optional_height_names()
-    all_cols = []
-    for cols in optional_height_names:
-        col_present = [col in cfarsColList for col in cols]
-        if not any(col_present):
-            continue
-        if (set(cols).issubset(set(cfarsColList))) == False:
-            missing = set(cols).difference(set(cfarsColList))
-            sys.exit(
-                'You have not specified all variables for each measurement at an additional height.\n'
-                + 'You are missing the following variables in the Header_CFARS_Python that are necessary:\n'
-                + str(missing)
-                + '\n Please fix and restart to run')
-        all_cols.extend(cols)
-
-    RSD_cols = [col for col in all_cols if 'RSD' in col]
-    ane_cols = [col for col in all_cols if 'Ane' in col]
-
-    # Get the height numbers of any Additional Comparison Heights
-    regexp = re.compile('[a-zA-Z_]+(?P<ht>\d+)')
-    ane_hts = [regexp.match(c) for c in ane_cols]
-    ane_hts = [c.groupdict()['ht'] for c in ane_hts if c is not None]
-    ane_hts = [int(h) for h in set(ane_hts)]
-    RSD_hts = [regexp.match(c) for c in RSD_cols]
-    RSD_hts = [c.groupdict()['ht'] for c in RSD_hts if c is not None]
-    RSD_hts = [int(h) for h in set(RSD_hts)]
-
-    # Check for Additional Comparison Heights not specified in the config file
-    missing_ane = set(ane_hts).difference(set(all_heights))
-    missing_RSD = set(RSD_hts).difference(set(all_heights))
-    missing = missing_ane.union(missing_RSD)
-    if len(missing) > 0:
-        sys.exit(
-            'You have not specified the Additional Comparison Height (m) for each height.\n'
-            + 'You are missing the following heights in the "Selection" column that are necessary:\n\n'
-            + 'Additional Comparison Height ' + str(missing) + '\n\n'
-            + 'Please fix and restart to run')
-
-    # Create dictionaries with all anemometer and RSD heights
-    # NOTE : here we assume it's okay if we don't have anemometer AND RSD data for EACH additional
-    #        comparison height
-    ane_heights = {ht: all_heights[ht] for ht in all_heights if ht in ane_hts}
-    ane_heights.update(primary=all_heights['primary'])
-    RSD_heights = {ht: all_heights[ht] for ht in all_heights if ht in RSD_hts}
-    RSD_heights.update(primary=all_heights['primary'])
-
-    # Do a final check in case there are any heights that were specified but no matching columns
-    missing = set(all_heights.values()).difference(set(RSD_heights.values()).
-                                                   union(set(ane_heights.values())))
-    if len(missing) > 0:
-        sys.exit(
-            'You have specified an Additional Comparison Height (m) that has no corresponding data columns.\n'
-            + 'The following heights in the "Selection" column have no data columns specified:\n\n'
-            + 'Additional Comparison Height ' + str(missing) + '\n\n'
-            + 'Please fix and restart to run')
-
-    return all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols
-
-
-def get_regression(x, y):
-    '''
-    Compute linear regression of data -> need to deprecate this function for get_modelRegression..
-    '''
-    df = pd.DataFrame()
-    df['x'] = x
-    df['y'] = y
-    df = df.dropna()
-    if len(df) > 1:
-        x = df['x']
-        y = df['y']
-        x = x.astype(float)
-        y = y.astype(float)
-        lm = linear_model.LinearRegression()
-        lm.fit(x.to_frame(), y.to_frame())
-        result = [lm.coef_[0][0], lm.intercept_[0]]         #slope and intercept?
-        result.append(lm.score(x.to_frame(), y.to_frame())) #r score?
-        result.append(abs((x - y).mean()))                  # mean diff?
-        x = x.to_numpy().reshape(len(x), 1)
-        y = y.to_numpy().reshape(len(y), 1)
-        predict = lm.predict(x)
-        mse = mean_squared_error(y, predict, multioutput='raw_values')
-        rmse = np.sqrt(mse)
-        result.append(mse[0])
-        result.append(rmse[0])
-    else:
-        result = [None, None, None, None, None, None]
-    # results order: m, c, r2, mean difference, mse, rmse
-
-    return result
 
 def get_modelRegression_extrap(inputdata, column1, column2, fit_intercept=True):
     '''
@@ -715,9 +230,10 @@ def get_modelRegression(inputdata, column1, column2, fit_intercept=True):
     return results
 
 
-def get_all_regressions(inputdata,title = None):
+def get_all_regressions(inputdata, title=None):
     # get the ws regression results for all the col required pairs. Title is the name of subset of data being evaluated
     # Note the order in input to regression function. x is reference.
+
 
     pairList = [['Ref_WS','RSD_WS'],['Ref_WS','Ane2_WS'],['Ref_TI','RSD_TI'],['Ref_TI','Ane2_TI'],['Ref_SD','RSD_SD'],['Ref_SD','Ane2_SD']]
 
@@ -725,19 +241,25 @@ def get_all_regressions(inputdata,title = None):
     if len(inputdata) < 2:
         lenFlag = True
 
-    results = pd.DataFrame(columns=[title,'m', 'c', 'rsquared', 'mean difference', 'mse', 'rmse'])
+    columns = [title, 'm', 'c', 'rsquared', 'mean difference', 'mse', 'rmse']
+    results = pd.DataFrame(columns=columns)
     
+    logger.debug(f"getting regr for {title}")
+
     for p in pairList:
+
         res_name = str(p[0].split('_')[1] + '_regression_' + p[0].split('_')[0] + '_' + p[1].split('_')[0])
         
-        if p[1] in inputdata.columns and lenFlag ==False:
-            results_regr = get_regression(inputdata[p[0]], inputdata[p[1]])
-            results = results.append({title:res_name}, ignore_index = True)
-            results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = results_regr
+        if p[1] in inputdata.columns and lenFlag == False:
+            _adjuster = Adjustments(inputdata)
+            results_regr = [res_name] + _adjuster.get_regression(inputdata[p[0]], inputdata[p[1]])
+
         else:
-            results = results.append({title:res_name}, ignore_index = True)
-            results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
+            results_regr = [res_name, 'NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
             
+        _results = pd.DataFrame(columns=columns, data=[results_regr])
+        results = pd.concat([results, _results], ignore_index=True, axis=0, join='outer')
+
     # labels not required
     labelsExtra = ['RSD_SD_Ht1','RSD_TI_Ht1', 'RSD_WS_Ht1','RSD_SD_Ht2', 'RSD_TI_Ht2',
                    'RSD_WS_Ht2', 'RSD_SD_Ht3', 'RSD_TI_Ht3', 'RSD_WS_Ht3',
@@ -746,25 +268,38 @@ def get_all_regressions(inputdata,title = None):
     labelsAne = ['Ane_SD_Ht1', 'Ane_TI_Ht1', 'Ane_WS_Ht1', 'Ane_SD_Ht2', 'Ane_TI_Ht2', 'Ane_WS_Ht2',
                  'Ane_SD_Ht3', 'Ane_TI_Ht3', 'Ane_WS_Ht3', 'Ane_WS_Ht4', 'Ane_SD_Ht4','Ane_TI_Ht4']
 
+# DRC >> method to eliminate pandas futurewarning in console. unfortunately, breaks file write.
     for l in labelsExtra:
+
         parts = l.split('_')
         reg_type = list(set(parts).intersection(['WS', 'TI', 'SD']))
+
         if 'RSD' in l:
             ht_type = parts[2]
             ref_type = [s for s in labelsAne if reg_type[0] in s]
             ref_type = [s for s in ref_type if ht_type in s]
+
         res_name = str(reg_type[0] + '_regression_' + parts[0])
+
         if 'Ht' in parts[2]:
             res_name = res_name + parts[2] + '_' + ref_type[0].split('_')[0] + ref_type[0].split('_')[2]
+
         else:
             res_name = res_name + '_Ref'
+
+        logger.debug(res_name)
+
         if l in inputdata.columns and lenFlag == False:
-            res = get_regression(inputdata[ref_type[0]],inputdata[l])
-            results = results.append({title:res_name}, ignore_index = True)
-            results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = res
+            _adjuster = Adjustments(inputdata)
+            res = [res_name] + _adjuster.get_regression(inputdata[ref_type[0]],inputdata[l])
+
         else:
-            results = results.append({title:res_name}, ignore_index = True)
-            results.loc[results[title] == res_name, ['m','c','rsquared','mean difference','mse','rmse']] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
+            res = [res_name, 'NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
+
+        logger.debug(res)
+
+        _results = pd.DataFrame(columns=columns, data=[res])
+        results = pd.concat([results, _results], ignore_index=True, axis=0, join='outer')
 
     return results
 
@@ -773,7 +308,8 @@ def post_correction_stats(inputdata,results,ref_col,TI_col):
     if isinstance(inputdata, pd.DataFrame):
         fillEmpty = False
         if ref_col in inputdata.columns and TI_col in inputdata.columns:
-            model_corrTI = get_regression(inputdata[ref_col], inputdata[TI_col])
+            _adjuster_post_correction = Adjustments()
+            model_corrTI = _adjuster_post_correction.get_regression(inputdata[ref_col], inputdata[TI_col])
             name1 = 'TI_regression_' + TI_col + '_' + ref_col
             results.loc[name1, ['m']] = model_corrTI[0]
             results.loc[name1, ['c']] = model_corrTI[1]
@@ -794,6 +330,7 @@ def post_correction_stats(inputdata,results,ref_col,TI_col):
         results.loc[name1, ['mse']] = 'NaN'
         results.loc[name1, ['rmse']] = 'NaN'
     return results
+
 
 def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, height):
     """
@@ -855,6 +392,7 @@ def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, hei
 
     return inputdata, results, shearTimeseries
 
+
 def change_extrap_names(TI_list, rename):
     """
     Rename columns and rows for tables created for TI extrapolation
@@ -871,6 +409,7 @@ def change_extrap_names(TI_list, rename):
             TI_list[t][b] = bins.rename(columns=rename, index=rename)
 
     return TI_list
+
 
 def power_law(uref, h, href, shear):
     """
@@ -896,115 +435,6 @@ def log_of_ratio(x, xref):
     x_new = np.log(x / xref)
     return x_new
 
-def perform_SS_SF_correction(inputdata):
-
-    results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
-                                    'c', 'rsquared', 'difference','mse', 'rmse'])
-    inputdata_train = inputdata[inputdata['split'] == True].copy()
-    inputdata_test = inputdata[inputdata['split'] == False].copy()
-
-    if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
-        if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
-        if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
-        if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
-        if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
-        m = np.NaN
-        c = np.NaN
-        inputdata = False
-    else:
-        filtered_Ref_TI = inputdata_train['Ref_TI'][inputdata_train['RSD_TI'] < 0.3]
-        filtered_RSD_TI = inputdata_train['RSD_TI'][inputdata_train['RSD_TI'] < 0.3]
-        full = pd.DataFrame()
-        full['filt_Ref_TI'] = filtered_Ref_TI
-        full['filt_RSD_TI'] = filtered_RSD_TI
-        full = full.dropna()
-        if len(full) < 2:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI',)
-            m = np.NaN
-            c = np.NaN
-        else:
-            model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
-            m = model[0]
-            c = model[1]
-            RSD_TI = inputdata_test['RSD_TI'].copy()
-            RSD_TI = (float(model[0])*RSD_TI) + float(model[1])
-            inputdata_test['corrTI_RSD_TI'] = RSD_TI
-            inputdata_test['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata_test['RSD_SD']
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
-        if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            filtered_Ref_TI = inputdata_train['Ane_TI_Ht1'][inputdata_train['Ane_TI_Ht1'] < 0.3]
-            filtered_RSD_TI = inputdata_train['RSD_TI_Ht1'][inputdata_train['RSD_TI_Ht1'] < 0.3]
-            full = pd.DataFrame()
-            full['filt_Ref_TI'] = filtered_Ref_TI
-            full['filt_RSD_TI'] = filtered_RSD_TI
-            full = full.dropna()
-            if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
-            else:
-                model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
-                RSD_TI = inputdata_test['RSD_TI_Ht1'].copy()
-                RSD_TI = (model[0]*RSD_TI) + model[1]
-                inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht1']
-                results = post_correction_stats(inputdata,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
-        if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            filtered_Ref_TI = inputdata_train['Ane_TI_Ht2'][inputdata_train['Ane_TI_Ht2'] < 0.3]
-            filtered_RSD_TI = inputdata_train['RSD_TI_Ht2'][inputdata_train['RSD_TI_Ht2'] < 0.3]
-            full = pd.DataFrame()
-            full['filt_Ref_TI'] = filtered_Ref_TI
-            full['filt_RSD_TI'] = filtered_RSD_TI
-            full = full.dropna()
-            if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
-            else:
-                model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
-                RSD_TI = inputdata_test['RSD_TI_Ht2'].copy()
-                RSD_TI = (model[0]*RSD_TI) + model[1]
-                inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht2']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
-        if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            filtered_Ref_TI = inputdata_train['Ane_TI_Ht3'][inputdata_train['Ane_TI_Ht3'] < 0.3]
-            filtered_RSD_TI = inputdata_train['RSD_TI_Ht3'][inputdata_train['RSD_TI_Ht3'] < 0.3]
-            full = pd.DataFrame()
-            full['filt_Ref_TI'] = filtered_Ref_TI
-            full['filt_RSD_TI'] = filtered_RSD_TI
-            full = full.dropna()
-            if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
-            else:
-                model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
-                RSD_TI = inputdata_test['RSD_TI_Ht3'].copy()
-                RSD_TI = (model[0]*RSD_TI) + model[1]
-                inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht3']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
-        if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            filtered_Ref_TI = inputdata_train['Ane_TI_Ht4'][inputdata_train['Ane_TI_Ht4'] < 0.3]
-            filtered_RSD_TI = inputdata_train['RSD_TI_Ht4'][inputdata_train['RSD_TI_Ht4'] < 0.3]
-            full = pd.DataFrame()
-            full['filt_Ref_TI'] = filtered_Ref_TI
-            full['filt_RSD_TI'] = filtered_RSD_TI
-            full = full.dropna()
-            if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
-            else:
-                model = get_regression(filtered_RSD_TI,filtered_Ref_TI)
-                RSD_TI = inputdata_test['RSD_TI_Ht4'].copy()
-                RSD_TI = (model[0]*RSD_TI) + model[1]
-                inputdata_test['corrTI_RSD_TI_Ht4'] = RSD_TI
-                inputdata_test['corrRepTI_RSD_RepTI_Ht4'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht4']
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
-
-    results['correction'] = ['SS-SF'] * len(results)
-    results = results.drop(columns=['sensor','height'])
-    return inputdata_test, results, m, c
-
 def perform_G_Sa_correction(inputdata,override):
     '''
     simple filtered regression results from phase2 averages with simple regressionf rom this data
@@ -1013,6 +443,7 @@ def perform_G_Sa_correction(inputdata,override):
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
+    _adjuster_G_Sa = Adjustments()
 
     if override:
         m_ph2 = override[0]
@@ -1055,7 +486,7 @@ def perform_G_Sa_correction(inputdata,override):
             m = np.NaN
             c = np.NaN
         else:
-            model = get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
+            model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
             m = (model[0] + m_ph2)/2
             c = (model[1] + c_ph2)/2
             RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -1073,7 +504,7 @@ def perform_G_Sa_correction(inputdata,override):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
+                model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
                 m = (model[0] + m_ph2)/2
                 c = (model[1] + c_ph2)/2
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -1091,7 +522,7 @@ def perform_G_Sa_correction(inputdata,override):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_TI_Ht2'],inputdata_train['Ane_TI_Ht2'])
+                model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht2'],inputdata_train['Ane_TI_Ht2'])
                 m = (model[0] + m_ph2)/2
                 c = (model[1] + c_ph2)/2
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -1109,7 +540,7 @@ def perform_G_Sa_correction(inputdata,override):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_TI_Ht3'], inputdata_train['Ane_TI_Ht3'])
+                model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht3'], inputdata_train['Ane_TI_Ht3'])
                 m = (model[0] + m_ph2)/2
                 c = (model[1] + c_ph2)/2
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -1127,7 +558,7 @@ def perform_G_Sa_correction(inputdata,override):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_TI_Ht4'], inputdata_train['Ane_TI_Ht4'])
+                model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht4'], inputdata_train['Ane_TI_Ht4'])
                 m = (model[0] + m_ph2)/2
                 c = (model[1] + c_ph2)/2
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -1140,6 +571,7 @@ def perform_G_Sa_correction(inputdata,override):
     results = results.drop(columns=['sensor','height'])
     
     return inputdata_test, results, m, c
+
 
 def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col, RSD_SD_col, Ref_WS_col, RSD_WS_col):
     '''
@@ -1175,6 +607,7 @@ def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col
         results = post_correction_stats(inputdata_test,results, Ref_TI_col, corrTI_name)
         
     return inputdata_test,results
+
 
 def perform_G_C_correction(inputdata):
     '''
@@ -1213,6 +646,7 @@ def perform_G_C_correction(inputdata):
     c = np.NaN
     
     return inputdata_test, results, m, c
+
 
 def perform_G_SFc_correction(inputdata):
     '''
@@ -1333,6 +767,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
         all_test['RSD_SD'] = inputdata_test['RSD_SD'].copy()
         all_train = all_train.dropna()
         all_test = all_test.dropna()
+
         if len(all_train) < 5 and len(all_test) < 5:
             results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
@@ -1357,6 +792,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht1'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
+
             if len(all_train) < 5 and len(all_test) < 5:
                 results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
@@ -1369,6 +805,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  all_test['Ane_TI_Ht1'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
                  results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht2'].copy()
@@ -1380,6 +817,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht2'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
+
             if len(all_train) < 5 and len(all_test) < 5:
                 results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
                 m = np.NaN
@@ -1392,6 +830,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  all_test['Ane_TI_Ht2'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
                  results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht3'].copy()
@@ -1403,18 +842,20 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht3'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
+
             if len(all_train) < 5 and len(all_test) < 5:
                 results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 m = np.NaN
                 c = np.NaN
             else:
-                 m = np.NaN
-                 c = np.NaN
-                 TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
-                 all_test['Ane_TI_Ht3'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3','Ane_RepTI_Ht3')
+                m = np.NaN
+                c = np.NaN
+                TI_pred_RF = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+                all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
+                all_test['Ane_TI_Ht3'] = all_test['y_test']
+                inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+                results = post_correction_stats(inputdata_test_result, results, 'Ane_TI_Ht3', 'corrTI_RSD_TI_Ht3')
+                 
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht4'].copy()
@@ -1425,8 +866,9 @@ def perform_SS_LTERRA_ML_correction(inputdata):
             all_test['TI_test'] = inputdata_test['RSD_TI_Ht4'].copy()
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht4'].copy()
             all_train = all_train.dropna()
+
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 m = np.NaN
                 c = np.NaN
             else:
@@ -1436,7 +878,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                  all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
                  all_test['Ane_TI_Ht4'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4','Ane_RepTI_Ht4')
+                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     if inputdata_test_result.empty:
         inputdata_test_result = inputdata_test
@@ -1483,6 +925,7 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
         all_test['RSD_SD'] = inputdata_test['RSD_SD'].copy()
         all_train = all_train.dropna()
         all_test = all_test.dropna()
+
         if len(all_train) < 5 and len(all_test) < 5:
             results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
@@ -1497,6 +940,7 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             all_test['Ref_TI'] = all_test['y_test']
             inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
             results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
+
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns and 'RSD_SD_Ht1' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht1'].copy()
@@ -1516,6 +960,7 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             all_test['RSD_SD'] = inputdata_test['RSD_SD_Ht1'].copy()
             all_train = all_train.dropna()
             all_test = all_test.dropna()
+
             if len(all_train) < 5 and len(all_test) < 5:
                 results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
                 m = np.NaN
@@ -1529,6 +974,7 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
                  all_test['Ane_TI_Ht1'] = all_test['y_test']
                  inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
                  results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht2'].copy()
@@ -1629,6 +1075,7 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
         inputdata_test_result = inputdata_test
 
     return inputdata_test_result, results, m, c
+
 
 def machine_learning_TI(x_train,y_train,x_test,y_test,mode,TI_test):
 
@@ -2521,7 +1968,7 @@ def perform_G_LTERRA_WC_1HZ_correction(inputdata):
         ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
         className = 1
         for item in All_class_data_alpha_RSD:
-            iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy())
+            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy())
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = str('SS-LTERRA_1HZ' + '_' + 'class_' + str(className))
@@ -2535,7 +1982,7 @@ def perform_G_LTERRA_WC_1HZ_correction(inputdata):
         ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
         className = 1
         for item in All_class_data_alpha_Ane:
-            iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy())
+            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy())
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = str('SS_LTERRA_1HZ' + '_' + 'class_' + str(className))
@@ -2940,7 +2387,7 @@ def lidar_processing_noise(ts,frequency,mode_ws,mode_noise):
 
     return new_ts_var
 
-def Kaimal_spectrum_func(X,L):
+def Kaimal_spectrum_func(X, L):
     #Given values of frequency (fr), mean horizontal wind speed (U), streamwise
     #variance (u_var), and length scale (L), calculate idealized Kaimal spectrum
     #This uses the form given by Eq. 2.24 in Burton et al. (2001)
@@ -3779,6 +3226,7 @@ def get_10min_shear_parameter(U,heights,height_needed):
             p.append(np.nan)
     return np.array(p)
 
+
 def interp_ts(ts,time_datenum,interval):
     #Interpolates time series ts with timestamps time_datenum to a grid with constant temporal spacing of "interval"
 
@@ -3964,6 +3412,8 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
     '''
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
+    _adjuster_SS_SS = Adjustments()
+
     className = 1
     items_corrected = []
     for item in All_class_data:
@@ -3985,7 +3435,7 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
                 if len(full) < 2:
                     pass
                 else:
-                    model = get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
+                    model = _adjuster_SS_SS.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
                     m = model[0]
                     c = model[1]
                     RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -4005,110 +3455,7 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
     
     return inputdata_test, results, m, c
 
-def perform_SS_S_correction(inputdata):
-    '''
-    Note: Representative TI computed with original RSD_SD
-    '''
-    results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
-                                    'c', 'rsquared', 'difference','mse', 'rmse'])
-    inputdata_train = inputdata[inputdata['split'] == True].copy()
-    inputdata_test = inputdata[inputdata['split'] == False].copy()
 
-    if inputdata.empty or len(inputdata) < 2:
-        results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
-        if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
-        if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
-        if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
-        if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
-        m = np.NaN
-        c = np.NaN
-        inputdata = False
-    else:
-        full = pd.DataFrame()
-        full['Ref_TI'] = inputdata_test['Ref_TI']
-        full['RSD_TI'] = inputdata_test['RSD_TI']
-        full = full.dropna()
-        if len(full) < 2:
-            results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
-            m = np.NaN
-            c = np.NaN
-        else:
-            model = get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
-            m = model[0]
-            c = model[1]
-            RSD_TI = inputdata_test['RSD_TI'].copy()
-            RSD_TI = (model[0]*RSD_TI) + model[1]
-            inputdata_test['corrTI_RSD_TI'] = RSD_TI
-            results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
-        if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
-            full = pd.DataFrame()
-            full['Ref_TI'] = inputdata_test['Ane_TI_Ht1']
-            full['RSD_TI'] = inputdata_test['RSD_TI_Ht1']
-            full = full.dropna()
-            if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
-                m = np.NaN
-                c = np.NaN
-            else:
-                model = get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
-                RSD_TI = inputdata_test['RSD_TI_Ht1'].copy()
-                RSD_TI = (model[0]*RSD_TI) + model[1]
-                inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
-        if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
-            full = pd.DataFrame()
-            full['Ref_TI'] = inputdata_test['Ane_TI_Ht2']
-            full['RSD_TI'] = inputdata_test['RSD_TI_Ht2']
-            full = full.dropna()
-            if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
-                m = np.NaN
-                c = np.NaN
-            else:
-                model = get_regression(inputdata_train['RSD_TI_Ht2'],inputdata_train['Ane_TI_Ht2'])
-                RSD_TI = inputdata_test['RSD_TI_Ht2'].copy()
-                RSD_TI = (model[0]*RSD_TI) + model[1]
-                inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
-        if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
-            full = pd.DataFrame()
-            full['Ref_TI'] = inputdata_test['Ane_TI_Ht3']
-            full['RSD_TI'] = inputdata_test['RSD_TI_Ht3']
-            full = full.dropna()
-            if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
-                m = np.NaN
-                c = np.NaN
-            else:
-                model = get_regression(inputdata_train['RSD_TI_Ht3'], inputdata_train['Ane_TI_Ht3'])
-                RSD_TI = inputdata_test['RSD_TI_Ht3'].copy()
-                RSD_TI = (model[0]*RSD_TI) + model[1]
-                inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
-        if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
-            full = pd.DataFrame()
-            full['Ref_TI'] = inputdata_test['Ane_TI_Ht4']
-            full['RSD_TI'] = inputdata_test['RSD_TI_Ht4']
-            full = full.dropna()
-            if len(full) < 2:
-                results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
-                m = np.NaN
-                c = np.NaN
-            else:
-                model = get_regression(inputdata_train['RSD_TI_Ht4'], inputdata_train['Ane_TI_Ht4'])
-                RSD_TI = inputdata_test['RSD_TI_Ht4'].copy()
-                RSD_TI = (model[0]*RSD_TI) + model[1]
-                inputdata_test['corrTI_RSD_TI_Ht4'] = RSD_TI
-                results = post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
-
-    results['correction'] = ['SS-S'] * len(results)
-    results = results.drop(columns=['sensor','height'])
-    
-    return inputdata_test, results, m, c
 
 def perform_SS_WS_correction(inputdata):
     '''
@@ -4119,6 +3466,8 @@ def perform_SS_WS_correction(inputdata):
 
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
+    _adjuster_SS_WS = Adjustments()
+
     if inputdata.empty or len(inputdata) < 2:
         results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_WS_Ht1' in inputdata.columns and 'RSD_WS_Ht1' in inputdata.columns:
@@ -4142,7 +3491,7 @@ def perform_SS_WS_correction(inputdata):
             m = np.NaN
             c = np.NaN
         else:
-            model = get_regression(inputdata_train['RSD_WS'], inputdata_train['Ref_WS'])
+            model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS'], inputdata_train['Ref_WS'])
             m = model[0]
             c = model[1]
             RSD_WS = inputdata_test['RSD_WS']
@@ -4162,7 +3511,7 @@ def perform_SS_WS_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_WS_Ht1'], inputdata_train['Ane_WS_Ht1'])
+                model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht1'], inputdata_train['Ane_WS_Ht1'])
                 RSD_WS = inputdata_test['RSD_WS_Ht1']
 
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -4180,7 +3529,7 @@ def perform_SS_WS_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_WS_Ht2'],inputdata_train['Ane_WS_Ht2'])
+                model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht2'],inputdata_train['Ane_WS_Ht2'])
                 RSD_WS = inputdata_test['RSD_WS_Ht2']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
                 inputdata_test['RSD_corrWS_Ht2'] = RSD_corrWS
@@ -4197,7 +3546,7 @@ def perform_SS_WS_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_WS_Ht3'], inputdata_train['Ane_WS_Ht3'])
+                model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht3'], inputdata_train['Ane_WS_Ht3'])
                 RSD_WS = inputdata_test['RSD_WS_Ht3']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
                 inputdata_test['RSD_corrWS_Ht3'] = RSD_corrWS
@@ -4214,7 +3563,7 @@ def perform_SS_WS_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_WS_Ht4'], inputdata_train['Ane_WS_Ht4'])
+                model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht4'], inputdata_train['Ane_WS_Ht4'])
                 RSD_WS = inputdata_test['RSD_WS_Ht4']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
                 inputdata_test['RSD_corrWS_Ht4'] = RSD_corrWS
@@ -4234,6 +3583,7 @@ def perform_SS_WS_Std_correction(inputdata):
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
 
+    _adjuster_SS_WS_Std = Adjustments()
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
     if inputdata.empty or len(inputdata) < 2:
@@ -4261,8 +3611,8 @@ def perform_SS_WS_Std_correction(inputdata):
             m = np.NaN
             c = np.NaN
         else:
-            model = get_regression(inputdata_train['RSD_WS'], inputdata_train['Ref_WS'])
-            model_std = get_regression(inputdata_train['RSD_SD'], inputdata_train['Ref_SD'])
+            model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS'], inputdata_train['Ref_WS'])
+            model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD'], inputdata_train['Ref_SD'])
             m = model[0]
             c = model[1]
             m_std = model_std[0]
@@ -4288,8 +3638,8 @@ def perform_SS_WS_Std_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_WS_Ht1'], inputdata_train['Ane_WS_Ht1'])
-                model_std = get_regression(inputdata_train['RSD_SD_Ht1'], inputdata_train['Ane_SD_Ht1'])
+                model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht1'], inputdata_train['Ane_WS_Ht1'])
+                model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht1'], inputdata_train['Ane_SD_Ht1'])
                 RSD_WS = inputdata_test['RSD_WS_Ht1']
                 RSD_SD = inputdata_test['RSD_SD_Ht1']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -4311,8 +3661,8 @@ def perform_SS_WS_Std_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_WS_Ht2'], inputdata_train['Ane_WS_Ht2'])
-                model_std = get_regression(inputdata_train['RSD_SD_Ht2'], inputdata_train['Ane_SD_Ht2'])
+                model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht2'], inputdata_train['Ane_WS_Ht2'])
+                model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht2'], inputdata_train['Ane_SD_Ht2'])
                 RSD_WS = inputdata_test['RSD_WS_Ht2']
                 RSD_SD = inputdata_test['RSD_SD_Ht2']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -4334,8 +3684,8 @@ def perform_SS_WS_Std_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_WS_Ht3'], inputdata_train['Ane_WS_Ht3'])
-                model_std = get_regression(inputdata_train['RSD_SD_Ht3'], inputdata_train['Ane_SD_Ht3'])
+                model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht3'], inputdata_train['Ane_WS_Ht3'])
+                model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht3'], inputdata_train['Ane_SD_Ht3'])
                 RSD_WS = inputdata_test['RSD_WS_Ht3']
                 RSD_SD = inputdata_test['RSD_SD_Ht3']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -4357,8 +3707,8 @@ def perform_SS_WS_Std_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = get_regression(inputdata_train['RSD_WS_Ht4'], inputdata_train['Ane_WS_Ht4'])
-                model_std = get_regression(inputdata_train['RSD_SD_Ht4'], inputdata_train['Ane_SD_Ht4'])
+                model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht4'], inputdata_train['Ane_WS_Ht4'])
+                model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht4'], inputdata_train['Ane_SD_Ht4'])
                 RSD_WS = inputdata_test['RSD_WS_Ht4']
                 RSD_SD = inputdata_test['RSD_SD_Ht4']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -4702,6 +4052,7 @@ def get_TI_MBE_Diff_j(inputdata):
 
     return TI_MBE_j_, TI_Diff_j_, TI_RMSE_j_, RepTI_MBE_j_, RepTI_Diff_j_, RepTI_RMSE_j_
 
+
 def get_TI_Diff_r(inputdata):
     '''
     get TI abs difference by reference TI bin
@@ -4738,6 +4089,7 @@ def get_TI_Diff_r(inputdata):
         print ('Warning: No Ane2 TI. Cannot compute error stats for this category')
 
     return TI_Diff_r_, RepTI_Diff_r_
+
 
 def get_TI_bybin(inputdata):
     results = []
@@ -4794,6 +4146,7 @@ def get_TI_byTIrefbin(inputdata):
 def get_stats_inBin(inputdata_m, start, end):
     # this was discussed in the meeting , but the results template didn't ask for this.
     inputdata = inputdata_m.loc[(inputdata_m['Ref_WS'] > start) & (inputdata_m['Ref_WS'] <= end)].copy()
+    _adjuster_stats = Adjustments()
 
     if 'RSD_TI' in inputdata.columns:
         inputdata['TI_diff_RSD_Ref'] = inputdata['RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
@@ -4812,7 +4165,7 @@ def get_stats_inBin(inputdata_m, start, end):
 
     # RSD V Reference
     if 'RSD_TI' in inputdata.columns:
-        modelResults = get_regression(inputdata['Ref_TI'], inputdata['RSD_TI'])
+        modelResults = _adjuster_stats.get_regression(inputdata['Ref_TI'], inputdata['RSD_TI'])
         rmse = modelResults[5]
         slope = modelResults[0]
         offset = modelResults[1]
@@ -4836,7 +4189,7 @@ def get_stats_inBin(inputdata_m, start, end):
         TI_diff_corrTI_RSD_Ref_Avg = inputdata['TI_diff_corrTI_RSD_Ref'].mean()
         TI_diff_corrTI_RSD_Ref_Std = inputdata['TI_diff_corrTI_RSD_Ref'].std()
 
-        modelResults = get_regression(inputdata['corrTI_RSD_TI'], inputdata['Ref_TI'])
+        modelResults = _adjuster_stats.get_regression(inputdata['corrTI_RSD_TI'], inputdata['Ref_TI'])
         rmse = modelResults[5]
         slope = modelResults[0]
         offset = modelResults[1]
@@ -4856,7 +4209,7 @@ def get_stats_inBin(inputdata_m, start, end):
         TI_diff_Ane2_Ref_Avg = inputdata['TI_diff_Ane2_Ref'].mean()
         TI_diff_Ane2_Ref_Std = inputdata['TI_diff_Ane2_Ref'].std()
 
-        modelResults = get_regression(inputdata['Ane2_TI'], inputdata['Ref_TI'])
+        modelResults = _adjuster_stats.get_regression(inputdata['Ane2_TI'], inputdata['Ref_TI'])
         rmse = modelResults[5]
         slope = modelResults[0]
         offset = modelResults[1]
@@ -4877,6 +4230,7 @@ def get_description_stats(inputdata):
     belownominal = get_stats_inBin(inputdata, 1.75, 11.5)
     abovenominal = get_stats_inBin(inputdata, 10, 20)
     return totalstats, belownominal, abovenominal
+
 
 def get_distribution_test_results(inputdata_corr,ref_col, test_col, subset = False):
     """
@@ -4902,8 +4256,10 @@ def get_distribution_test_results(inputdata_corr,ref_col, test_col, subset = Fal
 
     return distribution_test_results
 
+
 class StatResult:
     pass
+
 
 def Dist_stats(inputdata_corr,Timestamps,correctionName):
     """
@@ -5064,26 +4420,6 @@ def get_representative_TI_15mps(inputdata):
     results.columns = ['mean_15mps', 'std_15mps', 'Rep_TI']
     return results
 
-def check_for_alphaConfig(config_file,inputdata):
-    """
-    checks to see if the configurations are there to compute alpha from cup
-    checks to see if the configurations are there to compute alpha from RSD
-    """
-    RSD_alphaFlag = False
-
-    # get list of available data columns and available ancillary data
-    availableData = pd.read_excel(config_file, usecols=[1], nrows=1000).dropna()['Header_CFARS_Python'].to_list()
-    if 'RSD_alpha_lowHeight' in availableData and 'RSD_alpha_highHeight' in availableData:
-        RSD_alphaFlag = True
-        configHtData = pd.read_excel(config_file, usecols=[3, 4], nrows=25).iloc[[20,21]]
-        Ht_1_rsd = configHtData['Selection'].to_list()[0]
-        Ht_2_rsd = configHtData['Selection'].to_list()[1]
-    else:
-        print ('%%%%%%%%% Warning: No alpha calculation. To compute alpha check config file settings. %%%%%%%%%%%')
-        Ht_1_rsd = None
-        Ht_2_rsd = None
-
-    return RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd
 
 def extrap_configResult(inputdataEXTRAP, resLists, method, lm_corr, appendString = ''):
     # Temporarily fudge the names of variables so they fit with the standard functions
@@ -5108,6 +4444,7 @@ def extrap_configResult(inputdataEXTRAP, resLists, method, lm_corr, appendString
         total_stats, belownominal_stats, abovenominal_stats = get_description_stats(inputdataEXTRAP)
         Distribution_stats, sampleTests = Dist_stats(inputdataEXTRAP, Timestamps, correctionName)
         resDict = True
+
     except:
         resDict = False
         resLists[str('TI_MBEList_' + appendString)].append(None)
@@ -5191,6 +4528,7 @@ def extrap_configResult(inputdataEXTRAP, resLists, method, lm_corr, appendString
 
     return inputdataEXTRAP, resLists
 
+
 def calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd):
     '''
     from Wharton and Lundquist 2012
@@ -5207,7 +4545,7 @@ def calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, H
     #check for 2 anemometer heights (use furthest apart) for cup alpha calculation
     configHtData = pd.read_excel(config_file, usecols=[3, 4], nrows=17).iloc[[3,12,13,14,15]]
     primaryHeight = configHtData['Selection'].to_list()[0]
-    all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = check_for_additional_heights(config_file, primaryHeight)
+    all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = config.check_for_additional_heights(primaryHeight)
     if len(list(ane_heights))> 1:
         all_keys = list(all_heights.values())
         max_key = list(all_heights.keys())[all_keys.index(max(all_heights.values()))]
@@ -5306,6 +4644,7 @@ def calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, H
         Ht_2_rsd = None
 
     return cup_alphaFlag,stabilityClass_ane, stabilityMetric_ane, regimeBreakdown_ane, Ht_1_ane, Ht_2_ane, stabilityClass_rsd, stabilityMetric_rsd, regimeBreakdown_rsd
+
 
 def calculate_stability_TKE(inputdata):
     '''
@@ -5412,12 +4751,6 @@ def calculate_stability_TKE(inputdata):
 
     return stabilityClass, stabilityMetric, regimeBreakdown
 
-def write_resultstofile(df, ws, r_start, c_start):
-    # write the regression results to file.
-    rows = dataframe_to_rows(df)
-    for r_idx, row in enumerate(rows, r_start):
-        for c_idx, value in enumerate(row, c_start):
-            ws.cell(row=r_idx, column=c_idx, value=value)
 
 def initialize_resultsLists(appendString):
     resultsLists = {}
@@ -5442,31 +4775,41 @@ def initialize_resultsLists(appendString):
     resultsLists[str('sampleTestsLists' + '_' + appendString)] = []
     return resultsLists
 
+
 def train_test_split(trainPercent, inputdata, stepOverride = False):
     '''
     train is 'split' == True
     '''
+    import copy
     import numpy as np
+
+    _inputdata = pd.DataFrame(columns=inputdata.columns, data=copy.deepcopy(inputdata.values))
 
     if stepOverride:
         msk = [False] * len(inputdata)
-        inputdata['split'] = msk
-        inputdata.loc[stepOverride[0]:stepOverride[1],'split'] =  True
+        _inputdata['split'] = msk
+        _inputdata.loc[stepOverride[0]:stepOverride[1], 'split'] =  True
+        
     else:
-        msk = np.random.rand(len(inputdata)) < float(trainPercent/100)
-        train = inputdata[msk]
-        test = inputdata[~msk]
-        inputdata['split'] = msk
+        msk = np.random.rand(len(_inputdata)) < float(trainPercent/100)
+        train = _inputdata[msk]
+        test = _inputdata[~msk]
+        _inputdata['split'] = msk
 
-    return inputdata
+    return _inputdata
 
-def QuickMetrics(inputdata,results_df,lm_corr_dict,testID):
+
+def quick_metrics(inputdata, results_df, lm_corr_dict, testID):
+    """"""
+    from TACT.computation.adjustments import Adjustments
+
+    _adjuster = Adjustments(raw_data=inputdata)
 
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     # baseline results
-    results_ = get_all_regressions(inputdata_test,title='baselines')
+    results_ = get_all_regressions(inputdata_test, title='baselines')
     results_RSD_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ref_RSD'])].reset_index()
     results_Ane2_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ref_Ane2'])].reset_index()
     results_RSD_Ref_SD = results_.loc[results_['baselines'].isin(['SD_regression_Ref_RSD'])].reset_index()
@@ -5483,9 +4826,9 @@ def QuickMetrics(inputdata,results_df,lm_corr_dict,testID):
                             results_RSD_Ref_WS,results_Ane2_Ref_WS],axis = 0)
  
     # Run a few corrections with this timing test aswell
-    inputdata_corr, lm_corr, m, c = perform_SS_S_correction(inputdata.copy())
+    inputdata_corr, lm_corr, m, c = _adjuster.perform_SS_S_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_S' )] = lm_corr
-    inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(inputdata.copy())
+    inputdata_corr, lm_corr, m, c = _adjuster.perform_SS_SF_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_SF' )] = lm_corr
     inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_WS-Std' )] = lm_corr
@@ -5497,21 +4840,24 @@ def QuickMetrics(inputdata,results_df,lm_corr_dict,testID):
     inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(inputdata.copy(),override)
     lm_corr_dict[str(str(testID) + ' :SS_G_SFa' )] = lm_corr
 
-    return results_df,lm_corr_dict
+    return results_df, lm_corr_dict
 
-def blockPrint():
+
+def block_print():
     '''
     disable print statements
     '''
     sys.stdout = open(os.devnull, 'w')
 
-def enablePrint():
+
+def enable_print():
     '''
     restore printing statements
     '''
     sys.stdout = sys.__stdout__
 
-def record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False):
+
+def record_TIadj(correctionName, inputdata_corr, Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False):
 
     if isinstance(inputdata_corr, pd.DataFrame) == False:
         pass
@@ -5523,7 +4869,11 @@ def record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAd
     
     return TI_10minuteAdjusted
 
-def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inputdata_corr, Timestamps, method, emptyclassFlag = False):
+
+def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inputdata_corr, 
+                            Timestamps, method, emptyclassFlag = False):
+    """"""
+
     if isinstance(inputdata_corr, pd.DataFrame) == False:
         emptyclassFlag = True
     elif inputdata_corr.empty:
@@ -5536,8 +4886,10 @@ def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inp
             TIbybin = get_TI_bybin(inputdata_corr)
             TIbyRefbin = get_TI_byTIrefbin(inputdata_corr)
             total_stats, belownominal_stats, abovenominal_stats = get_description_stats(inputdata_corr)
+
         except:
             emptyclassFlag = True
+
     if emptyclassFlag == True:
         resultDict[str('TI_MBEList' + '_' + appendString)].append(None)
         resultDict[str('TI_DiffList' + '_' + appendString)].append(None)
@@ -5558,6 +4910,7 @@ def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inp
         resultDict[str('correctionTagList' + '_' + appendString)].append(method)
         resultDict[str('Distribution_statsList' + '_' + appendString)].append(None)
         resultDict[str('sampleTestsLists' + '_' + appendString)].append(None)
+
     else:
         resultDict[str('TI_MBEList' + '_' + appendString)].append(TI_MBE_j_)
         resultDict[str('TI_DiffList' + '_' + appendString)].append(TI_Diff_j_)
@@ -5580,11 +4933,13 @@ def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inp
         Distribution_stats, sampleTests = Dist_stats(inputdata_corr,Timestamps,correctionName)
         resultDict[str('Distribution_statsList' + '_' + appendString)].append(Distribution_stats)
         resultDict[str('sampleTestsLists' + '_' + appendString)].append(sampleTests)
+
     except:
         resultDict[str('Distribution_statsList' + '_' + appendString)].append(None)
         resultDict[str('sampleTestsLists' + '_' + appendString)].append(None)
 
     return resultDict
+
 
 def populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, appendString):
 
@@ -5610,1049 +4965,7 @@ def populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, 
 
     return ResultsLists_stability
 
-def configure_for_printing(df, Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass = False, byTIRefbin = False):
 
-    if isinstance(df, list) == False:
-        pass
-    else:
-        for val in df:
-            for i in val:
-                if isinstance(i, pd.DataFrame) == False:
-                    pass
-                else:
-                    try:
-                        dat = i[i.columns.to_list()[0][0]]
-                        stats = list(set([tup[0] for tup in dat.columns.to_list()]))
-                        for s in stats:
-                            try:
-                               new_data = dat[s].add_prefix(str(s + '_'))
-                               if stabilityClass:
-                                   new_index = [str('stability_' + stabilityClass + '_' + n)
-                                                for n in new_data.index.to_list()]
-                                   new_data.index = new_index
-                               if s == 'mean' and new_data.columns.name == 'bins':
-                                   Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                               elif s == 'mean' and new_data.columns.name == 'bins_p5':
-                                   Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-                               elif s == 'std' and new_data.columns.name == 'bins':
-                                   Result_df_std_1mps = pd.concat([Result_df_std_1mps,new_data])
-                               elif s == 'std' and new_data.columns.name == 'bins_p5':
-                                   Result_df_std_05mps = pd.concat([Result_df_std_05mps,new_data])
-                            except:
-                               print (str('No data to write in one of the dataframes of results'))
-                               rowNumber += 1
-                    except:
-                        pass
-    if byTIRefbin:
-        if isinstance(df,list) == False:
-            pass
-        else:
-            for val in df:
-                for i in val:
-                    if isinstance(i, pd.DataFrame) == False:
-                        pass
-                    else:
-                        try:
-                            dat = i[i.columns.to_list()[0][0]]
-                            stats = list(set([tup[0] for tup in dat.columns.to_list()]))
-                            for s in stats:
-                                try:
-                                    new_data = dat[s].add_prefix(str(s + '_'))
-                                    if stabilityClass:
-                                        new_index = [str('stability_' + stabilityClass + '_' + n)
-                                                     for n in new_data.index.to_list()]
-                                        new_data.index = new_index
-                                    if s == 'mean' and new_data.columns.name == 'RefTI_bins':
-                                        Result_df_mean_tiRef = pd.concat([Result_df_mean_tiRef,new_data])
-                                    elif s == 'std' and new_data.columns.name == 'RefTI_bins':
-                                        Result_df_std_tiRef = pd.concat([Result_df_std_tiRef,new_data])
-                                except:
-                                   print (str('No data to write in one of the dataframes of results'))
-                                   rowNumber += 1
-                        except:
-                           pass
-
-    else:
-        Result_df_mean_tiRef = Result_df_mean_tiRef
-        Result_df_std_tiRef = Result_df_std_tiRef
-
-
-    return Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps,Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef
-
-def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05mps, count_1mps_train, count_05mps_train,
-                            count_1mps_test, count_05mps_test, name_1mps_tke, name_1mps_alpha_Ane, name_1mps_alpha_RSD,
-                            name_05mps_tke, name_05mps_alpha_Ane, name_05mps_alpha_RSD, count_05mps_tke, count_05mps_alpha_Ane, count_05mps_alpha_RSD,
-                            count_1mps_tke, count_1mps_alpha_Ane, count_1mps_alpha_RSD, results_filename, siteMetadata, filterMetadata,
-                            Timestamps, timestamp_train, timestamp_test, regimeBreakdown_tke, regimeBreakdown_ane, regimeBreakdown_rsd,
-                            Ht_1_ane, Ht_2_ane, extrap_metadata, reg_results_class1, reg_results_class2, reg_results_class3,
-                            reg_results_class4, reg_results_class5,reg_results_class1_alpha, reg_results_class2_alpha, reg_results_class3_alpha,
-                            reg_results_class4_alpha, reg_results_class5_alpha, Ht_1_rsd, Ht_2_rsd, ResultsLists_stability, ResultsLists_stability_alpha_RSD,
-                            ResultsLists_stability_alpha_Ane, stabilityFlag, cup_alphaFlag, RSD_alphaFlag, TimeTestA_baseline_df, TimeTestB_baseline_df, TimeTestC_baseline_df,TimeTestA_corrections_df,TimeTestB_corrections_df,TimeTestC_corrections_df):
-
-    wb = Workbook()
-    ws = wb.active
-
-    Dist_stats_df = pd.DataFrame()
-
-    # all baseline regressions
-    # ------------------------
-    a = wb.create_sheet(title='Baseline Results')
-    rowNumber = 1
-    write_resultstofile(reg_results,a,rowNumber,1)
-    rowNumber += len(reg_results) + 3
-    col = 1
-
-    if stabilityFlag:
-        write_resultstofile(reg_results_class1[0],a,rowNumber,col)
-        rowNumber2 = rowNumber + len(reg_results) + 3
-        write_resultstofile(reg_results_class2[0],a,rowNumber2,col)
-        rowNumber3 = rowNumber2 + len(reg_results) + 3
-        write_resultstofile(reg_results_class3[0],a,rowNumber3,col)
-        rowNumber4 = rowNumber3 + len(reg_results) + 3
-        write_resultstofile(reg_results_class4[0],a,rowNumber4,col)
-        rowNumber5 = rowNumber4 + len(reg_results) + 3
-        write_resultstofile(reg_results_class5[0],a,rowNumber5,col)
-
-        for i in range(1,len(reg_results_class1)):
-            col += reg_results_class1[0].shape[1] + 2
-            write_resultstofile(reg_results_class1[i],a,rowNumber,col)
-            write_resultstofile(reg_results_class2[i],a,rowNumber2,col)
-            write_resultstofile(reg_results_class3[i],a,rowNumber3,col)
-            write_resultstofile(reg_results_class4[i],a,rowNumber4,col)
-            write_resultstofile(reg_results_class5[i],a,rowNumber5,col)
-
-    rowNumber = rowNumber5 + len(reg_results) + 3
-
-    if cup_alphaFlag:
-        write_resultstofile(reg_results_class1_alpha['Ane'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class1_alpha['Ane']) + 3
-        write_resultstofile(reg_results_class2_alpha['Ane'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class2_alpha['Ane']) + 3
-        write_resultstofile(reg_results_class3_alpha['Ane'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class3_alpha['Ane']) + 3
-        write_resultstofile(reg_results_class4_alpha['Ane'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class4_alpha['Ane']) + 3
-        write_resultstofile(reg_results_class5_alpha['Ane'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class5_alpha['Ane']) + 3
-
-    if RSD_alphaFlag:
-        write_resultstofile(reg_results_class1_alpha['RSD'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class1_alpha['RSD']) + 3
-        write_resultstofile(reg_results_class2_alpha['RSD'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class2_alpha['RSD']) + 3
-        write_resultstofile(reg_results_class3_alpha['RSD'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class3_alpha['RSD']) + 3
-        write_resultstofile(reg_results_class4_alpha['RSD'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class4_alpha['RSD']) + 3
-        write_resultstofile(reg_results_class5_alpha['RSD'],a,rowNumber,1)
-        rowNumber = rowNumber + len(reg_results_class5_alpha['RSD']) + 3
-
-
-    # total bin counts and length of observations
-    totalcount_1mps = count_1mps.sum().sum()
-    totalcount_1mps_train = count_1mps_train.sum().sum()
-    totalcount_1mps_test = count_1mps_test.sum().sum()
-    totalcount_05mps = count_05mps.sum().sum()
-    totalcount_05mps_train = count_05mps_train.sum().sum()
-    totalcount_05mps_test = count_05mps_test.sum().sum()
-
-    name_1mps_tke = []
-    name_1mps_alpha_Ane = []
-    name_1mps_alpha_RSD = []
-
-    rowNumber = rowNumber + 2
-    a.cell(row=rowNumber, column=1, value='Total Count (number of observations)')
-    a.cell(row=rowNumber, column=2, value=totalcount_1mps)
-    a.cell(row=rowNumber, column=4, value='Total Count in Training Subset (number of observations)')
-    a.cell(row=rowNumber, column=5, value=totalcount_1mps_train)
-    a.cell(row=rowNumber, column=7, value='Total Count in Training Subset (number of observations)')
-    a.cell(row=rowNumber, column=8, value=totalcount_1mps_test)
-    rowNumber += 2
-
-    a.cell(row=rowNumber, column=1, value='Bin Counts')
-    rowNumber += 1
-    c_1mps = count_1mps['RSD_WS']['count']
-    c_1mps.index=['count']
-    write_resultstofile(c_1mps, a, rowNumber, 1)
-    rowNumber += 4
-    c_05mps = count_05mps['RSD_WS']['count']
-    c_05mps.index=['count']
-    write_resultstofile(c_05mps, a, rowNumber, 1)
-    rowNumber += 4
-
-    a.cell(row=rowNumber, column=1, value='Bin Counts (Train)')
-    rowNumber += 1
-    c_1mps_train = count_1mps_train['RSD_WS']['count']
-    c_1mps_train.index=['count']
-    write_resultstofile(c_1mps_train, a, rowNumber, 1)
-    rowNumber += 4
-    c_05mps_train = count_05mps_train['RSD_WS']['count']
-    c_05mps_train.index=['count']
-    write_resultstofile(c_05mps_train, a, rowNumber, 1)
-    rowNumber += 4
-
-    a.cell(row=rowNumber, column=1, value='Bin Counts (Test)')
-    rowNumber += 1
-    c_1mps_test = count_1mps_test['RSD_WS']['count']
-    c_1mps_test.index=['count']
-    write_resultstofile(c_1mps_test, a, rowNumber, 1)
-    rowNumber += 4
-    c_05mps_test = count_05mps_test['RSD_WS']['count']
-    c_05mps_test.index=['count']
-    write_resultstofile(c_05mps_test, a, rowNumber, 1)
-    rowNumber += 4
-
-    for c in range(0,len(count_1mps_tke)):
-        a.cell(row=rowNumber, column=1, value=str('Bin Counts TKE' + str(c + 1)))
-        rowNumber += 1
-        try:
-            c_1mps_test = count_1mps_tke[c]['RSD_WS']['count']
-            c_1mps_test.index=['count']
-        except:
-            c_1mps_test = pd.DataFrame()
-        write_resultstofile(c_1mps_test, a, rowNumber, 1)
-        rowNumber += 4
-        try:
-            c_05mps_test = count_05mps_tke[c]['RSD_WS']['count']
-            c_05mps_test.index=['count']
-        except:
-            c_05mps_test = pd.DataFrame()
-        write_resultstofile(c_05mps_test, a, rowNumber, 1)
-        rowNumber += 4
-
-    for c in range(0,len(count_1mps_alpha_Ane)):
-        a.cell(row=rowNumber, column=1, value=str('Bin Counts alpha Ane' + str(c + 1)))
-        rowNumber += 1
-        try:
-            c_1mps_test = count_1mps_alpha_Ane[c]['RSD_WS']['count']
-            c_1mps_test.index=['count']
-        except:
-            c_1mps_test = pd.DataFrame()
-        write_resultstofile(c_1mps_test, a, rowNumber, 1)
-        rowNumber += 4
-        try:
-            c_05mps_test = count_05mps_alpha_Ane[c]['RSD_WS']['count']
-            c_05mps_test.index=['count']
-        except:
-            c_05mps_test = pd.DataFrame()
-        write_resultstofile(c_05mps_test, a, rowNumber, 1)
-        rowNumber += 4
-
-    for c in range(0,len(count_1mps_alpha_RSD)):
-        a.cell(row=rowNumber, column=1, value=str('Bin Counts alpha RSD' + str(c + 1)))
-        rowNumber += 1
-        try:
-            c_1mps_test = count_1mps_alpha_RSD[c]['RSD_WS']['count']
-            c_1mps_test.index=['count']
-        except:
-            c_1mps_test = pd.DataFrame()
-        write_resultstofile(c_1mps_test, a, rowNumber, 1)
-        rowNumber += 4
-        try:
-            c_05mps_test = count_05mps_alpha_RSD[c]['RSD_WS']['count']
-            c_05mps_test.index=['count']
-        except:
-            c_05mps_test = pd.DataFrame()
-        write_resultstofile(c_05mps_test, a, rowNumber, 1)
-        rowNumber += 4
-
-    totalcount_1mps_alpha_Ane = []
-    totalcount_1mps_alpha_RSD = []
-
-    totalcountTime_days = (totalcount_1mps * 10)/ 60/ 24
-    a.cell(row=rowNumber, column=1, value='Total Time (days)')
-    a.cell(row=rowNumber, column=2, value=totalcountTime_days)
-    totalcountTime_days_train = (totalcount_1mps_train * 10)/60/24
-    a.cell(row=rowNumber, column=4, value='Total Time Train (days)')
-    a.cell(row=rowNumber, column=5, value=totalcountTime_days_train)
-    totalcountTime_days_test = (totalcount_1mps_test * 10)/60/24
-    a.cell(row=rowNumber, column=7, value='Total Time Test (days)')
-    a.cell(row=rowNumber, column=8, value=totalcountTime_days_test)
-
-    rowNumber += 2
-
-    a.cell(row=rowNumber, column=1, value='Start Timestamp')
-    a.cell(row=rowNumber, column=2, value=str(Timestamps[0]))
-    a.cell(row=rowNumber, column=4, value='Start Timestamp (Train)')
-    a.cell(row=rowNumber, column=5, value=str(timestamp_train[0]))
-    a.cell(row=rowNumber, column=7, value='Start Timestamp (Test)')
-    a.cell(row=rowNumber, column=8, value=str(timestamp_test[-1]))
-    a.cell(row=rowNumber+1, column=1, value='End Timestamp')
-    a.cell(row=rowNumber+1, column=2, value=str(Timestamps[-1]))
-    a.cell(row=rowNumber+1, column=4, value='End Timestamp (Train)')
-    a.cell(row=rowNumber+1, column=5, value=str(timestamp_train[0]))
-    a.cell(row=rowNumber+1, column=7, value='End Timestamp (Test)')
-    a.cell(row=rowNumber+1, column=8, value=str(timestamp_test[-1]))
-    rowNumber +=3
-
-    if stabilityFlag:
-        a.cell(row=rowNumber, column=1, value='Stability TKE')
-        rowNumber +=1
-        write_resultstofile(regimeBreakdown_tke,a,rowNumber,1)
-        rowNumber += 9
-    if cup_alphaFlag:
-        a.cell(row=rowNumber, column=1, value='Stability alpha: tower')
-        rowNumber +=1
-        a.cell(row=rowNumber, column=1, value='Heights for alpha calculation: tower')
-        a.cell(row=rowNumber, column=2, value=Ht_1_ane)
-        a.cell(row=rowNumber, column=3, value=Ht_2_ane)
-        rowNumber += 2
-        write_resultstofile(regimeBreakdown_ane,a, rowNumber,1)
-        rowNumber +=8
-    if RSD_alphaFlag:
-        a.cell(row=rowNumber, column=1, value='Stability alpha: RSD')
-        rowNumber +=1
-        a.cell(row=rowNumber, column=1, value='Heights for alpha calculation: RSD')
-        a.cell(row=rowNumber, column=2, value=Ht_1_rsd)
-        a.cell(row=rowNumber, column=3, value=Ht_2_rsd)
-        rowNumber += 2
-        write_resultstofile(regimeBreakdown_rsd,a, rowNumber,1)
-        rowNumber +=7
-
-    # Metadata
-    # --------
-    b = wb.create_sheet(title='Metadata')
-    rowNumber = 1
-    b.cell(row=rowNumber, column=1, value='Software version: ')
-    b.cell(row= rowNumber, column = 2, value = '1.1.0')
-    b.cell(row= rowNumber, column=3, value = datetime.datetime.now())
-    rowNumber += 3
-    for r in dataframe_to_rows(siteMetadata, index=False):
-        b.append(r)
-        rowNumber = rowNumber + 1
-
-    rowNumber += 2
-    b.cell(row=rowNumber, column=1, value='Filter Metadata')
-    rowNumber +=1
-    write_resultstofile(filterMetadata,b,rowNumber,1)
-    rowNumber += 2
-    b.cell(row=rowNumber, column=1, value='Extrapolation Metadata')
-    rowNumber +=1
-    write_resultstofile(extrap_metadata,b,rowNumber,1)
-    rowNumber +=9
-    b.cell(row=rowNumber, column=1, value='Corrections Metadata')
-    rowNumber +=1
-    for c in baseResultsLists['correctionTagList_']:
-         b.cell(row=rowNumber, column=1, value='Correction applied:')
-         b.cell(row=rowNumber, column=2, value = c)
-         rowNumber +=1
-
-    # Time Sensitivity Tests
-    # ----------------------
-    # TimeTestA, TimeTestB, TimeTestC
-    Ta = wb.create_sheet(title='Sensitivity2TestLengthA')
-    rowNumber = 1
-    Ta.cell(row=rowNumber, column = 1, value = 'baseline')
-    rowNumber += 1
-    write_resultstofile(TimeTestA_baseline_df, Ta, rowNumber,1)
-    rowNumber += (len(TimeTestA_baseline_df)) + 4
-    for key in TimeTestA_corrections_df:
-        Ta.cell(row= rowNumber, column = 1, value = key)
-        rowNumber += 1
-        write_resultstofile(TimeTestA_corrections_df[key], Ta, rowNumber, 1)
-        rowNumber += len(TimeTestA_corrections_df[key]) + 3
-
-    Tb = wb.create_sheet(title='Sensitivity2TestLengthB')
-    rowNumber = 1
-    Tb.cell(row=rowNumber, column = 1, value = 'baseline')
-    rowNumber += 1
-    write_resultstofile(TimeTestB_baseline_df, Tb, rowNumber,1)
-    rowNumber += (len(TimeTestB_baseline_df))
-    for key in TimeTestB_corrections_df:
-        Tb.cell(row= rowNumber, column = 1, value = key)
-        rowNumber += 1
-        write_resultstofile(TimeTestB_corrections_df[key], Tb, rowNumber, 1)
-        rowNumber += len(TimeTestB_corrections_df[key]) + 3
-
-    Tc = wb.create_sheet(title='Sensitivity2TestLengthC')
-    rowNumber = 1
-    Tc.cell(row=rowNumber, column = 1, value = 'baseline')
-    rowNumber += 1
-    write_resultstofile(TimeTestC_baseline_df, Tc, rowNumber,1)
-    rowNumber += (len(TimeTestC_baseline_df))
-    for key in TimeTestC_corrections_df:
-        Tc.cell(row= rowNumber, column = 1, value = key)
-        rowNumber += 1
-        write_resultstofile(TimeTestC_corrections_df[key], Tc, rowNumber, 1)
-        rowNumber += len(TimeTestC_corrections_df[key]) + 3
-
-    # record results for each correction method
-    # -----------------------------------------
-    for correction in baseResultsLists['correctionTagList_']: # create tab for each correction method
-        sheetName = correction
-
-        for i in baseResultsLists['correctionTagList_']:
-            if i == correction:
-                idx = baseResultsLists['correctionTagList_'].index(i)
-
-        TI_MBE_j_ = baseResultsLists['TI_MBEList_'][idx]
-        TI_Diff_j_ = baseResultsLists['TI_DiffList_'][idx]
-        TI_Diff_r_ = baseResultsLists['TI_DiffRefBinsList_'][idx]
-        TI_RMSE_j_ = baseResultsLists['TI_RMSEList_'][idx]
-        RepTI_MBE_j_ = baseResultsLists['RepTI_MBEList_'][idx]
-        RepTI_Diff_j_ = baseResultsLists['RepTI_DiffList_'][idx]
-        RepTI_Diff_r_ = baseResultsLists['RepTI_DiffRefBinsList_'][idx]
-        RepTI_RMSE_j_ = baseResultsLists['RepTI_RMSEList_'][idx]
-        rep_TI_results_1mps = baseResultsLists['rep_TI_results_1mps_List_'][idx]
-        rep_TI_results_05mps = baseResultsLists['rep_TI_results_05mps_List_'][idx]
-        TIbybin = baseResultsLists['TIBinList_'][idx]
-        TIbyRefbin = baseResultsLists['TIRefBinList_'][idx]
-        total_stats = baseResultsLists['total_StatsList_'][idx]
-        belownominal_stats = baseResultsLists['belownominal_statsList_'][idx]
-        abovenominal_stats = baseResultsLists['abovenominal_statsList_'][idx]
-        lm_corr = baseResultsLists['lm_CorrList_'][idx]
-        Dist_stats_df = pd.concat([Dist_stats_df,baseResultsLists['Distribution_statsList_'][idx]], axis=1)
-        correctionTag = baseResultsLists['correctionTagList_'][idx]
-
-        if stabilityFlag:
-            TI_MBE_j_stability = ResultsLists_stability['TI_MBEList_stability_'][idx]
-            TI_Diff_j_stability =  ResultsLists_stability['TI_DiffList_stability_'][idx]
-            TI_Diff_r_stability = ResultsLists_stability['TI_DiffRefBinsList_stability_'][idx]
-            TI_RMSE_j_stability =  ResultsLists_stability['TI_RMSEList_stability_'][idx]
-            RepTI_MBE_j_stability = ResultsLists_stability['RepTI_MBEList_stability_'][idx]
-            RepTI_Diff_j_stability = ResultsLists_stability['RepTI_DiffList_stability_'][idx]
-            RepTI_Diff_r_stability = ResultsLists_stability['RepTI_DiffRefBinsList_stability_'][idx]
-            RepTI_RMSE_j_stability = ResultsLists_stability['RepTI_RMSEList_stability_'][idx]
-            rep_TI_results_1mps_stability = ResultsLists_stability['rep_TI_results_1mps_List_stability_'][idx]
-            rep_TI_results_05mps_stability = ResultsLists_stability['rep_TI_results_05mps_List_stability_'][idx]
-            TIbybin_stability = ResultsLists_stability['TIBinList_stability_'][idx]
-            TIbyRefbin_stability = ResultsLists_stability['TIRefBinList_stability_'][idx]
-            total_stats_stability = ResultsLists_stability['total_StatsList_stability_'][idx]
-            belownominal_stats_stability = ResultsLists_stability['belownominal_statsList_stability_'][idx]
-            abovenominal_stats_stability = ResultsLists_stability['abovenominal_statsList_stability_'][idx]
-            lm_corr_stability = ResultsLists_stability['lm_CorrList_stability_'][idx]
-            corrrectionTag_stability = ResultsLists_stability['correctionTagList_stability_'][idx]
-            for i in ResultsLists_stability['Distribution_statsList_stability_'][idx]:
-                if isinstance(i, pd.DataFrame):
-                    Dist_stats_df = pd.concat([Dist_stats_df,i], axis=1)
-
-        if cup_alphaFlag:
-            TI_MBE_j_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['TI_MBEList_stability_alpha_Ane'][idx]
-            TI_Diff_j_stability_alpha_Ane =  ResultsLists_stability_alpha_Ane['TI_DiffList_stability_alpha_Ane'][idx]
-            TI_Diff_r_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['TI_DiffRefBinsList_stability_alpha_Ane'][idx]
-            TI_RMSE_j_stability_alpha_Ane =  ResultsLists_stability_alpha_Ane['TI_RMSEList_stability_alpha_Ane'][idx]
-            RepTI_MBE_j_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['RepTI_MBEList_stability_alpha_Ane'][idx]
-            RepTI_Diff_j_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['RepTI_DiffList_stability_alpha_Ane'][idx]
-            RepTI_Diff_r_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['RepTI_DiffRefBinsList_stability_alpha_Ane'][idx]
-            RepTI_RMSE_j_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['RepTI_RMSEList_stability_alpha_Ane'][idx]
-            rep_TI_results_1mps_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['rep_TI_results_1mps_List_stability_alpha_Ane'][idx]
-            rep_TI_results_05mps_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['rep_TI_results_05mps_List_stability_alpha_Ane'][idx]
-            TIbybin_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['TIBinList_stability_alpha_Ane'][idx]
-            TIbyRefbin_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['TIRefBinList_stability_alpha_Ane'][idx]
-            total_stats_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['total_StatsList_stability_alpha_Ane'][idx]
-            belownominal_stats_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['belownominal_statsList_stability_alpha_Ane'][idx]
-            abovenominal_stats_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['abovenominal_statsList_stability_alpha_Ane'][idx]
-            lm_corr_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['lm_CorrList_stability_alpha_Ane'][idx]
-            corrrectionTag_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['correctionTagList_stability_alpha_Ane'][idx]
-            for i in ResultsLists_stability_alpha_Ane['Distribution_statsList_stability_alpha_Ane'][idx]:
-                if isinstance(i, pd.DataFrame):
-                    Dist_stats_df = pd.concat([Dist_stats_df,i], axis=1)
-
-        if RSD_alphaFlag:
-            TI_MBE_j_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['TI_MBEList_stability_alpha_RSD'][idx]
-            TI_Diff_j_stability_alpha_RSD =  ResultsLists_stability_alpha_RSD['TI_DiffList_stability_alpha_RSD'][idx]
-            TI_Diff_r_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['TI_DiffRefBinsList_stability_alpha_RSD'][idx]
-            TI_RMSE_j_stability_alpha_RSD =  ResultsLists_stability_alpha_RSD['TI_RMSEList_stability_alpha_RSD'][idx]
-            RepTI_MBE_j_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['RepTI_MBEList_stability_alpha_RSD'][idx]
-            RepTI_Diff_j_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['RepTI_DiffList_stability_alpha_RSD'][idx]
-            RepTI_Diff_r_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['RepTI_DiffRefBinsList_stability_alpha_RSD'][idx]
-            RepTI_RMSE_j_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['RepTI_RMSEList_stability_alpha_RSD'][idx]
-            rep_TI_results_1mps_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['rep_TI_results_1mps_List_stability_alpha_RSD'][idx]
-            rep_TI_results_05mps_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['rep_TI_results_05mps_List_stability_alpha_RSD'][idx]
-            TIbybin_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['TIBinList_stability_alpha_RSD'][idx]
-            TIbyRefbin_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['TIRefBinList_stability_alpha_RSD'][idx]
-            total_stats_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['total_StatsList_stability_alpha_RSD'][idx]
-            belownominal_stats_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['belownominal_statsList_stability_alpha_RSD'][idx]
-            abovenominal_stats_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['abovenominal_statsList_stability_alpha_RSD'][idx]
-            lm_corr_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['lm_CorrList_stability_alpha_RSD'][idx]
-            corrrectionTag_stability_alpha_RSD = ResultsLists_stability_alpha_RSD['correctionTagList_stability_alpha_RSD'][idx]
-            for i in ResultsLists_stability_alpha_RSD['Distribution_statsList_stability_alpha_RSD'][idx]:
-                if isinstance(i, pd.DataFrame):
-                    Dist_stats_df = pd.concat([Dist_stats_df,i], axis=1)
-
-        ws = wb.create_sheet(title=sheetName)
-
-        rowNumber = 1
-        ws.cell(row=rowNumber, column=1, value='Corrected RSD Regression Results')
-        ws.cell(row=rowNumber, column=2, value='m')
-        ws.cell(row=rowNumber, column=3, value='c')
-        ws.cell(row=rowNumber, column=4, value='r-squared')
-        ws.cell(row=rowNumber, column=5, value='mean difference')
-        ws.cell(row=rowNumber, column=6, value='mse')
-        ws.cell(row=rowNumber, column=7, value='rmse')
-        className = 1
-        if stabilityFlag:
-            for i in lm_corr_stability:
-                 start = className*8 + 1
-                 corrName = str('Corrected RSD Regression Results, stability subset (TKE)' + '_' + 'class_' + str(className))
-                 ws.cell(row=rowNumber, column=start, value= corrName)
-                 ws.cell(row=rowNumber, column=start+1, value='m')
-                 ws.cell(row=rowNumber, column=start+2, value='c')
-                 ws.cell(row=rowNumber, column=start+3, value='r-squared')
-                 ws.cell(row=rowNumber, column=start+4, value='mean difference')
-                 ws.cell(row=rowNumber, column=start+5, value='mse')
-                 ws.cell(row=rowNumber, column=start+6, value='rmse')
-                 className += 1
-        className = 1
-        if cup_alphaFlag:
-             rowNumber = 13
-             for i in lm_corr_stability_alpha_Ane:
-                 start = className*8 + 1
-                 corrName = str('Corrected RSD Regression Results, stability subset (cup alpha)' + '_' + 'class_' + str(className))
-                 ws.cell(row=rowNumber, column=start, value= corrName)
-                 ws.cell(row=rowNumber, column=start+1, value='m')
-                 ws.cell(row=rowNumber, column=start+2, value='c')
-                 ws.cell(row=rowNumber, column=start+3, value='r-squared')
-                 ws.cell(row=rowNumber, column=start+4, value='mean difference')
-                 ws.cell(row=rowNumber, column=start+5, value='mse')
-                 ws.cell(row=rowNumber, column=start+6, value='rmse')
-                 className += 1
-        className = 1
-        if RSD_alphaFlag:
-             rowNumber = 25
-             for i in lm_corr_stability_alpha_Ane:
-                 start = className*8 + 1
-                 corrName = str('Corrected RSD Regression Results, stability subset (RSD alpha)' + '_' + 'class_' + str(className))
-                 ws.cell(row=rowNumber, column=start, value= corrName)
-                 ws.cell(row=rowNumber, column=start+1, value='m')
-                 ws.cell(row=rowNumber, column=start+2, value='c')
-                 ws.cell(row=rowNumber, column=start+3, value='r-squared')
-                 ws.cell(row=rowNumber, column=start+4, value='mean difference')
-                 ws.cell(row=rowNumber, column=start+5, value='mse')
-                 ws.cell(row=rowNumber, column=start+6, value='rmse')
-                 className += 1
-
-         # correction regression results
-        rowNumber = 2
-        for item in lm_corr.index.to_list():
-            ws.cell(row=rowNumber, column=1, value=item)
-            ws.cell(row=rowNumber, column=2, value=lm_corr['m'][item])
-            ws.cell(row=rowNumber, column=3, value=lm_corr['c'][item])
-            ws.cell(row=rowNumber, column=4, value=lm_corr['rsquared'][item])
-            ws.cell(row=rowNumber, column=5, value=lm_corr['difference'][item])
-            ws.cell(row=rowNumber, column=6, value=lm_corr['mse'][item])
-            ws.cell(row=rowNumber, column=7, value=lm_corr['rmse'][item])
-            rowNumber = rowNumber + 1
-        if stabilityFlag:
-            rowNumber = 2
-            className = 1
-            for i in range(0,len(lm_corr_stability)):
-                start = className *8 + 1
-                try:
-                    for item in lm_corr_stability[i].index.to_list():
-                        ws.cell(row = rowNumber, column = start, value = item)
-                        ws.cell(row=rowNumber, column=start+1, value=lm_corr_stability[i]['m'][item])
-                        ws.cell(row=rowNumber, column=start+2, value=lm_corr_stability[i]['c'][item])
-                        ws.cell(row=rowNumber, column=start+3, value=lm_corr_stability[i]['rsquared'][item])
-                        ws.cell(row=rowNumber, column=start+4, value=lm_corr_stability[i]['difference'][item])
-                        ws.cell(row=rowNumber, column=start+5, value=lm_corr_stability[i]['mse'][item])
-                        ws.cell(row=rowNumber, column=start+6, value=lm_corr_stability[i]['rmse'][item])
-                        rowNumber = rowNumber + 1
-                except:
-                    pass
-                className = className + 1
-                rowNumber = 2
-        if cup_alphaFlag:
-            rowNumber = 14
-            className = 1
-            for i in range(0,len(lm_corr_stability_alpha_Ane)):
-                start = className *8 + 1
-                try:
-                    for item in lm_corr_stability_alpha_Ane[i].index.to_list():
-                        ws.cell(row = rowNumber, column = start, value = item)
-                        ws.cell(row=rowNumber, column=start+1, value=lm_corr_stability_alpha_Ane[i]['m'][item])
-                        ws.cell(row=rowNumber, column=start+2, value=lm_corr_stability_alpha_Ane[i]['c'][item])
-                        ws.cell(row=rowNumber, column=start+3, value=lm_corr_stability_alpha_Ane[i]['rsquared'][item])
-                        ws.cell(row=rowNumber, column=start+4, value=lm_corr_stability_alpha_Ane[i]['difference'][item])
-                        ws.cell(row=rowNumber, column=start+5, value=lm_corr_stability_alpha_Ane[i]['mse'][item])
-                        ws.cell(row=rowNumber, column=start+6, value=lm_corr_stability_alpha_Ane[i]['rmse'][item])
-                        rowNumber = rowNumber + 1
-                except:
-                    pass
-                className = className + 1
-                rowNumber = 14
-        if RSD_alphaFlag:
-            rowNumber = 26
-            className = 1
-            for i in range(0,len(lm_corr_stability_alpha_RSD)):
-                start = className *8 + 1
-                try:
-                    for item in lm_corr_stability_alpha_RSD[i].index.to_list():
-                        ws.cell(row = rowNumber, column = start, value = item)
-                        ws.cell(row=rowNumber, column=start+1, value=lm_corr_stability_alpha_RSD[i]['m'][item])
-                        ws.cell(row=rowNumber, column=start+2, value=lm_corr_stability_alpha_RSD[i]['c'][item])
-                        ws.cell(row=rowNumber, column=start+3, value=lm_corr_stability_alpha_RSD[i]['rsquared'][item])
-                        ws.cell(row=rowNumber, column=start+4, value=lm_corr_stability_alpha_RSD[i]['difference'][item])
-                        ws.cell(row=rowNumber, column=start+5, value=lm_corr_stability_alpha_RSD[i]['mse'][item])
-                        ws.cell(row=rowNumber, column=start+6, value=lm_corr_stability_alpha_RSD[i]['rmse'][item])
-                        rowNumber = rowNumber + 1
-                except:
-                    pass
-                className = className + 1
-                rowNumber = 26
-
-        rowNumber = 37
-
-        Result_df_mean_1mps = pd.DataFrame()
-        Result_df_mean_05mps = pd.DataFrame()
-        Result_df_std_1mps = pd.DataFrame()
-        Result_df_std_05mps = pd.DataFrame()
-        Result_df_mean_tiRef = pd.DataFrame()
-        Result_df_std_tiRef = pd.DataFrame()
-
-        classes = ['class1', 'class2', 'class3', 'class4', 'class5']
-
-        # --- All data
-        # TI values by ws bin
-        Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps,Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbybin, Result_df_mean_1mps,Result_df_mean_05mps,Result_df_std_1mps,Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef)
-        # TI MBE
-        Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_MBE_j_, Result_df_mean_1mps,Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef)
-        # RepTI MBE
-        Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_MBE_j_, Result_df_mean_1mps,Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef)
-        # TI RMSE
-        if TI_RMSE_j_ is not None:
-            for val in TI_RMSE_j_:
-                for i in val:
-                    dat = i['mean']
-                    new_data = dat.add_prefix(str('mean' + '_'))
-                    if new_data.columns.name == 'bins':
-                        Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                    elif new_data.columns.name == 'bins_p5':
-                        Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-        # RepTI RMSE
-        if RepTI_RMSE_j_ is not None:
-            for val in RepTI_RMSE_j_:
-                for i in val:
-                    dat = i['mean']
-                    new_data = dat.add_prefix(str('mean' + '_'))
-                    if new_data.columns.name == 'bins':
-                        Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                    elif new_data.columns.name == 'bins_p5':
-                        Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-
-        # TI DIff
-        Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_j_,Result_df_mean_1mps, Result_df_mean_05mps,Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef)
-        # RepTI DIff
-        Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_Diff_j_,Result_df_mean_1mps,Result_df_mean_05mps, Result_df_std_1mps,Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef)
-
-        # --- Stability Classes
-        if stabilityFlag:
-            for i in range(0,len(TIbybin_stability)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbybin_stability[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(TI_MBE_j_stability)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_MBE_j_stability[i], Result_df_mean_1mps, Result_df_mean_05mps,Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(RepTI_MBE_j_stability)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_MBE_j_stability[i], Result_df_mean_1mps, Result_df_mean_05mps,Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(TI_Diff_j_stability)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_j_stability[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(RepTI_Diff_j_stability)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_Diff_j_stability[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for j in range(0,len(TI_RMSE_j_stability)):
-                stabilityClass = classes[j]
-                df_list = TI_RMSE_j_stability[j]
-                if isinstance(df_list,list) == False:
-                   pass
-                else:
-                   for val in df_list:
-                       for i in val:
-                           dat = i['mean']
-                           new_data = dat.add_prefix(str('mean' + '_'))
-                           new_index = [str('stability_' + stabilityClass + '_' + n) for n in new_data.index.to_list()]
-                           new_data.index = new_index
-                           if new_data.columns.name == 'bins':
-                              Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                           elif new_data.columns.name == 'bins_p5':
-                              Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-            for j in range(0,len(RepTI_RMSE_j_stability)):
-                stabilityClass = classes[j]
-                df_list = RepTI_RMSE_j_stability[j]
-                if isinstance(df_list,list) == False:
-                    pass
-                else:
-                    for val in df_list:
-                        for i in val:
-                            dat = i['mean']
-                            new_data = dat.add_prefix(str('mean' + '_'))
-                            new_index = [str('stability_' + stabilityClass + '_' + n) for n in new_data.index.to_list()]
-                            new_data.index = new_index
-                            if new_data.columns.name == 'bins':
-                               Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                            elif new_data.columns.name == 'bins_p5':
-                               Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-
-        # --- stability class by alpha Ane
-        if cup_alphaFlag:
-            pass
-        else:
-            TIbybin_stability_alpha_Ane = TIbybin_stability
-            TI_MBE_j_stability_alpha_Ane = TI_MBE_j_stability
-            RepTI_MBE_j_stability_alpha_Ane = RepTI_MBE_j_stability
-            RepTI_Diff_j_stability_alpha_Ane = RepTI_Diff_j_stability
-            TI_Diff_j_stability_alpha_Ane = TI_Diff_j_stability
-            TI_RMSE_j_stability_alpha_Ane = TI_RMSE_j_stability
-            RepTI_RMSE_j_stability_alpha_Ane = RepTI_RMSE_j_stability
-        if stabilityFlag:
-            for i in range(0,len(TIbybin_stability_alpha_Ane)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbybin_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(TI_MBE_j_stability_alpha_Ane)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_MBE_j_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps,Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(RepTI_MBE_j_stability_alpha_Ane)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_MBE_j_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps,Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(TI_Diff_j_stability_alpha_Ane)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_j_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(RepTI_Diff_j_stability_alpha_Ane)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_Diff_j_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for j in range(0,len(TI_RMSE_j_stability_alpha_Ane)):
-                stabilityClass = classes[j]
-                df_list = TI_RMSE_j_stability_alpha_Ane[j]
-                if isinstance(df_list,list) == False:
-                   pass
-                else:
-                   for val in df_list:
-                       for i in val:
-                           dat = i['mean']
-                           new_data = dat.add_prefix(str('mean' + '_'))
-                           new_index = [str('stability_' + stabilityClass + '_' + n) for n in new_data.index.to_list()]
-                           new_data.index = new_index
-                           if new_data.columns.name == 'bins':
-                              Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                           elif new_data.columns.name == 'bins_p5':
-                              Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-            for j in range(0,len(RepTI_RMSE_j_stability_alpha_Ane)):
-                stabilityClass = classes[j]
-                df_list = RepTI_RMSE_j_stability_alpha_Ane[j]
-                if isinstance(df_list,list) == False:
-                    pass
-                else:
-                    for val in df_list:
-                        for i in val:
-                            dat = i['mean']
-                            new_data = dat.add_prefix(str('mean' + '_'))
-                            new_index = [str('stability_' + stabilityClass + '_' + n) for n in new_data.index.to_list()]
-                            new_data.index = new_index
-                            if new_data.columns.name == 'bins':
-                               Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                            elif new_data.columns.name == 'bins_p5':
-                               Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-
-        # --- stability class by alpha RSD
-        if RSD_alphaFlag:
-            pass
-        else:
-            TIbybin_stability_alpha_RSD = TIbybin_stability
-            TI_MBE_j_stability_alpha_RSD = TI_MBE_j_stability
-            RepTI_MBE_j_stability_alpha_RSD = RepTI_MBE_j_stability
-            RepTI_Diff_j_stability_alpha_RSD = RepTI_Diff_j_stability
-            TI_Diff_j_stability_alpha_RSD = TI_Diff_j_stability
-            TI_RMSE_j_stability_alpha_RSD = TI_RMSE_j_stability
-            RepTI_RMSE_j_stability_alpha_RSD = RepTI_RMSE_j_stability
-            for i in range(0,len(TIbybin_stability_alpha_RSD)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbybin_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(TI_MBE_j_stability_alpha_RSD)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_MBE_j_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps,Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(RepTI_MBE_j_stability_alpha_RSD)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_MBE_j_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps,Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(TI_Diff_j_stability_alpha_RSD)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_j_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for i in range(0,len(RepTI_Diff_j_stability_alpha_RSD)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_Diff_j_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i])
-            for j in range(0,len(TI_RMSE_j_stability_alpha_RSD)):
-                stabilityClass = classes[j]
-                df_list = TI_RMSE_j_stability_alpha_RSD[j]
-                if isinstance(df_list,list) == False:
-                   pass
-                else:
-                   for val in df_list:
-                       for i in val:
-                           dat = i['mean']
-                           new_data = dat.add_prefix(str('mean' + '_'))
-                           new_index = [str('stability_' + stabilityClass + '_' + n) for n in new_data.index.to_list()]
-                           new_data.index = new_index
-                           if new_data.columns.name == 'bins':
-                              Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                           elif new_data.columns.name == 'bins_p5':
-                              Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-            for j in range(0,len(RepTI_RMSE_j_stability_alpha_RSD)):
-                stabilityClass = classes[j]
-                df_list = RepTI_RMSE_j_stability_alpha_RSD[j]
-                if isinstance(df_list,list) == False:
-                    pass
-                else:
-                    for val in df_list:
-                        for i in val:
-                            dat = i['mean']
-                            new_data = dat.add_prefix(str('mean' + '_'))
-                            new_index = [str('stability_' + stabilityClass + '_' + n) for n in new_data.index.to_list()]
-                            new_data.index = new_index
-                            if new_data.columns.name == 'bins':
-                               Result_df_mean_1mps = pd.concat([Result_df_mean_1mps,new_data])
-                            elif new_data.columns.name == 'bins_p5':
-                               Result_df_mean_05mps = pd.concat([Result_df_mean_05mps,new_data])
-
-        write_resultstofile(Result_df_mean_1mps, ws, rowNumber,1)
-        rowNumber += len(Result_df_mean_1mps) + 3
-        write_resultstofile(Result_df_mean_05mps, ws, rowNumber,1)
-        rowNumber += len(Result_df_mean_05mps) + 3
-        write_resultstofile(Result_df_std_1mps, ws, rowNumber,1)
-        rowNumber += len(Result_df_std_1mps) + 3
-        write_resultstofile(Result_df_std_05mps, ws, rowNumber,1)
-        rowNumber += len(Result_df_std_05mps) + 3
-
-        # --- All data
-        # TI values by Ref TI bin
-        Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbyRefbin,Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, byTIRefbin = True)
-        if stabilityFlag:
-            for i in range(0,len(TIbyRefbin_stability)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbyRefbin_stability[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-        if cup_alphaFlag:
-            for i in range(0,len(TIbyRefbin_stability_alpha_Ane)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbyRefbin_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-        if RSD_alphaFlag:
-            for i in range(0,len(TIbyRefbin_stability_alpha_RSD)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TIbyRefbin_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-
-        # TI Diff by Ref TI bin
-        Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_r_,Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, byTIRefbin = True)
-        Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_Diff_r_,Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, byTIRefbin = True)
-        if stabilityFlag:
-            for i in range(0,len(TI_Diff_r_stability)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_r_stability[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_Diff_r_stability[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-        if cup_alphaFlag:
-            for i in range(0,len(TI_Diff_r_stability_alpha_Ane)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_r_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_Diff_r_stability_alpha_Ane[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-        if RSD_alphaFlag:
-            for i in range(0,len(TI_Diff_r_stability_alpha_RSD)):
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(TI_Diff_r_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-                Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps,Result_df_mean_tiRef, Result_df_std_tiRef = configure_for_printing(RepTI_Diff_r_stability_alpha_RSD[i], Result_df_mean_1mps, Result_df_mean_05mps, Result_df_std_1mps, Result_df_std_05mps, Result_df_mean_tiRef, Result_df_std_tiRef, stabilityClass=classes[i], byTIRefbin = True)
-
-        write_resultstofile(Result_df_mean_tiRef, ws, rowNumber,1)
-        rowNumber += len(Result_df_mean_tiRef) + 3
-        write_resultstofile(Result_df_std_tiRef, ws, rowNumber,1)
-        rowNumber += len(Result_df_std_tiRef) + 3
-
-        # total stats
-        if isinstance(total_stats, pd.DataFrame) and isinstance(total_stats, tuple) == False:
-            write_resultstofile(total_stats, ws, rowNumber, 1)
-            rowNumber += len(total_stats) + 3
-        else:
-            pass
-        # total stats by stability
-        if stabilityFlag:
-            for i in range(0,len(total_stats_stability)):
-                if isinstance(total_stats_stability[i],pd.DataFrame) and isinstance(total_stats_stability[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('Total stats by stability_' + 'Class_1'))
-                    rowNumber += 1
-                    write_resultstofile(total_stats_stability[i], ws, rowNumber, 1)
-                    rowNumber += len(total_stats_stability[i]) + 3
-                else:
-                    pass
-        if cup_alphaFlag:
-            for i in range(0,len(total_stats_stability_alpha_Ane)):
-                if isinstance(total_stats_stability_alpha_Ane[i],pd.DataFrame) and isinstance(total_stats_stability_alpha_Ane[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('Total stats by stability_alpha_Ane_' + 'Class_1'))
-                    rowNumber += 1
-                    write_resultstofile(total_stats_stability_alpha_Ane[i], ws, rowNumber, 1)
-                    rowNumber += len(total_stats_stability_alpha_Ane[i]) + 3
-                else:
-                    pass
-        if RSD_alphaFlag:
-            for i in range(0,len(total_stats_stability_alpha_RSD)):
-                if isinstance(total_stats_stability_alpha_RSD[i],pd.DataFrame) and isinstance(total_stats_stability_alpha_RSD[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('Total stats by stability_alpha_RSD_' + 'Class_1'))
-                    rowNumber += 1
-                    write_resultstofile(total_stats_stability_alpha_RSD[i], ws, rowNumber, 1)
-                    rowNumber += len(total_stats_stability_alpha_RSD[i]) + 3
-                else:
-                    pass
-
-        # representative stats: belownominal
-        if isinstance(belownominal_stats, pd.DataFrame) and isinstance(belownominal_stats, tuple) == False:
-            write_resultstofile(belownominal_stats, ws, rowNumber, 1)
-            rowNumber += len(belownominal_stats) + 3
-        else:
-            pass
-        # representative by stability: below nominal
-        if stabilityFlag:
-            for i in range(0,len(belownominal_stats_stability)):
-                if isinstance(belownominal_stats_stability[i],pd.DataFrame) and isinstance(belownominal_stats_stability[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('belownominal stats by stability_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    write_resultstofile(belownominal_stats_stability[i], ws, rowNumber, 1)
-                    rowNumber += len(belownominal_stats_stability[i]) + 3
-                else:
-                    pass
-        if cup_alphaFlag:
-            for i in range(0,len(belownominal_stats_stability_alpha_Ane)):
-                if isinstance(belownominal_stats_stability_alpha_Ane[i],pd.DataFrame) and isinstance(belownominal_stats_stability_alpha_Ane[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('belownominal stats by stability_alpha_Ane_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    write_resultstofile(belownominal_stats_stability_alpha_Ane[i], ws, rowNumber, 1)
-                    rowNumber += len(belownominal_stats_stability_alpha_Ane[i]) + 3
-                else:
-                    pass
-        if RSD_alphaFlag:
-            for i in range(0,len(belownominal_stats_stability_alpha_RSD)):
-                if isinstance(belownominal_stats_stability_alpha_RSD[i],pd.DataFrame) and isinstance(belownominal_stats_stability_alpha_RSD[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('belownominal stats by stability_alpha_RSD_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    write_resultstofile(belownominal_stats_stability_alpha_RSD[i], ws, rowNumber, 1)
-                    rowNumber += len(belownominal_stats_stability_alpha_RSD[i]) + 3
-                else:
-                    pass
-
-        # representative stats: abovenominal
-        if isinstance(abovenominal_stats, pd.DataFrame) and isinstance(abovenominal_stats, tuple) == False:
-            write_resultstofile(abovenominal_stats, ws, rowNumber, 1)
-            rowNumber += len(abovenominal_stats) + 3
-        else:
-            pass
-        # representative by stability: below nominal
-        if stabilityFlag:
-            for i in range(0,len(abovenominal_stats_stability)):
-                if isinstance(abovenominal_stats_stability[i],pd.DataFrame) and isinstance(abovenominal_stats_stability[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('abovenominal stats by stability_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    write_resultstofile(abovenominal_stats_stability[i], ws, rowNumber, 1)
-                    rowNumber += len(abovenominal_stats_stability[i]) + 3
-                else:
-                    pass
-        if cup_alphaFlag:
-            for i in range(0,len(abovenominal_stats_stability_alpha_Ane)):
-                if isinstance(abovenominal_stats_stability_alpha_Ane[i],pd.DataFrame) and isinstance(abovenominal_stats_stability_alpha_Ane[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('abovenominal stats by stability_alpha_Ane_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    write_resultstofile(abovenominal_stats_stability_alpha_Ane[i], ws, rowNumber, 1)
-                    rowNumber += len(abovenominal_stats_stability_alpha_Ane[i]) + 3
-                else:
-                    pass
-        if RSD_alphaFlag:
-            for i in range(0,len(abovenominal_stats_stability_alpha_RSD)):
-                if isinstance(abovenominal_stats_stability_alpha_RSD[i],pd.DataFrame) and isinstance(abovenominal_stats_stability_alpha_RSD[i], tuple) == False:
-                    ws.cell(row=rowNumber, column=1, value= str('abovenominal stats by stability_alpha_RSD_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    write_resultstofile(abovenominal_stats_stability_alpha_RSD[i], ws, rowNumber, 1)
-                    rowNumber += len(abovenominal_stats_stability_alpha_RSD[i]) + 3
-                else:
-                    pass
-
-        # Representative TI
-        if isinstance(rep_TI_results_1mps, pd.DataFrame):
-            write_resultstofile(rep_TI_results_1mps, ws, rowNumber,1)
-            rowNumber += len(rep_TI_results_1mps) + 3
-        else:
-            pass
-        if stabilityFlag:
-            for i in range(0,len(rep_TI_results_1mps_stability)):
-                if isinstance(rep_TI_results_1mps_stability[i], pd.DataFrame):
-                    ws.cell(row=rowNumber, column=1, value= str('representative stats by stability_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    try:
-                        write_resultstofile(rep_TI_results_1mps_stability[i], ws, rowNumber, 1)
-                        rowNumber += len(rep_TI_results_1mps_stability[i]) + 3
-                    except:
-                        ws.cell(row=rowNumber, column=1, value= np.NaN)
-                        rowNumber += 4
-                else:
-                    pass
-        if cup_alphaFlag:
-            for i in range(0,len(rep_TI_results_1mps_stability_alpha_Ane)):
-                if isinstance(rep_TI_results_1mps_stability_alpha_Ane[i], pd.DataFrame):
-                    ws.cell(row=rowNumber, column=1, value= str('representative stats by stability_alpha_Ane_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    try:
-                        write_resultstofile(rep_TI_results_1mps_stability_alpha_RSD[i], ws, rowNumber, 1)
-                        rowNumber += len(rep_TI_results_1mps_stability_alpha_RSD[i]) + 3
-                    except:
-                        ws.cell(row=rowNumber, column=1, value= np.NaN)
-                        rowNumber += 4
-                else:
-                    pass
-        if RSD_alphaFlag:
-            for i in range(0,len(rep_TI_results_1mps_stability_alpha_RSD)):
-                if isinstance(rep_TI_results_1mps_stability_alpha_RSD[i], pd.DataFrame):
-                    ws.cell(row=rowNumber, column=1, value= str('representative stats by stability_alpha_RSD_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    try:
-                        write_resultstofile(rep_TI_results_1mps_stability_alpha_RSD[i], ws, rowNumber, 1)
-                        rowNumber += len(rep_TI_results_1mps_stability_alpha_RSD[i]) + 3
-                    except:
-                        ws.cell(row=rowNumber, column=1, value= np.NaN)
-                        rowNumber += 4
-                else:
-                    pass
-
-        if isinstance(rep_TI_results_05mps, pd.DataFrame):
-            write_resultstofile(rep_TI_results_05mps, ws, rowNumber,1)
-            rowNumber += len(rep_TI_results_05mps) + 3
-        else:
-            pass
-        if stabilityFlag:
-            for i in range(0,len(rep_TI_results_05mps_stability)):
-                if isinstance(rep_TI_results_05mps_stability[i], pd.DataFrame):
-                    ws.cell(row=rowNumber, column=1, value= str('representative stats by stability_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    write_resultstofile(rep_TI_results_05mps_stability[i], ws, rowNumber, 1)
-                    rowNumber += len(rep_TI_results_05mps_stability[i]) + 3
-                else:
-                    pass
-        if cup_alphaFlag:
-            for i in range(0,len(rep_TI_results_05mps_stability_alpha_Ane)):
-                if isinstance(rep_TI_results_05mps_stability[i], pd.DataFrame):
-                    ws.cell(row=rowNumber, column=1, value= str('representative stats by stability_alpha_Ane_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    try:
-                        write_resultstofile(rep_TI_results_05mps_stability_alpha_Ane[i], ws, rowNumber, 1)
-                        rowNumber += len(rep_TI_results_05mps_stability_alpha_Ane[i]) + 3
-                    except:
-                        ws.cell(row=rowNumber, column=1, value= np.NaN)
-                        rowNumber += 4
-                else:
-                    pass
-        if RSD_alphaFlag:
-            for i in range(0,len(rep_TI_results_05mps_stability_alpha_RSD)):
-                if isinstance(rep_TI_results_05mps_stability_alpha_RSD[i], pd.DataFrame):
-                    ws.cell(row=rowNumber, column=1, value= str('representative stats by stability_alpha_RSD_' + 'Class_' + str(i+1)))
-                    rowNumber += 1
-                    try:
-                        write_resultstofile(rep_TI_results_05mps_stability_alpha_RSD[i], ws, rowNumber, 1)
-                        rowNumber += len(rep_TI_results_05mps_stability_alpha_RSD[i]) + 3
-                    except:
-                        ws.cell(row=rowNumber, column=1, value= np.NaN)
-                        rowNumber += 4
-                else:
-                    pass
-
-    d = wb.create_sheet(title='K-S Tests')
-    for r in dataframe_to_rows(Dist_stats_df, index=False):
-        d.append(r)
-    f = wb.create_sheet(title='Extrapolation Metadata')
-    for r in dataframe_to_rows(extrap_metadata, index=False):
-       f.append(r)
-
-    # remove blank sheet
-    del wb['Sheet']
-
-    wb.save(results_filename)
-
-def get_inputfiles():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-in","--input_filename", help="print this requires the input filename")
-    parser.add_argument("-config","--config_file", help="this requires the excel configuration file")
-    parser.add_argument("-globalModel", "--global_model_to_test", help="specify the global model to test on the data",default='RF_model_1_SS_LTERRA_MLb.pkl')
-    parser.add_argument("-rtd","--rtd_files", help="this requires input directory for wincube rtd files",default=False)
-    parser.add_argument("-res","--results_file", help="this requires the excel results file")
-    parser.add_argument("-saveModel", "--save_model_location", help="this argument specifies the location to save output global model", default=False)
-    parser.add_argument("-timetestFlag", "--timetestFlag", action="store_true",
-                        help = "initiates timing tests for model generation")
-    args = parser.parse_args()
-    print('the input data file is {}'.format(args.input_filename))
-    print('the input configuration file is {}'.format(args.config_file))
-    print('results will output to {}'.format(args.results_file))
-    print('windcube 1 HZ rtd. files are located {}'.format(args.rtd_files))
-    print('Testing {} as global model'.format(args.global_model_to_test))
-    return args.input_filename, args.config_file, args.rtd_files, args.results_file, args.save_model_location, args.timetestFlag, args.global_model_to_test
 
 
 if __name__ == '__main__':
@@ -6662,15 +4975,58 @@ if __name__ == '__main__':
     # ------------------------
     # set up and configuration
     # ------------------------
-    input_filename, config_file, rtd_files, results_filename, saveModel, timetestFlag, globalModel = get_inputfiles()
-    outpath_dir = os.path.dirname(results_filename)
-    outpath_file = os.path.basename(results_filename)
-    siteMetadata = get_SiteMetadata(config_file)
-    filterMetadata = get_FilteringMetadata(config_file)
-    correctionsMetadata, RSDtype, extrap_metadata, extrapolation_type = get_CorrectionsMetadata(config_file,globalModel)
-    inputdata, Timestamps = get_inputdata(input_filename, config_file)
-    inputdata, a, lab_a = get_refTI_bins(inputdata)
-    RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd = check_for_alphaConfig(config_file,extrapolation_type)
+    from TACT.readers.config import Config
+    from TACT.readers.data import Data
+    from TACT.writers.files import write_all_resultstofile
+
+    """parser get_input_files"""
+    config = Config()
+
+    input_filename = config.input_filename
+    config_file = config.config_file
+    rtd_files = config.rtd_files
+    results_filename = config.results_file
+    saveModel = config.save_model_location
+    timetestFlag = config.time_test_flag
+    globalModel  = config.global_model 
+
+    """config object assignments"""
+    outpath_dir = config.outpath_dir
+    outpath_file = config.outpath_file
+
+    """metadata parser"""
+    config.get_site_metadata()
+    siteMetadata = config.site_metadata
+
+    config.get_filtering_metadata()
+    filterMetadata = config.config_metadata
+
+    config.get_adjustments_metadata()
+    correctionsMetadata = config.adjustments_metadata
+    RSDtype = config.RSDtype
+    extrap_metadata = config.extrap_metadata
+    extrapolation_type = config.extrapolation_type 
+
+    """data object assignments"""
+    
+    data=Data(input_filename, config_file)
+    data.get_inputdata()
+    data.get_refTI_bins()      # >> to data_file.py
+    data.check_for_alphaConfig()
+
+    inputdata = data.inputdata
+    Timestamps = data.timestamps
+    a = data.a
+    lab_a = data.lab_a
+    RSD_alphaFlag = data.RSD_alphaFlag
+    Ht_1_rsd = data.Ht_1_rsd
+    Ht_2_rsd = data.Ht_2_rsd
+    
+    """sensor, height"""
+    sensor = config.model
+    height = config.height
+
+    
     print ('%%%%%%%%%%%%%%%%%%%%%%%%% Processing Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
     # -------------------------------
     # special handling for data types
@@ -6692,16 +5048,16 @@ if __name__ == '__main__':
     # Baseline Results
     # ------------------------
     # Get all regressions available
-    reg_results = get_all_regressions(inputdata, title = 'Full comparison')
-    sensor, height = get_phaseiii_metadata(config_file)
+    reg_results = get_all_regressions(inputdata, title='Full comparison')
+
     stabilityClass_tke, stabilityMetric_tke, regimeBreakdown_tke = calculate_stability_TKE(inputdata)
     cup_alphaFlag, stabilityClass_ane, stabilityMetric_ane, regimeBreakdown_ane, Ht_1_ane, Ht_2_ane, stabilityClass_rsd, stabilityMetric_rsd, regimeBreakdown_rsd = calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd)
     #------------------------
     # Time Sensivity Analysis
     #------------------------
-    TimeTestA = pd.DataFrame()
-    TimeTestB = pd.DataFrame()
-    TimeTestC = pd.DataFrame()
+    # TimeTestA = pd.DataFrame()
+    # TimeTestB = pd.DataFrame()
+    # TimeTestC = pd.DataFrame()
     
     if timetestFlag == True:
         # A) increase % of test train split -- check for convergence --- basic metrics recorded baseline but also for every corrections
@@ -6709,10 +5065,17 @@ if __name__ == '__main__':
         print ('Testing model generation time period sensitivity...% of data')
         TimeTestA_corrections_df = {}
         TimeTestA_baseline_df = pd.DataFrame()
+
         for s in splitList[1:]:
-            print (str(str(s) + '%'))
+            
+            sys.stdout.write("\r")
+            sys.stdout.write(f"{str(s).rjust(10, ' ')} %      ")
+
             inputdata_test = train_test_split(s,inputdata.copy())
-            TimeTestA_baseline_df, TimeTestA_corrections_df = QuickMetrics(inputdata_test,TimeTestA_baseline_df,TimeTestA_corrections_df,str(100-s))
+            TimeTestA_baseline_df, TimeTestA_corrections_df = quick_metrics(inputdata_test, TimeTestA_baseline_df, TimeTestA_corrections_df,str(100-s))
+
+        sys.stdout.flush()
+        print()
 
         # B) incrementally Add days to training set sequentially -- check for convergence
         numberofObsinOneDay = 144
@@ -6721,11 +5084,18 @@ if __name__ == '__main__':
         print ('Number of days in the study ' + str(numberofDaysInTest))
         TimeTestB_corrections_df = {}
         TimeTestB_baseline_df = pd.DataFrame()
+
         for i in range(0,numberofDaysInTest):
-            print (str(str(i) + 'days'))
+
+            sys.stdout.write("\r")
+            sys.stdout.write(f"{str(i).rjust(10, ' ')} of {str(numberofDaysInTest)} days   ")    
+
             windowEnd = (i+1)*(numberofObsinOneDay)
             inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [0,windowEnd])
-            TimeTestB_baseline_df, TimeTestB_corrections_df = QuickMetrics(inputdata_test,TimeTestB_baseline_df, TimeTestB_corrections_df,str(numberofDaysInTest-i))
+            TimeTestB_baseline_df, TimeTestB_corrections_df = quick_metrics(inputdata_test,TimeTestB_baseline_df, TimeTestB_corrections_df,str(numberofDaysInTest-i))
+
+        sys.stdout.flush()
+        print()
 
         # C) If experiment is greater than 3 months, slide a 6 week window (1 week step)
         if len(inputdata) > (numberofObsinOneDay*90): # check to see if experiment is greater than 3 months
@@ -6734,12 +5104,13 @@ if __name__ == '__main__':
             windowEnd = (numberofObsinOneDay*42)
             TimeTestC_corrections_df = {}
             TimeTestC_baseline_df = pd.DataFrame()
+
             while windowEnd < len(inputdata):
                 print (str('After observation #' + str(windowStart) + ' ' + 'Before observation #' + str(windowEnd)))
                 windowStart += numberofObsinOneDay*7
                 windowEnd = windowStart + (numberofObsinOneDay*42)
                 inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [windowStart,windowEnd])  
-                TimeTestC_baseline_df, TimeTestC_corrections_df = QuickMetrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
+                TimeTestC_baseline_df, TimeTestC_corrections_df = quick_metrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
                                                                               str('After_' + str(windowStart) + '_' + 'Before_' + str(windowEnd)))
     else:
         TimeTestA_baseline_df = pd.DataFrame()
@@ -6862,8 +5233,10 @@ if __name__ == '__main__':
         reg_results_class5_alpha['Ane'] = get_all_regressions(inputdata_class5, title = str('alpha_stability_Ane' + 'class5'))
 
     # ------------------------
-    # TI Adjustments
+    # TI AdjuAdjustments.perform_SS_S_correctionstments
     # ------------------------
+    from TACT.computation.adjustments import Adjustments
+
     baseResultsLists = initialize_resultsLists('')
 
     # get number of observations in each bin
@@ -6899,6 +5272,7 @@ if __name__ == '__main__':
     count_05mps_tke = []
     count_05mps_alpha_Ane = []
     count_05mps_alpha_RSD = []
+
     for c in range(0,len(All_class_data)):
         name_1mps_tke.append(str('count_1mps_class_' + str(c) + '_tke'))
         name_1mps_alpha_Ane.append(str('count_1mps_class_' + str(c) + '_alpha_Ane'))
@@ -6906,6 +5280,7 @@ if __name__ == '__main__':
         name_05mps_tke.append(str('count_05mps_class_' + str(c) + '_tke'))
         name_05mps_alpha_Ane.append(str('count_05mps_class_' + str(c) + '_alpha_Ane'))
         name_05mps_alpha_RSD.append(str('count_05mps_class_' + str(c) + '_alpha_RSD'))
+
         try:
             c_1mps_tke, c_05mps_tke = get_count_per_WSbin(All_class_data[c][primary_idx], 'RSD_WS')
             count_1mps_tke.append(c_1mps_tke)
@@ -6932,6 +5307,9 @@ if __name__ == '__main__':
     # intialize 10 minute output
     TI_10minuteAdjusted = pd.DataFrame()
 
+    # initialize Adjustments object
+    adjuster = Adjustments(inputdata.copy(), correctionsMetadata, baseResultsLists)
+    
     for method in correctionsMetadata:
 
         # ************************************ #
@@ -6941,8 +5319,9 @@ if __name__ == '__main__':
         elif method == 'SS-S' and correctionsMetadata['SS-S'] == False:
             pass
         else:
-            print ('Applying Correction Method: SS-S')
-            inputdata_corr, lm_corr, m, c = perform_SS_S_correction(inputdata.copy())
+            print('Applying Correction Method: SS-S')
+            logger.info('Applying Correction Method: SS-S')
+            inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(inputdata.copy())
             print("SS-S: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -6954,12 +5333,13 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: SS-S by stability class (TKE)')
+                print('Applying Correction Method: SS-S by stability class (TKE)')
+                logger.info('Applying Correction Method: SS-S by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c = perform_SS_S_correction(item[primary_idx].copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(item[primary_idx].copy())
                     print("SS-S: y = " + str(m) + " * x + " + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -6971,12 +5351,13 @@ if __name__ == '__main__':
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-S by stability class Alpha w/ RSD')
+                print('Applying Correction Method: SS-S by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: SS-S by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 print (str('class ' + str(className)))
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_S_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(item.copy())
                     print ("SS-S: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -6988,11 +5369,12 @@ if __name__ == '__main__':
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-S by stability class Alpha w/cup')
+                print('Applying correction Method: SS-S by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-S by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_S_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(item.copy())
                     print ("SS-S: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7010,8 +5392,10 @@ if __name__ == '__main__':
         elif method == 'SS-SF' and correctionsMetadata['SS-SF'] == False:
             pass
         else:
-            print ('Applying Correction Method: SS-SF')
-            inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(inputdata.copy())
+            print('Applying Correction Method: SS-SF')
+            logger.info('Applying Correction Method: SS-SF')
+           # inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(inputdata.copy())
+            inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(inputdata.copy())
             print("SS-SF: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -7023,12 +5407,13 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
             
             if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
-                print ('Applying Correction Method: SS-SF by stability class (TKE)')
+                print('Applying Correction Method: SS-SF by stability class (TKE)')
+                logger.info('Applying Correction Method: SS-SF by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(item[primary_idx].copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(item[primary_idx].copy())
                     print("SS-SF: y = " + str(m) + " * x + " + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7040,11 +5425,12 @@ if __name__ == '__main__':
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-SF by stability class Alpha w/ RSD')
+                print('Applying Correction Method: SS-SF by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: SS-SF by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_SF_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(item.copy())
                     print ("SS-SF: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7053,14 +5439,16 @@ if __name__ == '__main__':
                     ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', correctionName, lm_corr,
                                                                          inputdata_corr, Timestamps, method)
                     className += 1
-                ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
+                ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD,
+                                                                                   ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-SF by stability class Alpha w/cup')
+                print('Applying correction Method: SS-SF by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-SF by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_SF_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(item.copy())
                     print ("SS-SF: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7069,7 +5457,8 @@ if __name__ == '__main__':
                     ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', correctionName, lm_corr,
                                                                          inputdata_corr, Timestamps, method)
                     className += 1
-                ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
+                ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane,
+                                                                                   ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
         # ************************************ #
         # Site Specific Simple Correction (SS-SS) combining stability classes adjusted differently
@@ -7080,7 +5469,8 @@ if __name__ == '__main__':
         elif RSDtype['Selection'][0:4] != 'Wind' and 'ZX' not in RSDtype['Selection']:
             pass
         else:
-            print ('Applying Correction Method: SS-SS')
+            print('Applying Correction Method: SS-SS')
+            logger.info('Applying Correction Method: SS-SS')
             inputdata_corr, lm_corr, m, c = perform_SS_SS_correction(inputdata.copy(),All_class_data,primary_idx)
             print("SS-SS: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
@@ -7093,7 +5483,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
             
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: SS-SS by stability class (TKE). SAME as Baseline')
+                print('Applying Correction Method: SS-SS by stability class (TKE). SAME as Baseline')
+                logger.info('Applying Correction Method: SS-SS by stability class (TKE). SAME as Baseline')
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
@@ -7104,7 +5495,8 @@ if __name__ == '__main__':
                     className += 1
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-SS by stability class Alpha w/ RSD. SAEM as Baseline')
+                print('Applying Correction Method: SS-SS by stability class Alpha w/ RSD. SAEM as Baseline')
+                logger.info('Applying Correction Method: SS-SS by stability class Alpha w/ RSD. SAEM as Baseline')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
@@ -7115,7 +5507,8 @@ if __name__ == '__main__':
                     className += 1
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-SS by stability class Alpha w/cup')
+                print('Applying correction Method: SS-SS by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-SS by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
@@ -7134,7 +5527,8 @@ if __name__ == '__main__':
         elif method == 'SS-WS' and correctionsMetadata['SS-WS'] == False:
             pass
         else:
-            print ('Applying Correction Method: SS-WS')
+            print('Applying Correction Method: SS-WS')
+            logger.info('Applying Correction Method: SS-WS')
             inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(inputdata.copy())
             print("SS-WS: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
@@ -7147,7 +5541,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
-                print ('Applying Correction Method: SS-WS by stability class (TKE)')
+                print('Applying Correction Method: SS-WS by stability class (TKE)')
+                logger.info('Applying Correction Method: SS-WS by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
@@ -7163,11 +5558,12 @@ if __name__ == '__main__':
                     className += 1
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-WS by stability class Alpha w/ RSD')
+                print('Applying Correction Method: SS-WS by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: SS-WS by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_WS_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(item.copy())
                     print ("SS-WS: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7178,11 +5574,12 @@ if __name__ == '__main__':
                     className += 1
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-WS by stability class Alpha w/cup')
+                print('Applying correction Method: SS-WS by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-WS by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_WS_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(item.copy())
                     print ("SS-WS: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7201,7 +5598,8 @@ if __name__ == '__main__':
         elif method == 'SS-WS-Std' and correctionsMetadata['SS-WS-Std'] == False:
             pass
         else:
-           print ('Applying Correction Method: SS-WS-Std')
+           print('Applying Correction Method: SS-WS-Std')
+           logger.info('Applying Correction Method: SS-WS-Std')
            inputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(inputdata.copy())
            print("SS-WS-Std: y = " + str(m) + " * x + " + str(c))
            lm_corr['sensor'] = sensor
@@ -7214,7 +5612,8 @@ if __name__ == '__main__':
            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
            if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
-               print ('Applying Correction Method: SS-WS-Std by stability class (TKE)')
+               print('Applying Correction Method: SS-WS-Std by stability class (TKE)')
+               logger.info('Applying Correction Method: SS-WS-Std by stability class (TKE)')
                # stability subset output for primary height (all classes)
                ResultsLists_class = initialize_resultsLists('class_')
                className = 1
@@ -7230,11 +5629,12 @@ if __name__ == '__main__':
                    className += 1
                ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
            if RSD_alphaFlag:
-               print ('Applying Correction Method: SS-WS-Std by stability class Alpha w/ RSD')
+               print('Applying Correction Method: SS-WS-Std by stability class Alpha w/ RSD')
+               logger.info('Applying Correction Method: SS-WS-Std by stability class Alpha w/ RSD')
                ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                className = 1
                for item in All_class_data_alpha_RSD:
-                   iputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(item.copy())
+                   inputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(item.copy())
                    print ("SS-WS-Std: y = " + str(m) + "* x +" + str(c))
                    lm_corr['sensor'] = sensor
                    lm_corr['height'] = height
@@ -7245,11 +5645,12 @@ if __name__ == '__main__':
                    className += 1
                ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
            if cup_alphaFlag:
-               print ('Applying correction Method: SS-WS-Std by stability class Alpha w/cup')
+               print('Applying correction Method: SS-WS-Std by stability class Alpha w/cup')
+               logger.info('Applying correction Method: SS-WS-Std by stability class Alpha w/cup')
                ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                className = 1
                for item in All_class_data_alpha_Ane:
-                   iputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(item.copy())
+                   inputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(item.copy())
                    print ("SS-WS-Std: y = " + str(m) + "* x +" + str(c))
                    lm_corr['sensor'] = sensor
                    lm_corr['height'] = height
@@ -7268,7 +5669,8 @@ if __name__ == '__main__':
         elif method == 'SS-LTERRA-WC-1HZ' and correctionsMetadata['SS-LTERRA-WC-1HZ'] == False:
             pass
         else:
-           print ('Applying Correction Method: SS-LTERRA-WC-1HZ')
+           print('Applying Correction Method: SS-LTERRA-WC-1HZ')
+           logger.info('Applying Correction Method: SS-LTERRA-WC-1HZ')
 
 
         # ******************************************************************* #
@@ -7279,7 +5681,9 @@ if __name__ == '__main__':
         elif method == 'SS-LTERRA-MLa' and correctionsMetadata['SS-LTERRA-MLa'] == False:
             pass
         else:
-            print ('Applying Correction Method: SS-LTERRA-MLa')
+            print('Applying Correction Method: SS-LTERRA-MLa')
+            logger.info('Applying Correction Method: SS-LTERRA-MLa')
+
             inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(inputdata.copy())
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -7290,7 +5694,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
             
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: SS-LTERRA MLa by stability class (TKE)')
+                print('Applying Correction Method: SS-LTERRA MLa by stability class (TKE)')
+                logger.info('Applying Correction Method: SS-LTERRA MLa by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
@@ -7305,11 +5710,12 @@ if __name__ == '__main__':
                     className += 1
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-LTERRA MLa by stability class Alpha w/ RSD')
+                print('Applying Correction Method: SS-LTERRA MLa by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: SS-LTERRA MLa by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLa' + '_' + 'class_' + str(className))
@@ -7319,11 +5725,12 @@ if __name__ == '__main__':
                     className += 1
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-LTERRA_MLa by stability class Alpha w/cup')
+                print('Applying correction Method: SS-LTERRA_MLa by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-LTERRA_MLa by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
@@ -7341,7 +5748,8 @@ if __name__ == '__main__':
         elif method == 'SS-LTERRA-MLc' and correctionsMetadata['SS-LTERRA-MLc'] == False:
             pass
         else:
-            print ('Applying Correction Method: SS-LTERRA-MLc')
+            print('Applying Correction Method: SS-LTERRA-MLc')
+            logger.info('Applying Correction Method: SS-LTERRA-MLc')
             all_trainX_cols = ['x_train_TI', 'x_train_TKE','x_train_WS','x_train_DIR','x_train_Hour']
             all_trainY_cols = ['y_train']
             all_testX_cols = ['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']
@@ -7357,7 +5765,9 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: SS-LTERRA_MLc by stability class (TKE)')
+                print('Applying Correction Method: SS-LTERRA_MLc by stability class (TKE)')
+                logger.info('Applying Correction Method: SS-LTERRA_MLc by stability class (TKE)')
+
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
@@ -7372,11 +5782,12 @@ if __name__ == '__main__':
                     className += 1
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-LTERRA_MLc by stability class Alpha w/ RSD')
+                print('Applying Correction Method: SS-LTERRA_MLc by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: SS-LTERRA_MLc by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLc' + '_' + 'class_' + str(className))
@@ -7386,11 +5797,12 @@ if __name__ == '__main__':
                     className += 1
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-LTERRA_MLc by stability class Alpha w/cup')
+                print('Applying correction Method: SS-LTERRA_MLc by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-LTERRA_MLc by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLc' + '_' + 'class_' + str(className))
@@ -7408,7 +5820,8 @@ if __name__ == '__main__':
         elif method == 'SS-LTERRA-MLb' and correctionsMetadata['SS-LTERRA-MLb'] == False:
             pass
         else:
-            print ('Applying Correction Method: SS-LTERRA-MLb')
+            print('Applying Correction Method: SS-LTERRA-MLb')
+            logger.info('Applying Correction Method: SS-LTERRA-MLb')
             all_trainX_cols = ['x_train_TI', 'x_train_TKE']
             all_trainY_cols = ['y_train']
             all_testX_cols = ['x_test_TI','x_test_TKE']
@@ -7424,7 +5837,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: SS-LTERRA_MLb by stability class (TKE)')
+                print('Applying Correction Method: SS-LTERRA_MLb by stability class (TKE)')
+                logger.info('Applying Correction Method: SS-LTERRA_MLb by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
@@ -7439,11 +5853,12 @@ if __name__ == '__main__':
                     className += 1
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-LTERRA_MLb by stability class Alpha w/ RSD')
+                print('Applying Correction Method: SS-LTERRA_MLb by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: SS-LTERRA_MLb by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLb' + '_' + 'class_' + str(className))
@@ -7453,11 +5868,12 @@ if __name__ == '__main__':
                     className += 1
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-LTERRA_MLb by stability class Alpha w/cup')
+                print('Applying correction Method: SS-LTERRA_MLb by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-LTERRA_MLb by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLb' + '_' + 'class_' + str(className))
@@ -7476,7 +5892,7 @@ if __name__ == '__main__':
             pass
         else:
             print ('Found enough data to perform extrapolation comparison')
-            blockPrint()
+            block_print()
             # Get extrapolation height
             height_extrap = float(extrap_metadata['height'][extrap_metadata['type'] == 'extrap'])
             # Extrapolate
@@ -7546,7 +5962,7 @@ if __name__ == '__main__':
                               .rename(columns={'type': 'Type',
                                                'height': 'Height (m)',
                                                'num': 'Comparison Height Number'}))
-            enablePrint()
+            enable_print()
 
         # ************************************************** #
         # Histogram Matching
@@ -7555,7 +5971,8 @@ if __name__ == '__main__':
         elif method == 'SS-Match' and correctionsMetadata['SS-Match'] == False:
             pass
         else:
-            print ('Applying Match algorithm: SS-Match')
+            print('Applying Match algorithm: SS-Match')
+            logger.info('Applying Match algorithm: SS-Match')
             inputdata_corr, lm_corr = perform_Match(inputdata.copy())
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -7567,7 +5984,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: SS-Match by stability class (TKE)')
+                print('Applying Correction Method: SS-Match by stability class (TKE)')
+                logger.info('Applying Correction Method: SS-Match by stability class (TKE)')
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
@@ -7582,7 +6000,8 @@ if __name__ == '__main__':
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-Match by stability class Alpha w/ RSD')
+                print('Applying Correction Method: SS-Match by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: SS-Match by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
@@ -7597,7 +6016,8 @@ if __name__ == '__main__':
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-Match by stability class Alpha w/cup')
+                print('Applying correction Method: SS-Match by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-Match by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
@@ -7618,7 +6038,8 @@ if __name__ == '__main__':
         elif method == 'SS-Match2' and correctionsMetadata['SS-Match2'] == False:
             pass
         else:
-            print ('Applying input match algorithm: SS-Match2')
+            print('Applying input match algorithm: SS-Match2')
+            logger.info('Applying input match algorithm: SS-Match2')
             inputdata_corr, lm_corr = perform_Match_input(inputdata.copy())
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -7630,7 +6051,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: SS-Match2 by stability class (TKE)')
+                print('Applying Correction Method: SS-Match2 by stability class (TKE)')
+                logger.info('Applying Correction Method: SS-Match2 by stability class (TKE)')
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
@@ -7645,7 +6067,8 @@ if __name__ == '__main__':
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
             if RSD_alphaFlag:
-                print ('Applying Correction Method: SS-Match2 by stability class Alpha w/ RSD')
+                print('Applying Correction Method: SS-Match2 by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: SS-Match2 by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
@@ -7660,7 +6083,8 @@ if __name__ == '__main__':
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
             if cup_alphaFlag:
-                print ('Applying correction Method: SS-Match2 by stability class Alpha w/cup')
+                print('Applying correction Method: SS-Match2 by stability class Alpha w/cup')
+                logger.info('Applying correction Method: SS-Match2 by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
@@ -7684,7 +6108,8 @@ if __name__ == '__main__':
         elif method == 'G-Sa' and correctionsMetadata['G-Sa'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-Sa')
+            print('Applying Correction Method: G-Sa')
+            logger.info('Applying Correction Method: G-Sa')
             override = False
             inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(inputdata.copy(),override)
             print("G-Sa: y = " + str(m) + " * x + " + str(c))
@@ -7697,7 +6122,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: G-Sa by stability class (TKE)')
+                print('Applying Correction Method: G-Sa by stability class (TKE)')
+                logger.info('Applying Correction Method: G-Sa by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
@@ -7714,11 +6140,12 @@ if __name__ == '__main__':
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
             if RSD_alphaFlag:
-                print ('Applying Correction Method: G-Sa by stability class Alpha w/ RSD')
+                print('Applying Correction Method: G-Sa by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: G-Sa by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
+                    inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
                     print ("G-Sa: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7730,11 +6157,12 @@ if __name__ == '__main__':
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
             if cup_alphaFlag:
-                print ('Applying correction Method: G-Sa by stability class Alpha w/cup')
+                print('Applying correction Method: G-Sa by stability class Alpha w/cup')
+                logger.info('Applying correction Method: G-Sa by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
+                    inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
                     print ("G-Sa: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7755,7 +6183,8 @@ if __name__ == '__main__':
         elif RSDtype['Selection'][0:4] != 'Wind':
             pass
         else:
-            print ('Applying Correction Method: G-SFa')
+            print('Applying Correction Method: G-SFa')
+            logger.info('Applying Correction Method: G-SFa')
             override = [0.7086, 0.0225]
             inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(inputdata.copy(),override)
             print("G-SFa: y = " + str(m) + " * x + " + str(c))
@@ -7768,7 +6197,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: G-SFa by stability class (TKE)')
+                print('Applying Correction Method: G-SFa by stability class (TKE)')
+                logger.info('Applying Correction Method: G-SFa by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
@@ -7785,11 +6215,12 @@ if __name__ == '__main__':
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
             if RSD_alphaFlag:
-                print ('Applying Correction Method: G-SFa by stability class Alpha w/ RSD')
+                print('Applying Correction Method: G-SFa by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: G-SFa by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
+                    inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
                     print ("G-SFa: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7801,11 +6232,12 @@ if __name__ == '__main__':
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
             if cup_alphaFlag:
-                print ('Applying correction Method: G-SFa by stability class Alpha w/cup')
+                print('Applying correction Method: G-SFa by stability class Alpha w/cup')
+                logger.info('Applying correction Method: G-SFa by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
+                    inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
                     print ("G-SFa: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7825,7 +6257,8 @@ if __name__ == '__main__':
         elif RSDtype['Selection'][0:4] != 'Wind':
             pass
         else:
-            print ('Applying Correction Method: G-Sc')
+            print('Applying Correction Method: G-Sc')
+            logger.info('Applying Correction Method: G-Sc')
             inputdata_corr, lm_corr, m, c = perform_G_SFc_correction(inputdata.copy())
             print("G-SFc: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
@@ -7837,7 +6270,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: G-SFa by stability class (TKE)')
+                print('Applying Correction Method: G-SFa by stability class (TKE)')
+                logger.info('Applying Correction Method: G-SFa by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
@@ -7854,11 +6288,12 @@ if __name__ == '__main__':
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
             if RSD_alphaFlag:
-                print ('Applying Correction Method: G-SFc by stability class Alpha w/ RSD')
+                print('Applying Correction Method: G-SFc by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: G-SFc by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_G_SFc_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_G_SFc_correction(item.copy())
                     print ("G-SFc: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7870,11 +6305,12 @@ if __name__ == '__main__':
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
             if cup_alphaFlag:
-                print ('Applying correction Method: G-SFc by stability class Alpha w/cup')
+                print('Applying correction Method: G-SFc by stability class Alpha w/cup')
+                logger.info('Applying correction Method: G-SFc by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_G_SFc_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_G_SFc_correction(item.copy())
                     print ("G-SFc: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -7896,7 +6332,8 @@ if __name__ == '__main__':
         elif method == 'G-C' and correctionsMetadata['G-C'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-C')
+            print('Applying Correction Method: G-C')
+            logger.info('Applying Correction Method: G-C')
             inputdata_corr, lm_corr, m, c = perform_G_C_correction(inputdata.copy())
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -7907,7 +6344,8 @@ if __name__ == '__main__':
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
            
             if RSDtype['Selection'][0:4] == 'Wind':
-                print ('Applying Correction Method: G-C by stability class (TKE)')
+                print('Applying Correction Method: G-C by stability class (TKE)')
+                logger.info('Applying Correction Method: G-C by stability class (TKE)')
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
@@ -7924,12 +6362,13 @@ if __name__ == '__main__':
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
             if RSD_alphaFlag:
-                print ('Applying Correction Method: G-C by stability class Alpha w/ RSD')
+                print('Applying Correction Method: G-C by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: G-C by stability class Alpha w/ RSD')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
                     print (str('class ' + str(className)))
-                    iputdata_corr, lm_corr, m, c = perform_G_C_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_G_C_correction(item.copy())
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('G-C' + '_' + 'class_' + str(className))
@@ -7941,12 +6380,13 @@ if __name__ == '__main__':
                 
 
             if cup_alphaFlag:
-                print ('Applying correction Method: G-C by stability class Alpha w/cup')
+                print('Applying correction Method: G-C by stability class Alpha w/cup')
+                logger.info('Applying correction Method: G-C by stability class Alpha w/cup')
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
                     print (str('class ' + str(className)))
-                    iputdata_corr, lm_corr, m, c = perform_G_C_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_G_C_correction(item.copy())
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('G-C' + '_alphaCup_' + 'class_' + str(className))
@@ -7964,7 +6404,8 @@ if __name__ == '__main__':
         elif method == 'G-Match' and correctionsMetadata['G-Match'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-Match')
+            print('Applying Correction Method: G-Match')
+            logger.info('Applying Correction Method: G-Match')
 
         # ************************ #
         # Global Comprehensive (G-Ref-S)
@@ -7973,7 +6414,8 @@ if __name__ == '__main__':
         elif method == 'G-Ref-S' and correctionsMetadata['G-Ref-S'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-Ref-S')
+            print('Applying Correction Method: G-Ref-S')
+            logger.info('Applying Correction Method: G-Ref-S')
 
         # ************************ #
         # Global Comprehensive (G-Ref-Sf)
@@ -7982,7 +6424,8 @@ if __name__ == '__main__':
         elif method == 'G-Ref-Sf' and correctionsMetadata['G-Ref-Sf'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-Ref-Sf')
+            print('Applying Correction Method: G-Ref-Sf')
+            logger.info('Applying Correction Method: G-Ref-Sf')
             
         # ************************ #
         # Global Comprehensive (G-Ref-SS)
@@ -7991,7 +6434,8 @@ if __name__ == '__main__':
         elif method == 'G-Ref-SS' and correctionsMetadata['G-Ref-SS'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-Ref-SS')
+            print('Applying Correction Method: G-Ref-SS')
+            logger.info('Applying Correction Method: G-Ref-SS')
         # ************************ #
         # Global Comprehensive (G-Ref-SS-S)
         if method != 'G-Ref-SS-S':
@@ -7999,7 +6443,8 @@ if __name__ == '__main__':
         elif method == 'G-Ref-SS-S' and correctionsMetadata['G-Ref-SS-S'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-Ref-SS-S')
+            print('Applying Correction Method: G-Ref-SS-S')
+            logger.info('Applying Correction Method: G-Ref-SS-S')
         # ************************ #
         # Global Comprehensive (G-Ref-WS-Std)
         if method != 'G-Ref-WS-Std':
@@ -8007,7 +6452,8 @@ if __name__ == '__main__':
         elif method == 'G-Ref-WS-Std' and correctionsMetadata['G-Ref-WS-Std'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-Ref-WS-Std')
+            print('Applying Correction Method: G-Ref-WS-Std')
+            logger.info('Applying Correction Method: G-Ref-WS-Std')
 
         # ***************************************** #
         # Global LTERRA WC 1Hz Data (G-LTERRA_WC_1Hz)
@@ -8016,7 +6462,8 @@ if __name__ == '__main__':
         elif method == 'G-LTERRA_WC_1Hz' and correctionsMetadata['G-LTERRA_WC_1Hz'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-LTERRA_WC_1Hz')
+            print('Applying Correction Method: G-LTERRA_WC_1Hz')
+            logger.info('Applying Correction Method: G-LTERRA_WC_1Hz')
 
         # ************************************************ #
         # Global LTERRA ZX Machine Learning (G-LTERRA_ZX_ML)
@@ -8025,7 +6472,8 @@ if __name__ == '__main__':
         elif correctionsMetadata['G-LTERRA_ZX_ML'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-LTERRA_ZX_ML')
+            print('Applying Correction Method: G-LTERRA_ZX_ML')
+            logger.info('Applying Correction Method: G-LTERRA_ZX_ML')
 
         # ************************************************ #
         # Global LTERRA WC Machine Learning (G-LTERRA_WC_ML)
@@ -8034,7 +6482,8 @@ if __name__ == '__main__':
         elif correctionsMetadata['G-LTERRA_WC_ML'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-LTERRA_WC_ML')
+            print('Applying Correction Method: G-LTERRA_WC_ML')
+            logger.info('Applying Correction Method: G-LTERRA_WC_ML')
 
         # ************************************************** #
         # Global LTERRA WC w/Stability 1Hz (G-LTERRA_WC_S_1Hz)
@@ -8043,7 +6492,8 @@ if __name__ == '__main__':
         elif method == 'G-LTERRA_WC_S_1Hz' and correctionsMetadata['G-LTERRA_WC_S_1Hz'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-LTERRA_WC_S_1Hz')
+            print('Applying Correction Method: G-LTERRA_WC_S_1Hz')
+            logger.info('Applying Correction Method: G-LTERRA_WC_S_1Hz')
 
         # ************************************************************** #
         # Global LTERRA WC w/Stability Machine Learning (G-LTERRA_WC_S_ML)
@@ -8052,9 +6502,10 @@ if __name__ == '__main__':
         elif method == 'G-LTERRA_WC_S_ML' and correctionsMetadata['G-LTERRA_WC_S_ML'] == False:
             pass
         else:
-            print ('Applying Correction Method: G-LTERRA_WC_S_ML')
+            print('Applying Correction Method: G-LTERRA_WC_S_ML')
+            logger.info('Applying Correction Method: G-LTERRA_WC_S_ML')
 
-    if  RSD_alphaFlag:
+    if RSD_alphaFlag:
         pass
     else:
         ResultsLists_stability_alpha_RSD = ResultsList_stability
