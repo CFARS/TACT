@@ -69,6 +69,13 @@ class Config(object):
         self.outpath_dir = os.path.dirname(results_file)
         self.outpath_file = os.path.basename(results_file)
 
+        if not input_filename or not config_file or not results_file:
+            self.get_input_files()
+
+        self.model, self.height = self.get_phaseiii_metadata()
+        self.apply_correction = self.check_for_corrections()
+
+
     def get_input_files(self):
         """ Used when running tool as script with command line arguments
         
@@ -309,6 +316,39 @@ class Config(object):
                 all_heights[ht] = float(additional_heights['Selection'][tmp[ht].values])
         return all_heights    
 
+    def get_phaseiii_metadata(self):
+        '''
+        :param config_file: Input configuration file
+        :return: metadata containing information about model used for correction, height of correction
+        '''
+        df = pd.read_excel(self.config_file, usecols=[3, 4]).dropna()
+        try:
+            model = df.Selection[df['Site Metadata'] == 'RSD Type:'].values[0]
+        except:
+            print('No Model Listed. Model coded as "unknown"')
+            model = "unknown"
+
+        try:
+            height = df.Selection[df['Site Metadata'] ==  'Primary Comparison Height (m):'].values[0]
+        except:
+            print('No height listed. Height coded as "unknown"')
+            height = "unknown"
+
+        return model, height
+
+    def check_for_corrections(self):
+
+        apply_correction = True
+
+        colLabels = pd.read_excel(self.config_file, usecols=[0, 1])
+        colLabels = list(colLabels.dropna()['Header_CFARS_Python'])
+        rsd_cols = [s for s in colLabels if 'RSD' in s]
+        requiredData = ['RSD_TI', 'RSD_WS']
+
+        if (set(requiredData).issubset(set(rsd_cols))) == False:
+            apply_correction = False
+
+        return apply_correction
 
 
 def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type):
@@ -389,4 +429,5 @@ def get_optional_height_names(num=4):
         for ht in range(1, num+1):
             optionalData.append(["%s_%s_Ht%d" % (typ, var, ht) for var in ['WS', 'SD', 'TI']])
     return optionalData
+
 

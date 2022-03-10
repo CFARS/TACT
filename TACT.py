@@ -38,118 +38,6 @@ import matplotlib.pyplot as plt
 from string import printable
 
 
-def get_phaseiii_metadata(config_file):
-    '''
-    :param config_file: Input configuration file
-    :return: metadata containing information about model used for correction, height of correction
-    '''
-    df = pd.read_excel(config_file, usecols=[3, 4]).dropna()
-    try:
-        model = df.Selection[df['Site Metadata'] == 'RSD Type:'].values[0]
-    except:
-        print('No Model Listed. Model coded as "unknown"')
-        model = "unknown"
-
-    try:
-        height = df.Selection[df['Site Metadata'] ==  'Primary Comparison Height (m):'].values[0]
-    except:
-        print('No height listed. Height coded as "unknown"')
-        height = "unknown"
-
-    return model, height
-
-
-def check_for_corrections(config_file):
-    apply_correction = True
-    colLabels = pd.read_excel(config_file, usecols=[0, 1])
-    colLabels = list(colLabels.dropna()['Header_CFARS_Python'])
-    rsd_cols = [s for s in colLabels if 'RSD' in s]
-    requiredData = ['RSD_TI', 'RSD_WS']
-    if (set(requiredData).issubset(set(rsd_cols))) == False:
-        apply_correction = False
-    return (apply_correction)
-
-
-def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type):
-    """
-    get metadata for TI extrapolation
-    :param ane_heights: dictionary of height labels and values for anemometers
-    :param RSD_heights: dictionary of height labels and values for RSD
-    :param extrapolation_type: str to decide what type of extrapolation to perform
-    :return extrap_metadata: DataFrame with metadata required for TI extrapolation
-    """
-    unique_ane_hts = set(ane_heights.values()).difference(set(['unknown']))
-    unique_RSD_hts = set(RSD_heights.values()).difference(set(['unknown']))
-    overlapping_hts = unique_ane_hts.intersection(unique_RSD_hts)
-
-    # Get extrapolation height and number/label
-    if extrapolation_type == 'simple':
-        # At least two anemometer heights exist, but no "truth" measurement at extrapolated height
-        extrap_height = max(unique_RSD_hts)
-    elif extrapolation_type == 'truth':
-        # At least three anemometer heights exist, one of which is the same as RSD at extrap ht
-        extrap_height = max(overlapping_hts)
-    extrap_height_num = [num for num, ht in iteritems(RSD_heights) if ht == extrap_height][0]
-
-    # Get anemometer heights and numbers/labels
-    ane_hts_input_num = [num for num, ht in iteritems(ane_heights)
-                         if ht in unique_ane_hts.difference(set([extrap_height]))]
-    ane_hts_input = [ane_heights[num] for num in ane_hts_input_num]
-
-    # Combine into DataFrame
-    extrap_metadata = pd.DataFrame({'height': ane_hts_input, 'num': ane_hts_input_num})
-    extrap_metadata['type'] = 'input'
-    extrap_metadata = extrap_metadata.append(
-        pd.DataFrame([[extrap_height, extrap_height_num, 'extrap']],
-                     columns=extrap_metadata.columns),
-        ignore_index=True)
-    extrap_metadata = extrap_metadata.loc[:, ['type', 'height', 'num']]
-
-    return extrap_metadata
-
-
-def check_for_extrapolations(ane_heights, RSD_heights):
-    """
-    Check if columns are specified for other anemometer heights, and extract the column names.
-    :param ane_heights: dictionary of height labels and values for anemometers
-    :param RSD_heights: dictionary of height labels and values for RSD
-    :return extrapolation_type: None or str to decide what type of extrapolation to perform
-    Notes on what we need for extrapolation analysis
-    """
-    unique_ane_hts = set(ane_heights.values()).difference(set(['unknown']))
-    unique_RSD_hts = set(RSD_heights.values()).difference(set(['unknown']))
-    overlapping_hts = unique_ane_hts.intersection(unique_RSD_hts)
-
-    extrapolation_type = None
-    if len(unique_ane_hts) == 2 and (max(unique_RSD_hts) > max(unique_ane_hts)):
-        print ('simple')
-        extrapolation_type = 'simple'
-    elif len(unique_ane_hts) > 2:
-        # We still need at least two ane heights that are lower than one RSD height
-        tmp = [sum([ht > a for a in unique_ane_hts]) >= 2 for ht in unique_RSD_hts]
-        if any(tmp):
-            extrapolation_type = 'simple'
-        # Otherwise we can have two ane heights that are lower than one overlapping height
-        tmp = [sum([ht > a for a in unique_ane_hts]) >= 2 for ht in overlapping_hts]
-        if any(tmp):
-            extrapolation_type = 'truth'
-
-    return extrapolation_type
-
-
-def get_optional_height_names(num=4):
-    '''
-    Get list of possible column names for optional extrapolation. (of form Ane_WS_Ht1, for example)
-    :param num: number of possible Additional Comparison Heights (int)
-    :return: list of allowed names
-    '''
-    optionalData = []
-    for typ in ['Ane', 'RSD']:
-        for ht in range(1, num+1):
-            optionalData.append(["%s_%s_Ht%d" % (typ, var, ht) for var in ['WS', 'SD', 'TI']])
-    return optionalData
-
-
 def get_shear_exponent(inputdata, extrap_metadata, height):
     """
     Calculate shear exponent for TI extrapolation from two anemometers at different heights
@@ -277,102 +165,6 @@ def get_extrap_col_and_ht(height, num, primary_height, sensor='Ane', var='WS'):
     return col_name, height
 
 
-def get_all_heights(config_file, primary_height):
-    all_heights = {'primary': primary_height}
-
-    df = pd.read_excel(config_file, usecols=[3, 4]).dropna()
-
-    ix = ["Additional Comparison Height" in h for h in df['Site Metadata']]
-    additional_heights = df.loc[ix, :]
-    if len(additional_heights) > 0:
-        tmp = {i: additional_heights['Site Metadata'].str.contains(str(i)) for i in range(1, 5)}
-        for ht in tmp:
-            if not any(tmp[ht]):
-                continue
-            all_heights[ht] = float(additional_heights['Selection'][tmp[ht].values])
-    return all_heights
-
-
-def check_for_additional_heights(config_file, height):
-    '''
-    Check if columns are specified for other heights, and extract the column names.
-    :param config_file: Input configuration file
-    :param height: Primary comparison height (m)
-    :return all_heights: dictionary of all height labels and values
-    :return ane_heights: dictionary of height labels and values for anemometers
-    :return RSD_heights: dictionary of height labels and values for RSD
-    :return ane_cols: list of column names corresponding to additional anemometer heights
-    :return RSD_cols: list of column names corresponding to additional RSD heights
-    '''
-    # Get dictionary of all heights
-    all_heights = get_all_heights(config_file, height)
-
-    df = pd.read_excel(config_file, usecols=[0, 1]).dropna()
-
-    # Run a quick check to make sure program exits gracefully if user makes a mistake in config
-    #  (i.e, not having necessary variables, duplicate variables etc.)
-    cfarsColList = df.Header_CFARS_Python.tolist()
-
-    # Check to see if we have additional heights
-    optional_height_names = get_optional_height_names()
-    all_cols = []
-    for cols in optional_height_names:
-        col_present = [col in cfarsColList for col in cols]
-        if not any(col_present):
-            continue
-        if (set(cols).issubset(set(cfarsColList))) == False:
-            missing = set(cols).difference(set(cfarsColList))
-            sys.exit(
-                'You have not specified all variables for each measurement at an additional height.\n'
-                + 'You are missing the following variables in the Header_CFARS_Python that are necessary:\n'
-                + str(missing)
-                + '\n Please fix and restart to run')
-        all_cols.extend(cols)
-
-    RSD_cols = [col for col in all_cols if 'RSD' in col]
-    ane_cols = [col for col in all_cols if 'Ane' in col]
-
-    # Get the height numbers of any Additional Comparison Heights
-    regexp = re.compile('[a-zA-Z_]+(?P<ht>\d+)')
-    ane_hts = [regexp.match(c) for c in ane_cols]
-    ane_hts = [c.groupdict()['ht'] for c in ane_hts if c is not None]
-    ane_hts = [int(h) for h in set(ane_hts)]
-    RSD_hts = [regexp.match(c) for c in RSD_cols]
-    RSD_hts = [c.groupdict()['ht'] for c in RSD_hts if c is not None]
-    RSD_hts = [int(h) for h in set(RSD_hts)]
-
-    # Check for Additional Comparison Heights not specified in the config file
-    missing_ane = set(ane_hts).difference(set(all_heights))
-    missing_RSD = set(RSD_hts).difference(set(all_heights))
-    missing = missing_ane.union(missing_RSD)
-    if len(missing) > 0:
-        sys.exit(
-            'You have not specified the Additional Comparison Height (m) for each height.\n'
-            + 'You are missing the following heights in the "Selection" column that are necessary:\n\n'
-            + 'Additional Comparison Height ' + str(missing) + '\n\n'
-            + 'Please fix and restart to run')
-
-    # Create dictionaries with all anemometer and RSD heights
-    # NOTE : here we assume it's okay if we don't have anemometer AND RSD data for EACH additional
-    #        comparison height
-    ane_heights = {ht: all_heights[ht] for ht in all_heights if ht in ane_hts}
-    ane_heights.update(primary=all_heights['primary'])
-    RSD_heights = {ht: all_heights[ht] for ht in all_heights if ht in RSD_hts}
-    RSD_heights.update(primary=all_heights['primary'])
-
-    # Do a final check in case there are any heights that were specified but no matching columns
-    missing = set(all_heights.values()).difference(set(RSD_heights.values()).
-                                                   union(set(ane_heights.values())))
-    if len(missing) > 0:
-        sys.exit(
-            'You have specified an Additional Comparison Height (m) that has no corresponding data columns.\n'
-            + 'The following heights in the "Selection" column have no data columns specified:\n\n'
-            + 'Additional Comparison Height ' + str(missing) + '\n\n'
-            + 'Please fix and restart to run')
-
-    return all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols
-
-
 def get_modelRegression_extrap(inputdata, column1, column2, fit_intercept=True):
     '''
     :param inputdata: input data (dataframe)
@@ -459,8 +251,8 @@ def get_all_regressions(inputdata, title=None):
         res_name = str(p[0].split('_')[1] + '_regression_' + p[0].split('_')[0] + '_' + p[1].split('_')[0])
         
         if p[1] in inputdata.columns and lenFlag == False:
-            _Adjuster = Adjustments(inputdata)
-            results_regr = [res_name] + _Adjuster.get_regression(inputdata[p[0]], inputdata[p[1]])
+            _adjuster = Adjustments(inputdata)
+            results_regr = [res_name] + _adjuster.get_regression(inputdata[p[0]], inputdata[p[1]])
 
         else:
             results_regr = [res_name, 'NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
@@ -498,8 +290,8 @@ def get_all_regressions(inputdata, title=None):
         logger.debug(res_name)
 
         if l in inputdata.columns and lenFlag == False:
-            _Adjuster = Adjustments(inputdata)
-            res = [res_name] + _Adjuster.get_regression(inputdata[ref_type[0]],inputdata[l])
+            _adjuster = Adjustments(inputdata)
+            res = [res_name] + _adjuster.get_regression(inputdata[ref_type[0]],inputdata[l])
 
         else:
             res = [res_name, 'NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
@@ -516,8 +308,8 @@ def post_correction_stats(inputdata,results,ref_col,TI_col):
     if isinstance(inputdata, pd.DataFrame):
         fillEmpty = False
         if ref_col in inputdata.columns and TI_col in inputdata.columns:
-            _Adjuster_post_correction = Adjustments()
-            model_corrTI = _Adjuster_post_correction.get_regression(inputdata[ref_col], inputdata[TI_col])
+            _adjuster_post_correction = Adjustments()
+            model_corrTI = _adjuster_post_correction.get_regression(inputdata[ref_col], inputdata[TI_col])
             name1 = 'TI_regression_' + TI_col + '_' + ref_col
             results.loc[name1, ['m']] = model_corrTI[0]
             results.loc[name1, ['c']] = model_corrTI[1]
@@ -651,7 +443,7 @@ def perform_G_Sa_correction(inputdata,override):
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
-    _Adjuster_G_Sa = Adjustments()
+    _adjuster_G_Sa = Adjustments()
 
     if override:
         m_ph2 = override[0]
@@ -694,7 +486,7 @@ def perform_G_Sa_correction(inputdata,override):
             m = np.NaN
             c = np.NaN
         else:
-            model = _Adjuster_G_Sa.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
+            model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
             m = (model[0] + m_ph2)/2
             c = (model[1] + c_ph2)/2
             RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -712,7 +504,7 @@ def perform_G_Sa_correction(inputdata,override):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_G_Sa.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
+                model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
                 m = (model[0] + m_ph2)/2
                 c = (model[1] + c_ph2)/2
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -730,7 +522,7 @@ def perform_G_Sa_correction(inputdata,override):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht2'],inputdata_train['Ane_TI_Ht2'])
+                model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht2'],inputdata_train['Ane_TI_Ht2'])
                 m = (model[0] + m_ph2)/2
                 c = (model[1] + c_ph2)/2
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -748,7 +540,7 @@ def perform_G_Sa_correction(inputdata,override):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht3'], inputdata_train['Ane_TI_Ht3'])
+                model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht3'], inputdata_train['Ane_TI_Ht3'])
                 m = (model[0] + m_ph2)/2
                 c = (model[1] + c_ph2)/2
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -766,7 +558,7 @@ def perform_G_Sa_correction(inputdata,override):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht4'], inputdata_train['Ane_TI_Ht4'])
+                model = _adjuster_G_Sa.get_regression(inputdata_train['RSD_TI_Ht4'], inputdata_train['Ane_TI_Ht4'])
                 m = (model[0] + m_ph2)/2
                 c = (model[1] + c_ph2)/2
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -2176,7 +1968,7 @@ def perform_G_LTERRA_WC_1HZ_correction(inputdata):
         ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
         className = 1
         for item in All_class_data_alpha_RSD:
-            iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy())
+            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy())
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = str('SS-LTERRA_1HZ' + '_' + 'class_' + str(className))
@@ -2190,7 +1982,7 @@ def perform_G_LTERRA_WC_1HZ_correction(inputdata):
         ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
         className = 1
         for item in All_class_data_alpha_Ane:
-            iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy())
+            inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy())
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = str('SS_LTERRA_1HZ' + '_' + 'class_' + str(className))
@@ -3620,7 +3412,7 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
     '''
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
-    _Adjuster_SS_SS = Adjustments()
+    _adjuster_SS_SS = Adjustments()
 
     className = 1
     items_corrected = []
@@ -3643,7 +3435,7 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
                 if len(full) < 2:
                     pass
                 else:
-                    model = _Adjuster_SS_SS.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
+                    model = _adjuster_SS_SS.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
                     m = model[0]
                     c = model[1]
                     RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -3674,7 +3466,7 @@ def perform_SS_WS_correction(inputdata):
 
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
-    _Adjuster_SS_WS = Adjustments()
+    _adjuster_SS_WS = Adjustments()
 
     if inputdata.empty or len(inputdata) < 2:
         results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
@@ -3699,7 +3491,7 @@ def perform_SS_WS_correction(inputdata):
             m = np.NaN
             c = np.NaN
         else:
-            model = _Adjuster_SS_WS.get_regression(inputdata_train['RSD_WS'], inputdata_train['Ref_WS'])
+            model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS'], inputdata_train['Ref_WS'])
             m = model[0]
             c = model[1]
             RSD_WS = inputdata_test['RSD_WS']
@@ -3719,7 +3511,7 @@ def perform_SS_WS_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht1'], inputdata_train['Ane_WS_Ht1'])
+                model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht1'], inputdata_train['Ane_WS_Ht1'])
                 RSD_WS = inputdata_test['RSD_WS_Ht1']
 
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -3737,7 +3529,7 @@ def perform_SS_WS_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht2'],inputdata_train['Ane_WS_Ht2'])
+                model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht2'],inputdata_train['Ane_WS_Ht2'])
                 RSD_WS = inputdata_test['RSD_WS_Ht2']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
                 inputdata_test['RSD_corrWS_Ht2'] = RSD_corrWS
@@ -3754,7 +3546,7 @@ def perform_SS_WS_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht3'], inputdata_train['Ane_WS_Ht3'])
+                model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht3'], inputdata_train['Ane_WS_Ht3'])
                 RSD_WS = inputdata_test['RSD_WS_Ht3']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
                 inputdata_test['RSD_corrWS_Ht3'] = RSD_corrWS
@@ -3771,7 +3563,7 @@ def perform_SS_WS_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht4'], inputdata_train['Ane_WS_Ht4'])
+                model = _adjuster_SS_WS.get_regression(inputdata_train['RSD_WS_Ht4'], inputdata_train['Ane_WS_Ht4'])
                 RSD_WS = inputdata_test['RSD_WS_Ht4']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
                 inputdata_test['RSD_corrWS_Ht4'] = RSD_corrWS
@@ -3791,7 +3583,7 @@ def perform_SS_WS_Std_correction(inputdata):
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
 
-    _Adjuster_SS_WS_Std = Adjustments()
+    _adjuster_SS_WS_Std = Adjustments()
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
     if inputdata.empty or len(inputdata) < 2:
@@ -3819,8 +3611,8 @@ def perform_SS_WS_Std_correction(inputdata):
             m = np.NaN
             c = np.NaN
         else:
-            model = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS'], inputdata_train['Ref_WS'])
-            model_std = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD'], inputdata_train['Ref_SD'])
+            model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS'], inputdata_train['Ref_WS'])
+            model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD'], inputdata_train['Ref_SD'])
             m = model[0]
             c = model[1]
             m_std = model_std[0]
@@ -3846,8 +3638,8 @@ def perform_SS_WS_Std_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht1'], inputdata_train['Ane_WS_Ht1'])
-                model_std = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht1'], inputdata_train['Ane_SD_Ht1'])
+                model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht1'], inputdata_train['Ane_WS_Ht1'])
+                model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht1'], inputdata_train['Ane_SD_Ht1'])
                 RSD_WS = inputdata_test['RSD_WS_Ht1']
                 RSD_SD = inputdata_test['RSD_SD_Ht1']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -3869,8 +3661,8 @@ def perform_SS_WS_Std_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht2'], inputdata_train['Ane_WS_Ht2'])
-                model_std = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht2'], inputdata_train['Ane_SD_Ht2'])
+                model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht2'], inputdata_train['Ane_WS_Ht2'])
+                model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht2'], inputdata_train['Ane_SD_Ht2'])
                 RSD_WS = inputdata_test['RSD_WS_Ht2']
                 RSD_SD = inputdata_test['RSD_SD_Ht2']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -3892,8 +3684,8 @@ def perform_SS_WS_Std_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht3'], inputdata_train['Ane_WS_Ht3'])
-                model_std = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht3'], inputdata_train['Ane_SD_Ht3'])
+                model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht3'], inputdata_train['Ane_WS_Ht3'])
+                model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht3'], inputdata_train['Ane_SD_Ht3'])
                 RSD_WS = inputdata_test['RSD_WS_Ht3']
                 RSD_SD = inputdata_test['RSD_SD_Ht3']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -3915,8 +3707,8 @@ def perform_SS_WS_Std_correction(inputdata):
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht4'], inputdata_train['Ane_WS_Ht4'])
-                model_std = _Adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht4'], inputdata_train['Ane_SD_Ht4'])
+                model = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_WS_Ht4'], inputdata_train['Ane_WS_Ht4'])
+                model_std = _adjuster_SS_WS_Std.get_regression(inputdata_train['RSD_SD_Ht4'], inputdata_train['Ane_SD_Ht4'])
                 RSD_WS = inputdata_test['RSD_WS_Ht4']
                 RSD_SD = inputdata_test['RSD_SD_Ht4']
                 RSD_corrWS = (model[0]*RSD_WS) + model[1]
@@ -4354,7 +4146,7 @@ def get_TI_byTIrefbin(inputdata):
 def get_stats_inBin(inputdata_m, start, end):
     # this was discussed in the meeting , but the results template didn't ask for this.
     inputdata = inputdata_m.loc[(inputdata_m['Ref_WS'] > start) & (inputdata_m['Ref_WS'] <= end)].copy()
-    _Adjuster_stats = Adjustments()
+    _adjuster_stats = Adjustments()
 
     if 'RSD_TI' in inputdata.columns:
         inputdata['TI_diff_RSD_Ref'] = inputdata['RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
@@ -4373,7 +4165,7 @@ def get_stats_inBin(inputdata_m, start, end):
 
     # RSD V Reference
     if 'RSD_TI' in inputdata.columns:
-        modelResults = _Adjuster_stats.get_regression(inputdata['Ref_TI'], inputdata['RSD_TI'])
+        modelResults = _adjuster_stats.get_regression(inputdata['Ref_TI'], inputdata['RSD_TI'])
         rmse = modelResults[5]
         slope = modelResults[0]
         offset = modelResults[1]
@@ -4397,7 +4189,7 @@ def get_stats_inBin(inputdata_m, start, end):
         TI_diff_corrTI_RSD_Ref_Avg = inputdata['TI_diff_corrTI_RSD_Ref'].mean()
         TI_diff_corrTI_RSD_Ref_Std = inputdata['TI_diff_corrTI_RSD_Ref'].std()
 
-        modelResults = _Adjuster_stats.get_regression(inputdata['corrTI_RSD_TI'], inputdata['Ref_TI'])
+        modelResults = _adjuster_stats.get_regression(inputdata['corrTI_RSD_TI'], inputdata['Ref_TI'])
         rmse = modelResults[5]
         slope = modelResults[0]
         offset = modelResults[1]
@@ -4417,7 +4209,7 @@ def get_stats_inBin(inputdata_m, start, end):
         TI_diff_Ane2_Ref_Avg = inputdata['TI_diff_Ane2_Ref'].mean()
         TI_diff_Ane2_Ref_Std = inputdata['TI_diff_Ane2_Ref'].std()
 
-        modelResults = _Adjuster_stats.get_regression(inputdata['Ane2_TI'], inputdata['Ref_TI'])
+        modelResults = _adjuster_stats.get_regression(inputdata['Ane2_TI'], inputdata['Ref_TI'])
         rmse = modelResults[5]
         slope = modelResults[0]
         offset = modelResults[1]
@@ -4753,7 +4545,7 @@ def calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, H
     #check for 2 anemometer heights (use furthest apart) for cup alpha calculation
     configHtData = pd.read_excel(config_file, usecols=[3, 4], nrows=17).iloc[[3,12,13,14,15]]
     primaryHeight = configHtData['Selection'].to_list()[0]
-    all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = check_for_additional_heights(config_file, primaryHeight)
+    all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = config.check_for_additional_heights(primaryHeight)
     if len(list(ane_heights))> 1:
         all_keys = list(all_heights.values())
         max_key = list(all_heights.keys())[all_keys.index(max(all_heights.values()))]
@@ -5011,7 +4803,7 @@ def quick_metrics(inputdata, results_df, lm_corr_dict, testID):
     """"""
     from TACT.computation.adjustments import Adjustments
 
-    _Adjuster = Adjustments(raw_data=inputdata)
+    _adjuster = Adjustments(raw_data=inputdata)
 
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
@@ -5034,9 +4826,9 @@ def quick_metrics(inputdata, results_df, lm_corr_dict, testID):
                             results_RSD_Ref_WS,results_Ane2_Ref_WS],axis = 0)
  
     # Run a few corrections with this timing test aswell
-    inputdata_corr, lm_corr, m, c = _Adjuster.perform_SS_S_correction(inputdata.copy())
+    inputdata_corr, lm_corr, m, c = _adjuster.perform_SS_S_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_S' )] = lm_corr
-    inputdata_corr, lm_corr, m, c = _Adjuster.perform_SS_SF_correction(inputdata.copy())
+    inputdata_corr, lm_corr, m, c = _adjuster.perform_SS_SF_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_SF' )] = lm_corr
     inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_WS-Std' )] = lm_corr
@@ -5189,7 +4981,6 @@ if __name__ == '__main__':
 
     """parser get_input_files"""
     config = Config()
-    config.get_input_files()
 
     input_filename = config.input_filename
     config_file = config.config_file
@@ -5231,41 +5022,11 @@ if __name__ == '__main__':
     Ht_1_rsd = data.Ht_1_rsd
     Ht_2_rsd = data.Ht_2_rsd
     
+    """sensor, height"""
+    sensor = config.model
+    height = config.height
+
     
-    """
-    config_object
-
-    - site_suitability_tool/readers/config_file.py
-    - parameters
-        -
-    - object includes
-        - config_file
-        - input_filename
-        - rtd_files
-        - results_filename
-        - saveModel
-        - time_test_flag
-        - global_model
-        -
-        - siteMetaData
-        - filterMetaData
-        - correctionsMetaData
-        - RSDtype
-        - extrap_metadata
-        - extrapolation_type
-
-    data_object
-        - config_object
-        - inputdata
-        - Timestamps
-        - a
-        - lab_a
-        - R t_1_rsd
-        - Ht_2_rsd
-    
-    """
-
-
     print ('%%%%%%%%%%%%%%%%%%%%%%%%% Processing Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
     # -------------------------------
     # special handling for data types
@@ -5288,15 +5049,15 @@ if __name__ == '__main__':
     # ------------------------
     # Get all regressions available
     reg_results = get_all_regressions(inputdata, title='Full comparison')
-    sensor, height = get_phaseiii_metadata(config_file)
+
     stabilityClass_tke, stabilityMetric_tke, regimeBreakdown_tke = calculate_stability_TKE(inputdata)
     cup_alphaFlag, stabilityClass_ane, stabilityMetric_ane, regimeBreakdown_ane, Ht_1_ane, Ht_2_ane, stabilityClass_rsd, stabilityMetric_rsd, regimeBreakdown_rsd = calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd)
     #------------------------
     # Time Sensivity Analysis
     #------------------------
-    TimeTestA = pd.DataFrame()
-    TimeTestB = pd.DataFrame()
-    TimeTestC = pd.DataFrame()
+    # TimeTestA = pd.DataFrame()
+    # TimeTestB = pd.DataFrame()
+    # TimeTestC = pd.DataFrame()
     
     if timetestFlag == True:
         # A) increase % of test train split -- check for convergence --- basic metrics recorded baseline but also for every corrections
@@ -5343,6 +5104,7 @@ if __name__ == '__main__':
             windowEnd = (numberofObsinOneDay*42)
             TimeTestC_corrections_df = {}
             TimeTestC_baseline_df = pd.DataFrame()
+
             while windowEnd < len(inputdata):
                 print (str('After observation #' + str(windowStart) + ' ' + 'Before observation #' + str(windowEnd)))
                 windowStart += numberofObsinOneDay*7
@@ -5510,6 +5272,7 @@ if __name__ == '__main__':
     count_05mps_tke = []
     count_05mps_alpha_Ane = []
     count_05mps_alpha_RSD = []
+
     for c in range(0,len(All_class_data)):
         name_1mps_tke.append(str('count_1mps_class_' + str(c) + '_tke'))
         name_1mps_alpha_Ane.append(str('count_1mps_class_' + str(c) + '_alpha_Ane'))
@@ -5517,6 +5280,7 @@ if __name__ == '__main__':
         name_05mps_tke.append(str('count_05mps_class_' + str(c) + '_tke'))
         name_05mps_alpha_Ane.append(str('count_05mps_class_' + str(c) + '_alpha_Ane'))
         name_05mps_alpha_RSD.append(str('count_05mps_class_' + str(c) + '_alpha_RSD'))
+
         try:
             c_1mps_tke, c_05mps_tke = get_count_per_WSbin(All_class_data[c][primary_idx], 'RSD_WS')
             count_1mps_tke.append(c_1mps_tke)
@@ -5544,7 +5308,7 @@ if __name__ == '__main__':
     TI_10minuteAdjusted = pd.DataFrame()
 
     # initialize Adjustments object
-    Adjuster = Adjustments(inputdata.copy(), correctionsMetadata, baseResultsLists)
+    adjuster = Adjustments(inputdata.copy(), correctionsMetadata, baseResultsLists)
     
     for method in correctionsMetadata:
 
@@ -5557,7 +5321,7 @@ if __name__ == '__main__':
         else:
             print('Applying Correction Method: SS-S')
             logger.info('Applying Correction Method: SS-S')
-            inputdata_corr, lm_corr, m, c = Adjuster.perform_SS_S_correction(inputdata.copy())
+            inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(inputdata.copy())
             print("SS-S: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -5575,7 +5339,7 @@ if __name__ == '__main__':
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c = Adjuster.perform_SS_S_correction(item[primary_idx].copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(item[primary_idx].copy())
                     print("SS-S: y = " + str(m) + " * x + " + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5593,7 +5357,7 @@ if __name__ == '__main__':
                 className = 1
                 print (str('class ' + str(className)))
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = Adjuster.perform_SS_S_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(item.copy())
                     print ("SS-S: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5610,7 +5374,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = Adjuster.perform_SS_S_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(item.copy())
                     print ("SS-S: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5631,7 +5395,7 @@ if __name__ == '__main__':
             print('Applying Correction Method: SS-SF')
             logger.info('Applying Correction Method: SS-SF')
            # inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(inputdata.copy())
-            inputdata_corr, lm_corr, m, c = Adjuster.perform_SS_SF_correction(inputdata.copy())
+            inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(inputdata.copy())
             print("SS-SF: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -5649,7 +5413,7 @@ if __name__ == '__main__':
                 ResultsLists_class = initialize_resultsLists('class_')
                 className = 1
                 for item in All_class_data:
-                    inputdata_corr, lm_corr, m, c = Adjuster.perform_SS_SF_correction(item[primary_idx].copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(item[primary_idx].copy())
                     print("SS-SF: y = " + str(m) + " * x + " + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5666,7 +5430,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = Adjuster.perform_SS_SF_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(item.copy())
                     print ("SS-SF: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5684,7 +5448,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = Adjuster.perform_SS_SF_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(item.copy())
                     print ("SS-SF: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5799,7 +5563,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_WS_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(item.copy())
                     print ("SS-WS: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5815,7 +5579,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_WS_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_SS_WS_correction(item.copy())
                     print ("SS-WS: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -5870,7 +5634,7 @@ if __name__ == '__main__':
                ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                className = 1
                for item in All_class_data_alpha_RSD:
-                   iputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(item.copy())
+                   inputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(item.copy())
                    print ("SS-WS-Std: y = " + str(m) + "* x +" + str(c))
                    lm_corr['sensor'] = sensor
                    lm_corr['height'] = height
@@ -5886,7 +5650,7 @@ if __name__ == '__main__':
                ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                className = 1
                for item in All_class_data_alpha_Ane:
-                   iputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(item.copy())
+                   inputdata_corr, lm_corr, m, c = perform_SS_WS_Std_correction(item.copy())
                    print ("SS-WS-Std: y = " + str(m) + "* x +" + str(c))
                    lm_corr['sensor'] = sensor
                    lm_corr['height'] = height
@@ -5951,7 +5715,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLa' + '_' + 'class_' + str(className))
@@ -5966,7 +5730,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
@@ -6023,7 +5787,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLc' + '_' + 'class_' + str(className))
@@ -6038,7 +5802,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLc' + '_' + 'class_' + str(className))
@@ -6094,7 +5858,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS-LTERRA_MLb' + '_' + 'class_' + str(className))
@@ -6109,7 +5873,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('SS_LTERRA_MLb' + '_' + 'class_' + str(className))
@@ -6381,7 +6145,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
+                    inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
                     print ("G-Sa: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -6398,7 +6162,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
+                    inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
                     print ("G-Sa: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -6456,7 +6220,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
+                    inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
                     print ("G-SFa: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -6473,7 +6237,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
+                    inputdata_corr, lm_corr, m, c = perform_G_Sa_correction(item.copy(),override)
                     print ("G-SFa: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -6529,7 +6293,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
-                    iputdata_corr, lm_corr, m, c = perform_G_SFc_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_G_SFc_correction(item.copy())
                     print ("G-SFc: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -6546,7 +6310,7 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    iputdata_corr, lm_corr, m, c = perform_G_SFc_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_G_SFc_correction(item.copy())
                     print ("G-SFc: y = " + str(m) + "* x +" + str(c))
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
@@ -6604,7 +6368,7 @@ if __name__ == '__main__':
                 className = 1
                 for item in All_class_data_alpha_RSD:
                     print (str('class ' + str(className)))
-                    iputdata_corr, lm_corr, m, c = perform_G_C_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_G_C_correction(item.copy())
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('G-C' + '_' + 'class_' + str(className))
@@ -6622,7 +6386,7 @@ if __name__ == '__main__':
                 className = 1
                 for item in All_class_data_alpha_Ane:
                     print (str('class ' + str(className)))
-                    iputdata_corr, lm_corr, m, c = perform_G_C_correction(item.copy())
+                    inputdata_corr, lm_corr, m, c = perform_G_C_correction(item.copy())
                     lm_corr['sensor'] = sensor
                     lm_corr['height'] = height
                     lm_corr['correction'] = str('G-C' + '_alphaCup_' + 'class_' + str(className))
@@ -6741,7 +6505,7 @@ if __name__ == '__main__':
             print('Applying Correction Method: G-LTERRA_WC_S_ML')
             logger.info('Applying Correction Method: G-LTERRA_WC_S_ML')
 
-    if  RSD_alphaFlag:
+    if RSD_alphaFlag:
         pass
     else:
         ResultsLists_stability_alpha_RSD = ResultsList_stability
