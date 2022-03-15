@@ -94,7 +94,11 @@ def write_resultstofile(df, ws, r_start, c_start):
     rows = dataframe_to_rows(df)
     for r_idx, row in enumerate(rows, r_start):
         for c_idx, value in enumerate(row, c_start):
-            ws.cell(row=r_idx, column=c_idx, value=value)
+            try:
+                ws.cell(row=r_idx, column=c_idx, value=value)
+            except ValueError:
+                ws.cell(row=r_idx, column=c_idx, value=value[0])
+
 
 
 def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05mps, count_1mps_train, count_05mps_train,
@@ -292,15 +296,27 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
     a.cell(row=rowNumber, column=1, value='Start Timestamp')
     a.cell(row=rowNumber, column=2, value=str(Timestamps[0]))
     a.cell(row=rowNumber, column=4, value='Start Timestamp (Train)')
-    a.cell(row=rowNumber, column=5, value=str(timestamp_train[0]))
+    a.cell(row=rowNumber, column=5, value=str(timestamp_train))
     a.cell(row=rowNumber, column=7, value='Start Timestamp (Test)')
-    a.cell(row=rowNumber, column=8, value=str(timestamp_test[-1]))
+
+    try:
+        timestamp_minus1 = str(timestamp_test[-1])
+    except:
+        timestamp_minus1 = np.nan
+    
+    a.cell(row=rowNumber, column=8, value=timestamp_minus1)
     a.cell(row=rowNumber+1, column=1, value='End Timestamp')
     a.cell(row=rowNumber+1, column=2, value=str(Timestamps[-1]))
     a.cell(row=rowNumber+1, column=4, value='End Timestamp (Train)')
-    a.cell(row=rowNumber+1, column=5, value=str(timestamp_train[0]))
+
+    try:
+        timestamp_train_ts = str(timestamp_test[-1])
+    except:
+        timestamp_train_ts = np.nan
+    
+    a.cell(row=rowNumber+1, column=5, value=timestamp_train_ts)
     a.cell(row=rowNumber+1, column=7, value='End Timestamp (Test)')
-    a.cell(row=rowNumber+1, column=8, value=str(timestamp_test[-1]))
+    a.cell(row=rowNumber+1, column=8, value=timestamp_minus1)
     rowNumber +=3
 
     if stabilityFlag:

@@ -13,7 +13,7 @@ try:
     hostname = gethostname()
 
     if platform == 'win32':
-        home_dir = f"C:/{username}"
+        home_dir = f"C:/Users/{username}"
 
     else:
         home_dir = f"/home/{username}"

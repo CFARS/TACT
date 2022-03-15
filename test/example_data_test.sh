@@ -10,20 +10,47 @@ pip install -e .
 python3 TACT.py -in $INFILE -config $CONFIG -res $OUTFILE --timetestFlag
 deactivate
 
-if [ -f $OUTFILE ]; 
+# check outputs
+
+if [ "$1" == "keep" ];
 then
-    rm $OUTFILE
+    REMOVEFILES=0
 else
-    printf "ERROR: $OUTFILE not created! Exiting\n"
-    exit 1
+    REMOVEFILES=1
 fi
 
-if [ -f $TIOUTFILE ];
+if [ $REMOVEFILES == 1 ]; 
 then
-    rm $TIOUTFILE
-else
-    printf "ERROR: $TIOUTFILE not created! Exiting\n"
-    exit 2
-fi
+    if [ -f $OUTFILE ];
+    then
+        rm $OUTFILE
+    else
+        printf "ERROR: $OUTFILE not created! Exiting\n"
+        exit 1
+    fi
 
-printf "INFO: example_data_test passed!\n"
+    if [ -f $TIOUTFILE ];
+    then    
+        rm $TIOUTFILE
+    else 
+        printf "ERROR: $TIOUTFILE not created! Exiting\n"
+        exit 2
+    fi
+
+    printf "INFO: example_data_test passed!\n"
+
+else
+    if [ -f $OUTFILE ];
+    then
+        printf "$OUTFILE created\n"
+    else
+        printf "$OUTFILE NOT created\n"
+    fi
+
+    if [ -f $TIOUTFILE ];
+    then    
+        printf "$TIOUTFILE created\n"
+    else
+        printf "$TIOUTFILE created\n"
+    fi
+fi

@@ -3,23 +3,20 @@
 TACT Adjustments
 
 """
-import os
-import datetime as dt
+try:
+    from TACT import logger
+except ImportError:
+    pass
 import pandas as pd
 import sys
 import matplotlib.pyplot as plt
 plt.ioff()  # setting to non-interactive
-import seaborn as sns
-from dateutil import parser
 import numpy as np
-from pathlib import Path
 import sys
-import math
-
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
-from sklearn import linear_model
+
 
 class Adjustments():
 
@@ -27,7 +24,7 @@ class Adjustments():
     document parameters
     """
 
-    def __init__(self, raw_data, adjustments_list,baseResultsLists):
+    def __init__(self, raw_data='', adjustments_list='' ,baseResultsLists=''):
         self.raw_data = raw_data
         self.adjusted_data =pd.DataFrame()
         self.results_stats = [] # make this a dictionary of results with adjustment_list items as keys
@@ -41,30 +38,40 @@ class Adjustments():
         df['x'] = x
         df['y'] = y
         df = df.dropna()
+
+        feature_name = "x"
+        target_name = "y"
+
+        data, target = df[[feature_name]], df[target_name]
+
         if len(df) > 1:
-            x = df['x']
-            y = df['y']
-            x = x.astype(float)
-            y = y.astype(float)
-            lm = linear_model.LinearRegression()
-            lm.fit(x.to_frame(), y.to_frame())
-            result = [lm.coef_[0][0], lm.intercept_[0]]         #slope and intercept?
-            result.append(lm.score(x.to_frame(), y.to_frame())) #r score?
-            result.append(abs((x - y).mean()))                  # mean diff?
-            x = x.to_numpy().reshape(len(x), 1)
-            y = y.to_numpy().reshape(len(y), 1)
-            predict = lm.predict(x)
-            mse = mean_squared_error(y, predict, multioutput='raw_values')
+
+            x = df['x'].astype(float)
+            y = df['y'].astype(float)
+ 
+            lm = LinearRegression()
+            lm.fit(data, target)
+            predict = lm.predict(data)
+
+            result = [lm.coef_[0], lm.intercept_]         #slope and intercept?
+            result.append(lm.score(data, target))         #r score?
+            result.append(abs((x - y).mean()))            # mean diff?
+
+            mse = mean_squared_error(target, predict, multioutput='raw_values')
             rmse = np.sqrt(mse)
             result.append(mse[0])
             result.append(rmse[0])
+
         else:
             result = [None, None, None, None, None, None]
+            result = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
         # results order: m, c, r2, mean difference, mse, rmse
+
+        # logger.debug(result)
 
         return result
 
-    def post_correction_stats(self,inputdata,results,ref_col,TI_col):
+    def post_correction_stats(self, inputdata, results, ref_col, TI_col):
 
         if isinstance(inputdata, pd.DataFrame):
             fillEmpty = False
@@ -91,7 +98,7 @@ class Adjustments():
             results.loc[name1, ['rmse']] = 'NaN'
         return results
     
-    def perform_SS_S_correction(self,inputdata):
+    def perform_SS_S_correction(self, inputdata):
         '''
         Note: Representative TI computed with original RSD_SD
         '''
@@ -113,6 +120,7 @@ class Adjustments():
             m = np.NaN
             c = np.NaN
             inputdata = False
+
         else:
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ref_TI']
@@ -145,6 +153,7 @@ class Adjustments():
                     RSD_TI = (model[0]*RSD_TI) + model[1]
                     inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
                     results = self.post_correction_stats(inputdata_test,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+
             if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
                 full = pd.DataFrame()
                 full['Ref_TI'] = inputdata_test['Ane_TI_Ht2']
@@ -160,6 +169,7 @@ class Adjustments():
                     RSD_TI = (model[0]*RSD_TI) + model[1]
                     inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
                     results = self.post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+
             if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
                 full = pd.DataFrame()
                 full['Ref_TI'] = inputdata_test['Ane_TI_Ht3']
@@ -175,6 +185,7 @@ class Adjustments():
                     RSD_TI = (model[0]*RSD_TI) + model[1]
                     inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
                     results = self.post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
+
             if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
                 full = pd.DataFrame()
                 full['Ref_TI'] = inputdata_test['Ane_TI_Ht4']
@@ -196,7 +207,7 @@ class Adjustments():
     
         return inputdata_test, results, m, c
 
-    def perform_SS_SF_correction(self,inputdata):
+    def perform_SS_SF_correction(self, inputdata):
 
         results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
@@ -216,6 +227,7 @@ class Adjustments():
             m = np.NaN
             c = np.NaN
             inputdata = False
+
         else:
             filtered_Ref_TI = inputdata_train['Ref_TI'][inputdata_train['RSD_TI'] < 0.3]
             filtered_RSD_TI = inputdata_train['RSD_TI'][inputdata_train['RSD_TI'] < 0.3]
@@ -223,12 +235,13 @@ class Adjustments():
             full['filt_Ref_TI'] = filtered_Ref_TI
             full['filt_RSD_TI'] = filtered_RSD_TI
             full = full.dropna()
+
             if len(full) < 2:
-                results = self.post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI',)
+                results = self.post_correction_stats([None], results, 'Ref_TI','corrTI_RSD_TI',)
                 m = np.NaN
                 c = np.NaN
             else:
-                model = self.get_regression(filtered_RSD_TI,filtered_Ref_TI)
+                model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
                 m = model[0]
                 c = model[1]
                 RSD_TI = inputdata_test['RSD_TI'].copy()
@@ -236,6 +249,7 @@ class Adjustments():
                 inputdata_test['corrTI_RSD_TI'] = RSD_TI
                 inputdata_test['corrRepTI_RSD_RepTI'] = RSD_TI + 1.28 * inputdata_test['RSD_SD']
                 results = self.post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
+
             if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
                 filtered_Ref_TI = inputdata_train['Ane_TI_Ht1'][inputdata_train['Ane_TI_Ht1'] < 0.3]
                 filtered_RSD_TI = inputdata_train['RSD_TI_Ht1'][inputdata_train['RSD_TI_Ht1'] < 0.3]
@@ -252,6 +266,7 @@ class Adjustments():
                     inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
                     inputdata_test['corrRepTI_RSD_RepTI_Ht1'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht1']
                     results = self.post_correction_stats(inputdata,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+
             if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
                 filtered_Ref_TI = inputdata_train['Ane_TI_Ht2'][inputdata_train['Ane_TI_Ht2'] < 0.3]
                 filtered_RSD_TI = inputdata_train['RSD_TI_Ht2'][inputdata_train['RSD_TI_Ht2'] < 0.3]
@@ -268,6 +283,7 @@ class Adjustments():
                     inputdata_test['corrTI_RSD_TI_Ht2'] = RSD_TI
                     inputdata_test['corrRepTI_RSD_RepTI_Ht2'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht2']
                     results = self.post_correction_stats(inputdata_test,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+
             if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
                 filtered_Ref_TI = inputdata_train['Ane_TI_Ht3'][inputdata_train['Ane_TI_Ht3'] < 0.3]
                 filtered_RSD_TI = inputdata_train['RSD_TI_Ht3'][inputdata_train['RSD_TI_Ht3'] < 0.3]
@@ -275,6 +291,7 @@ class Adjustments():
                 full['filt_Ref_TI'] = filtered_Ref_TI
                 full['filt_RSD_TI'] = filtered_RSD_TI
                 full = full.dropna()
+
                 if len(full) < 2:
                     results = self.post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
                 else:
@@ -284,6 +301,7 @@ class Adjustments():
                     inputdata_test['corrTI_RSD_TI_Ht3'] = RSD_TI
                     inputdata_test['corrRepTI_RSD_RepTI_Ht3'] = RSD_TI + 1.28 * inputdata_test['RSD_SD_Ht3']
                     results = self.post_correction_stats(inputdata_test,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
+
             if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
                 filtered_Ref_TI = inputdata_train['Ane_TI_Ht4'][inputdata_train['Ane_TI_Ht4'] < 0.3]
                 filtered_RSD_TI = inputdata_train['RSD_TI_Ht4'][inputdata_train['RSD_TI_Ht4'] < 0.3]
@@ -291,6 +309,7 @@ class Adjustments():
                 full['filt_Ref_TI'] = filtered_Ref_TI
                 full['filt_RSD_TI'] = filtered_RSD_TI
                 full = full.dropna()
+
                 if len(full) < 2:
                     results = self.post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
                 else:
@@ -303,6 +322,7 @@ class Adjustments():
 
         results['correction'] = ['SS-SF'] * len(results)
         results = results.drop(columns=['sensor','height'])
+
         return inputdata_test, results, m, c
 
     
