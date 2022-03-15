@@ -31,6 +31,7 @@ class Adjustments():
         self.raw_data = raw_data
         self.adjusted_data =pd.DataFrame()
         self.results_stats = [] # make this a dictionary of results with adjustment_list items as keys
+        #self.Adjustments queue
         
     def get_regression(self, x, y):
         '''

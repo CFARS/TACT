@@ -5600,7 +5600,6 @@ if __name__ == '__main__':
             pass
         else:
             print ('Applying Correction Method: SS-SF')
-           # inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(inputdata.copy())
             inputdata_corr, lm_corr, m, c = Adjustments.perform_SS_SF_correction(inputdata.copy())
             print("SS-SF: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
@@ -5673,7 +5672,8 @@ if __name__ == '__main__':
             pass
         else:
             print ('Applying Correction Method: SS-SS')
-            inputdata_corr, lm_corr, m, c = perform_SS_SS_correction(inputdata.copy(),All_class_data,primary_idx)
+            inputdata_corr, lm_corr, m, c = Adjustments.perform_SS_SS_correction(inputdata.copy(),All_class_data,primary_idx)
+         #   inputdata_corr, lm_corr, m, c = perform_SS_SS_correction(inputdata.copy(),All_class_data,primary_idx)
             print("SS-SS: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
