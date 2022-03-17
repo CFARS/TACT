@@ -4671,25 +4671,20 @@ def calculate_stability_TKE(inputdata):
             print ('calculating proxy for TKE in ZX data')
             inputdata['RSD_WS'].apply(lambda x: float(x))
             inputdata['RSD_Direction'].apply(lambda x: float(x))
-            inputdata['cosDir'] = inputdata['RSD_Direction']
-            inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
-            inputdata['RSD_LidarTKE'] = (3/2) * ((inputdata['RSD_WS'] * inputdata['cosDir'])**2)
+            inputdata['cosDir'] = inputdata['RSD_Direction'] * math.pi/180
+            inputdata['RSD_LidarTKE'] = (3/2) * ((inputdata['RSD_SD'] * inputdata['cosDir'])**2)
             if 'RSD_TI_Ht1' in inputdata.columns.to_list():
-                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht1']
-                 inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
-                 inputdata['RSD_Ht1_LidarTKE'] = (3/2) * ((inputdata['RSD_WS_Ht1'] * inputdata['cosDir'])**2)
+                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht1'] * math.pi/180
+                 inputdata['RSD_Ht1_LidarTKE'] = (3/2) * ((inputdata['RSD_SD_Ht1'] * inputdata['cosDir'])**2)
             if 'RSD_TI_Ht2' in inputdata.columns.to_list():
-                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht2']
-                 inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
-                 inputdata['RSD_Ht2_LidarTKE'] = (3/2) * ((inputdata['RSD_WS_Ht2'] * inputdata['cosDir'])**2)
+                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht2'] * math.pi/180
+                 inputdata['RSD_Ht2_LidarTKE'] = (3/2) * ((inputdata['RSD_SD_Ht2'] * inputdata['cosDir'])**2)
             if 'RSD_TI_Ht3' in inputdata.columns.to_list():
-                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht3']
-                 inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
-                 inputdata['RSD_Ht3_LidarTKE'] = (3/2) * ((inputdata['RSD_WS_Ht3'] * inputdata['cosDir'])**2)
+                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht3'] * math.pi/180
+                 inputdata['RSD_Ht3_LidarTKE'] = (3/2) * ((inputdata['RSD_Sd_Ht3'] * inputdata['cosDir'])**2)
             if 'RSD_TI_Ht4' in inputdata.columns.to_list():
-                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht4']
-                 inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
-                 inputdata['RSD_Ht4_LidarTKE'] = (3/2) * ((inputdata['RSD_WS_Ht4'] * inputdata['cosDir'])**2)
+                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht4'] * math.pi/180
+                 inputdata['RSD_Ht4_LidarTKE'] = (3/2) * ((inputdata['RSD_Sd_Ht4'] * inputdata['cosDir'])**2)
             TKE_cols = [s for s in inputdata.columns.to_list() if 'TKE' in s or 'tke' in s]
 
         for t in TKE_cols:
@@ -5034,7 +5029,7 @@ if __name__ == '__main__':
 
     """data object assignments"""
     
-    data=Data(input_filename, config_file)
+    data = Data(input_filename, config_file)
     data.get_inputdata()
     data.get_refTI_bins()      # >> to data_file.py
     data.check_for_alphaConfig()
@@ -5073,9 +5068,10 @@ if __name__ == '__main__':
     # Baseline Results
     # ------------------------
     # Get all regressions available
-    reg_results = get_all_regressions(inputdata, title='Full comparison')
+    regr_results = get_all_regressions(inputdata, title='Full comparison')
 
     stabilityClass_tke, stabilityMetric_tke, regimeBreakdown_tke = calculate_stability_TKE(inputdata)
+    
     cup_alphaFlag, stabilityClass_ane, stabilityMetric_ane, regimeBreakdown_ane, Ht_1_ane, Ht_2_ane, stabilityClass_rsd, stabilityMetric_rsd, regimeBreakdown_rsd = calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd)
     #------------------------
     # Time Sensivity Analysis
@@ -5160,7 +5156,7 @@ if __name__ == '__main__':
     #-----------------------------
     # stability class subset lists
     #-----------------------------
-    # get reg_results by stability class: list of df's for each height
+    # get regr_results by stability class: list of df's for each height
     reg_results_class1 = []
     reg_results_class2 = []
     reg_results_class3 = []
@@ -5174,7 +5170,7 @@ if __name__ == '__main__':
     reg_results_class5_alpha = {}
 
     if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
-
+    
         inputdata_class1 = []
         inputdata_class2 = []
         inputdata_class3 = []
@@ -5258,7 +5254,7 @@ if __name__ == '__main__':
         reg_results_class5_alpha['Ane'] = get_all_regressions(inputdata_class5, title = str('alpha_stability_Ane' + 'class5'))
 
     # ------------------------
-    # TI AdjuAdjustments.perform_SS_S_correctionstments
+    # TI AdjuAdjustments
     # ------------------------
     from TACT.computation.adjustments import Adjustments
 
@@ -5355,6 +5351,8 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+            print (baseResultsLists)
+            sys.exit()
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
@@ -5520,8 +5518,8 @@ if __name__ == '__main__':
                     className += 1
                 ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
             if RSD_alphaFlag:
-                print('Applying Correction Method: SS-SS by stability class Alpha w/ RSD. SAEM as Baseline')
-                logger.info('Applying Correction Method: SS-SS by stability class Alpha w/ RSD. SAEM as Baseline')
+                print('Applying Correction Method: SS-SS by stability class Alpha w/ RSD. SAME as Baseline')
+                logger.info('Applying Correction Method: SS-SS by stability class Alpha w/ RSD. SAME as Baseline')
                 ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
                 className = 1
                 for item in All_class_data_alpha_RSD:
@@ -6574,7 +6572,7 @@ if __name__ == '__main__':
 
     TI_10minuteAdjusted.to_csv(out_dir)
 
-    write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05mps, count_1mps_train, count_05mps_train,
+    write_all_resultstofile(regr_results, baseResultsLists, count_1mps, count_05mps, count_1mps_train, count_05mps_train,
                             count_1mps_test, count_05mps_test, name_1mps_tke, name_1mps_alpha_Ane, name_1mps_alpha_RSD,
                             name_05mps_tke, name_05mps_alpha_Ane, name_05mps_alpha_RSD, count_05mps_tke, count_05mps_alpha_Ane, count_05mps_alpha_RSD,
                             count_1mps_tke, count_1mps_alpha_Ane, count_1mps_alpha_RSD,results_filename, siteMetadata, filterMetadata,
