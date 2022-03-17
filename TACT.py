@@ -1103,7 +1103,10 @@ def machine_learning_TI(x_train,y_train,x_test,y_test,mode,TI_test):
         rfc_new = RandomForestRegressor(random_state=42, n_estimators = 100)
         #rfc_new = RandomForestRegressor(random_state=42,max_features=2,n_estimators=100)
         rfc_new = rfc_new.fit(x_train,y_train.ravel())
-        TI_pred = rfc_new.predict(x_test)
+        if len(x_test) >=1:
+            TI_pred = rfc_new.predict(x_test)
+        else:
+            TI_pred = [None]
 
     if "SVR" in mode:
        from sklearn.svm import SVR
@@ -4654,7 +4657,7 @@ def calculate_stability_TKE(inputdata):
     [2]              stable -------- 0.4 < TKE < 0.7 m^(2)/s^(-2))
     [3]        near-neutral -------- 0.7 < TKE < 1.0 m^(2)/s^(-2))
     [4]          convective -------- 1.0 < TKE < 1.4 m^(2)/s^(-2))
-    [5] strongly convective --------  TKE > 1.4 m^(2)/s^(-2))
+    [5] strongly convective -------- TKE > 1.4 m^(2)/s^(-2))
     '''
     regimeBreakdown = pd.DataFrame()
 
@@ -4665,30 +4668,52 @@ def calculate_stability_TKE(inputdata):
         # look for pre-calculated TKE column
         TKE_cols = [s for s in inputdata.columns.to_list() if 'TKE' in s or 'tke' in s]
         if len(TKE_cols) < 1:
-            print ('!!!!!!!!!!!!!!!!!!!!!!!! Warning: Input data does not include calculated TKE. Exiting tool. Either add TKE to input data or contact aea@nrgsystems.com for assistence !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            sys.exit()
-        else:
-            for t in TKE_cols:
-                name_stabilityClass = str(t + '_class')
-                inputdata[name_stabilityClass] = inputdata[t]
-                inputdata.loc[(inputdata[t] <= 0.4), name_stabilityClass] = 1
-                inputdata.loc[(inputdata[t] > 0.4) & (inputdata[t] <= 0.7), name_stabilityClass] = 2
-                inputdata.loc[(inputdata[t] > 0.7) & (inputdata[t] <= 1.0), name_stabilityClass] = 3
-                inputdata.loc[(inputdata[t] > 1.0) & (inputdata[t] <= 1.4), name_stabilityClass] = 4
-                inputdata.loc[(inputdata[t] > 1.4), name_stabilityClass] = 5
+            print ('calculating proxy for TKE in ZX data')
+            inputdata['RSD_WS'].apply(lambda x: float(x))
+            inputdata['RSD_Direction'].apply(lambda x: float(x))
+            inputdata['cosDir'] = inputdata['RSD_Direction']
+            inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
+            inputdata['RSD_LidarTKE'] = (3/2) * ((inputdata['RSD_WS'] * inputdata['cosDir'])**2)
+            if 'RSD_TI_Ht1' in inputdata.columns.to_list():
+                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht1']
+                 inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
+                 inputdata['RSD_Ht1_LidarTKE'] = (3/2) * ((inputdata['RSD_WS_Ht1'] * inputdata['cosDir'])**2)
+            if 'RSD_TI_Ht2' in inputdata.columns.to_list():
+                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht2']
+                 inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
+                 inputdata['RSD_Ht2_LidarTKE'] = (3/2) * ((inputdata['RSD_WS_Ht2'] * inputdata['cosDir'])**2)
+            if 'RSD_TI_Ht3' in inputdata.columns.to_list():
+                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht3']
+                 inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
+                 inputdata['RSD_Ht3_LidarTKE'] = (3/2) * ((inputdata['RSD_WS_Ht3'] * inputdata['cosDir'])**2)
+            if 'RSD_TI_Ht4' in inputdata.columns.to_list():
+                 inputdata['cosDir'] = inputdata['RSD_Direction_Ht4']
+                 inputdata['cosDir'].apply(lambda x: math.cos(float(x)))
+                 inputdata['RSD_Ht4_LidarTKE'] = (3/2) * ((inputdata['RSD_WS_Ht4'] * inputdata['cosDir'])**2)
+            TKE_cols = [s for s in inputdata.columns.to_list() if 'TKE' in s or 'tke' in s]
 
-                # get count and percent of data in each class
-                numNans = inputdata[t].isnull().sum()
-                totalCount = len(inputdata) - numNans
-                regimeBreakdown[name_stabilityClass] = ['1 (strongly stable)', '2 (stable)', '3 (near-neutral)', '4 (convective)', '5 (strongly convective)']
-                name_count = str(name_stabilityClass.split('_class')[0] + '_count')
-                regimeBreakdown[name_count] = [len(inputdata[(inputdata[name_stabilityClass] == 1)]), len(inputdata[(inputdata[name_stabilityClass] == 2)]),
-                                               len(inputdata[(inputdata[name_stabilityClass] == 3)]), len(inputdata[(inputdata[name_stabilityClass] == 4)]),
-                                               len(inputdata[(inputdata[name_stabilityClass] == 5)])]
-                name_percent = str(name_stabilityClass.split('_class')[0] + '_percent')
-                regimeBreakdown[name_percent] = [len(inputdata[(inputdata[name_stabilityClass] == 1)])/totalCount, len(inputdata[(inputdata[name_stabilityClass] == 2)])/totalCount,
-                                               len(inputdata[(inputdata[name_stabilityClass] == 3)])/totalCount, len(inputdata[(inputdata[name_stabilityClass] == 4)])/totalCount,
-                                               len(inputdata[(inputdata[name_stabilityClass] == 5)])/totalCount]
+        for t in TKE_cols:
+            name_stabilityClass = str(t + '_class')
+            inputdata[name_stabilityClass] = inputdata[t]
+            inputdata.loc[(inputdata[t] <= 0.4), name_stabilityClass] = 1
+            inputdata.loc[(inputdata[t] > 0.4) & (inputdata[t] <= 0.7), name_stabilityClass] = 2
+            inputdata.loc[(inputdata[t] > 0.7) & (inputdata[t] <= 1.0), name_stabilityClass] = 3
+            inputdata.loc[(inputdata[t] > 1.0) & (inputdata[t] <= 1.4), name_stabilityClass] = 4
+            inputdata.loc[(inputdata[t] > 1.4), name_stabilityClass] = 5
+
+            # get count and percent of data in each class
+            numNans = inputdata[t].isnull().sum()
+            totalCount = len(inputdata) - numNans
+            regimeBreakdown[name_stabilityClass] = ['1 (strongly stable)', '2 (stable)', '3 (near-neutral)', '4 (convective)', '5 (strongly convective)']
+            name_count = str(name_stabilityClass.split('_class')[0] + '_count')
+            regimeBreakdown[name_count] = [len(inputdata[(inputdata[name_stabilityClass] == 1)]), len(inputdata[(inputdata[name_stabilityClass] == 2)]),
+                                           len(inputdata[(inputdata[name_stabilityClass] == 3)]), len(inputdata[(inputdata[name_stabilityClass] == 4)]),
+                                           len(inputdata[(inputdata[name_stabilityClass] == 5)])]
+            name_percent = str(name_stabilityClass.split('_class')[0] + '_percent')
+            regimeBreakdown[name_percent] = [len(inputdata[(inputdata[name_stabilityClass] == 1)])/totalCount, len(inputdata[(inputdata[name_stabilityClass] == 2)])/totalCount,
+                                             len(inputdata[(inputdata[name_stabilityClass] == 3)])/totalCount, len(inputdata[(inputdata[name_stabilityClass] == 4)])/totalCount,
+                                             len(inputdata[(inputdata[name_stabilityClass] == 5)])/totalCount]
+       
                               
     elif 'WindCube' in RSDtype['Selection']:
         # convert to radians
