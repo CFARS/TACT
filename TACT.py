@@ -3941,6 +3941,7 @@ def get_representative_TI(inputdata):
     return representative_TI_bins,representative_TI_binsp5
 
 def get_count_per_WSbin(inputdata, column):
+    
     # Count per wind speed bin
     inputdata = inputdata[(inputdata['bins_p5'].astype(float) > 1.5) & (inputdata['bins_p5'].astype(float) < 21)]
     resultsstats_bin = inputdata[[column, 'bins']].groupby(by='bins').agg(['count'])
@@ -3953,6 +3954,8 @@ def get_count_per_WSbin(inputdata, column):
 
 
 def get_stats_per_WSbin(inputdata, column):
+    #make sure column is numeric
+    inputdata[column] = pd.to_numeric(inputdata[column])    
     # this will be used as a base function for all frequency agg caliculaitons for each bin to get the stats per wind speed bins
     inputdata = inputdata[(inputdata['bins_p5'].astype(float) > 1.5) & (inputdata['bins_p5'].astype(float) < 21)]
     resultsstats_bin = inputdata[[column, 'bins']].groupby(by='bins').agg(['mean', 'std'])           #get mean and standard deviation of values in the 1mps bins
@@ -3996,7 +3999,7 @@ def get_RMSE_per_WSbin(inputdata, column):
 
 
 def get_TI_MBE_Diff_j(inputdata):
-    
+   
     TI_MBE_j_ = []
     TI_Diff_j_ = []
     TI_RMSE_j_ = []
@@ -4004,9 +4007,10 @@ def get_TI_MBE_Diff_j(inputdata):
     RepTI_MBE_j_ = []
     RepTI_Diff_j_ = []
     RepTI_RMSE_j_ = []
-
+    
     # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref TI (UNCORRECTED)
     if 'RSD_TI' in inputdata.columns:
+        
         inputdata['RSD_TI'] = inputdata['RSD_TI'].astype(float)
         inputdata['Ref_TI'] = inputdata['Ref_TI'].astype(float)
         inputdata['TI_diff_RSD_Ref'] = inputdata['RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
@@ -4019,6 +4023,7 @@ def get_TI_MBE_Diff_j(inputdata):
         TI_MBE_j_.append([TI_MBE_j_RSD_Ref, TI_MBE_jp5_RSD_Ref])
         TI_Diff_j_.append([TI_Diff_j_RSD_Ref, TI_Diff_jp5_RSD_Ref])
         TI_RMSE_j_.append([TI_RMSE_j_RSD_Ref, TI_RMSE_jp5_RSD_Ref])
+        
     else:
         print ('Warning: No RSD TI. Cannot compute error stats for this category')
 
@@ -4027,16 +4032,17 @@ def get_TI_MBE_Diff_j(inputdata):
         inputdata['TI_diff_corrTI_RSD_Ref'] = inputdata['corrTI_RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
         inputdata['TI_error_corrTI_RSD_Ref'] = inputdata['TI_diff_corrTI_RSD_Ref'] / inputdata['Ref_TI']  # calculating the error for each timestamp (diff normalized to ref_TI)
         inputdata['TI_SquaredDiff_corrTI_RSD_Ref'] = inputdata['TI_diff_corrTI_RSD_Ref'] * inputdata['TI_diff_corrTI_RSD_Ref']  # calculating squared diff each Timestamp
+    
         TI_MBE_j_corrTI_RSD_Ref, TI_MBE_jp5_corrTI_RSD_Ref = get_stats_per_WSbin(inputdata, 'TI_error_corrTI_RSD_Ref')
         TI_Diff_j_corrTI_RSD_Ref, TI_Diff_jp5_corrTI_RSD_Ref = get_stats_per_WSbin(inputdata, 'TI_diff_corrTI_RSD_Ref')
         TI_RMSE_j_corrTI_RSD_Ref, TI_RMSE_jp5_corrTI_RSD_Ref = get_RMSE_per_WSbin(inputdata, 'TI_SquaredDiff_corrTI_RSD_Ref')
-
+        
         TI_MBE_j_.append([TI_MBE_j_corrTI_RSD_Ref, TI_MBE_jp5_corrTI_RSD_Ref])
         TI_Diff_j_.append([TI_Diff_j_corrTI_RSD_Ref, TI_Diff_jp5_corrTI_RSD_Ref])
         TI_RMSE_j_.append([TI_RMSE_j_corrTI_RSD_Ref, TI_RMSE_jp5_corrTI_RSD_Ref])
+        
     else:
         print ('Warning: No corrected RSD TI. Cannot compute error stats for this category')
-
 
     # get the bin wise stats for DIFFERENCE and ERROR and RMSE between redundant anemometer and Ref TI
     if 'Ane2_TI' in inputdata.columns:
@@ -4906,7 +4912,6 @@ def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inp
             TIbybin = get_TI_bybin(inputdata_corr)
             TIbyRefbin = get_TI_byTIrefbin(inputdata_corr)
             total_stats, belownominal_stats, abovenominal_stats = get_description_stats(inputdata_corr)
-
         except:
             emptyclassFlag = True
 
@@ -5329,7 +5334,7 @@ if __name__ == '__main__':
     TI_10minuteAdjusted = pd.DataFrame()
 
     # initialize Adjustments object
-    adjuster = Adjustments(inputdata.copy(), correctionsMetadata, baseResultsLists)
+    adjuster = Adjustments(inputdata.copy(), correctionsMetadata)
     
     for method in correctionsMetadata:
 
@@ -5342,7 +5347,7 @@ if __name__ == '__main__':
         else:
             print('Applying Correction Method: SS-S')
             logger.info('Applying Correction Method: SS-S')
-            inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(inputdata.copy())
+            inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(inputdata.copy())  
             print("SS-S: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -5351,9 +5356,9 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            print (baseResultsLists)
-            sys.exit()
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+           
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method,
+                                               TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-S by stability class (TKE)')
@@ -5407,7 +5412,7 @@ if __name__ == '__main__':
                                                                          inputdata_corr, Timestamps, method)
                     className += 1
                 ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
-
+      
         # ********************************************** #
         # Site Specific Simple + Filter Correction (SS-SF)
         if method != 'SS-SF':
@@ -5417,14 +5422,13 @@ if __name__ == '__main__':
         else:
             print('Applying Correction Method: SS-SF')
             logger.info('Applying Correction Method: SS-SF')
-           # inputdata_corr, lm_corr, m, c = perform_SS_SF_correction(inputdata.copy())
             inputdata_corr, lm_corr, m, c = adjuster.perform_SS_SF_correction(inputdata.copy())
             print("SS-SF: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = 'SS-SF'
             correctionName = 'SS_SF'
-
+           
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
