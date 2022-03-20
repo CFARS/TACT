@@ -308,7 +308,7 @@ def post_correction_stats(inputdata,results,ref_col,TI_col):
     if isinstance(inputdata, pd.DataFrame):
         fillEmpty = False
         if ref_col in inputdata.columns and TI_col in inputdata.columns:
-            _adjuster_post_correction = Adjustments()
+            _adjuster_post_correction = Adjustments(height)
             model_corrTI = _adjuster_post_correction.get_regression(inputdata[ref_col], inputdata[TI_col])
             name1 = 'TI_regression_' + TI_col + '_' + ref_col
             results.loc[name1, ['m']] = model_corrTI[0]
@@ -443,7 +443,7 @@ def perform_G_Sa_correction(inputdata,override):
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
-    _adjuster_G_Sa = Adjustments()
+    _adjuster_G_Sa = Adjustments(height)
 
     if override:
         m_ph2 = override[0]
@@ -936,7 +936,7 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             TI_pred_RF = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
                                              all_test[all_testY_cols],'RF', all_test['TI_test'])
             all_test['corrTI_RSD_TI'] = TI_pred_RF
-            all_test['corrRepTI_RSD_RepTI'] = TI_pred_RF + 1.28 * all_test['RSD_SD']
+            all_test['corrRepTI_RSD_RepTI'] = [None] *len(TI_pred_RF)
             all_test['Ref_TI'] = all_test['y_test']
             inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
             results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
@@ -3415,7 +3415,7 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
     '''
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
-    _adjuster_SS_SS = Adjustments()
+    _adjuster_SS_SS = Adjustments(height)
 
     className = 1
     items_corrected = []
@@ -3469,7 +3469,7 @@ def perform_SS_WS_correction(inputdata):
 
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
-    _adjuster_SS_WS = Adjustments()
+    _adjuster_SS_WS = Adjustments(height)
 
     if inputdata.empty or len(inputdata) < 2:
         results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
@@ -3586,7 +3586,7 @@ def perform_SS_WS_Std_correction(inputdata):
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
 
-    _adjuster_SS_WS_Std = Adjustments()
+    _adjuster_SS_WS_Std = Adjustments(height)
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
     if inputdata.empty or len(inputdata) < 2:
@@ -4155,7 +4155,7 @@ def get_TI_byTIrefbin(inputdata):
 def get_stats_inBin(inputdata_m, start, end):
     # this was discussed in the meeting , but the results template didn't ask for this.
     inputdata = inputdata_m.loc[(inputdata_m['Ref_WS'] > start) & (inputdata_m['Ref_WS'] <= end)].copy()
-    _adjuster_stats = Adjustments()
+    _adjuster_stats = Adjustments(height)
 
     if 'RSD_TI' in inputdata.columns:
         inputdata['TI_diff_RSD_Ref'] = inputdata['RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
@@ -4687,10 +4687,10 @@ def calculate_stability_TKE(inputdata):
                  inputdata['RSD_Ht2_LidarTKE'] = (3/2) * ((inputdata['RSD_SD_Ht2'] * inputdata['cosDir'])**2)
             if 'RSD_TI_Ht3' in inputdata.columns.to_list():
                  inputdata['cosDir'] = inputdata['RSD_Direction_Ht3'] * math.pi/180
-                 inputdata['RSD_Ht3_LidarTKE'] = (3/2) * ((inputdata['RSD_Sd_Ht3'] * inputdata['cosDir'])**2)
+                 inputdata['RSD_Ht3_LidarTKE'] = (3/2) * ((inputdata['RSD_SD_Ht3'] * inputdata['cosDir'])**2)
             if 'RSD_TI_Ht4' in inputdata.columns.to_list():
                  inputdata['cosDir'] = inputdata['RSD_Direction_Ht4'] * math.pi/180
-                 inputdata['RSD_Ht4_LidarTKE'] = (3/2) * ((inputdata['RSD_Sd_Ht4'] * inputdata['cosDir'])**2)
+                 inputdata['RSD_Ht4_LidarTKE'] = (3/2) * ((inputdata['RSD_SD_Ht4'] * inputdata['cosDir'])**2)
             TKE_cols = [s for s in inputdata.columns.to_list() if 'TKE' in s or 'tke' in s]
 
         for t in TKE_cols:
@@ -4829,7 +4829,7 @@ def quick_metrics(inputdata, results_df, lm_corr_dict, testID):
     """"""
     from TACT.computation.adjustments import Adjustments
 
-    _adjuster = Adjustments(raw_data=inputdata)
+    _adjuster = Adjustments(height,raw_data=inputdata)
 
     inputdata_train = inputdata[inputdata['split'] == True].copy()
     inputdata_test = inputdata[inputdata['split'] == False].copy()
@@ -4883,15 +4883,17 @@ def enable_print():
     sys.stdout = sys.__stdout__
 
 
-def record_TIadj(correctionName, inputdata_corr, Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False):
+def record_TIadj(correctionName, inputdata_corr, timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False):
 
     if isinstance(inputdata_corr, pd.DataFrame) == False:
         pass
     else: 
-        corr_cols = [s for s in inputdata_corr.columns.to_list() if 'corr' in s]
+        corr_cols = [s for s in inputdata_corr.columns.to_list() if 'corrTI' in s]
         corr_cols = [s for s in corr_cols if not ('diff' in s or 'Diff' in s or 'error' in s)]
         for c in corr_cols:
             TI_10minuteAdjusted[str(c + '_' + method)] = inputdata_corr[c]
+
+            TI_10minuteAdjusted['Timestamp'] = timestamp_test
     
     return TI_10minuteAdjusted
 
@@ -5152,8 +5154,8 @@ if __name__ == '__main__':
     # random 80-20 split
     inputdata = train_test_split(80.0, inputdata.copy())
 
-    inputdata_train = inputdata[inputdata['split'] == True].copy().join(Timestamps)
-    inputdata_test = inputdata[inputdata['split'] == False].copy().join(Timestamps)
+    inputdata_train = inputdata[inputdata['split'] == True].copy()
+    inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     timestamp_train = inputdata_train['Timestamp']
     timestamp_test = inputdata_test['Timestamp']
@@ -5268,8 +5270,8 @@ if __name__ == '__main__':
     # get number of observations in each bin
     count_1mps, count_05mps = get_count_per_WSbin(inputdata, 'RSD_WS')
 
-    inputdata_train = inputdata[inputdata['split'] == True].copy().join(Timestamps)
-    inputdata_test = inputdata[inputdata['split'] == False].copy().join(Timestamps)
+    inputdata_train = inputdata[inputdata['split'] == True].copy()
+    inputdata_test = inputdata[inputdata['split'] == False].copy()
 
     timestamp_train = inputdata_train['Timestamp']
     timestamp_test = inputdata_test['Timestamp']
@@ -5334,7 +5336,7 @@ if __name__ == '__main__':
     TI_10minuteAdjusted = pd.DataFrame()
 
     # initialize Adjustments object
-    adjuster = Adjustments(inputdata.copy(), correctionsMetadata)
+    adjuster = Adjustments(height, inputdata.copy(), correctionsMetadata)
     
     for method in correctionsMetadata:
 
@@ -5357,7 +5359,7 @@ if __name__ == '__main__':
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
            
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method,
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method,
                                                TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
@@ -5431,7 +5433,8 @@ if __name__ == '__main__':
            
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
             
             if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
                 print('Applying Correction Method: SS-SF by stability class (TKE)')
@@ -5507,7 +5510,7 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
             
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-SS by stability class (TKE). SAME as Baseline')
@@ -5565,7 +5568,7 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
                 print('Applying Correction Method: SS-WS by stability class (TKE)')
@@ -5636,7 +5639,7 @@ if __name__ == '__main__':
 
            baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                     Timestamps, method)
-           TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+           TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
            if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
                print('Applying Correction Method: SS-WS-Std by stability class (TKE)')
@@ -5718,7 +5721,7 @@ if __name__ == '__main__':
             correctionName = 'SS_LTERRA_MLa'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
             
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-LTERRA MLa by stability class (TKE)')
@@ -5757,15 +5760,17 @@ if __name__ == '__main__':
                 ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
                 className = 1
                 for item in All_class_data_alpha_Ane:
-                    inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
-                    lm_corr['sensor'] = sensor
-                    lm_corr['height'] = height
-                    lm_corr['correction'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
-                    emptyclassFlag = False
-                    correctionName = str('SS_LTERRA_MLa' + '_alphaCup_' + str(className))
-                    ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', correctionName, lm_corr,
+                    try: 
+                        inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(item.copy())
+                        lm_corr['sensor'] = sensor
+                        lm_corr['height'] = height
+                        lm_corr['correction'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
+                        correctionName = str('SS_LTERRA_MLa' + '_alphaCup_' + str(className))
+                        ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', correctionName, lm_corr,
                                                                          inputdata_corr, Timestamps, method)
-                    className += 1
+                        className += 1
+                    except:
+                        pass
                 ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
         # ************************************************************************************ #
@@ -5789,7 +5794,7 @@ if __name__ == '__main__':
             correctionName = 'SS_LTERRA_MLc'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
             
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-LTERRA_MLc by stability class (TKE)')
@@ -5861,7 +5866,7 @@ if __name__ == '__main__':
             correctionName = 'SS_LTERRA_MLb'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
             
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-LTERRA_MLb by stability class (TKE)')
@@ -6008,7 +6013,7 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-Match by stability class (TKE)')
@@ -6075,7 +6080,7 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-Match2 by stability class (TKE)')
@@ -6146,7 +6151,7 @@ if __name__ == '__main__':
             correctionName = 'G_Sa'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: G-Sa by stability class (TKE)')
@@ -6221,7 +6226,7 @@ if __name__ == '__main__':
             correctionName = 'G_SFa'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: G-SFa by stability class (TKE)')
@@ -6294,7 +6299,7 @@ if __name__ == '__main__':
             correctionName = 'G_SFc'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: G-SFa by stability class (TKE)')
@@ -6368,7 +6373,7 @@ if __name__ == '__main__':
             correctionName = 'G_C'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
            
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: G-C by stability class (TKE)')
@@ -6422,6 +6427,79 @@ if __name__ == '__main__':
                                                                          inputdata_corr, Timestamps, method)
                     className += 1
                 ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
+        # ************************ #
+        # ZX method #####
+        if method != 'ZX':
+            pass
+        elif method == 'ZX' and correctionsMetadata['ZX'] == False:
+            pass
+        else:
+            print('Applying Correction Method: ZX')
+            logger.info('Applying Correction Method: ZX')
+            inputdata_corr, lm_corr, m, c = adjuster.perform_ZX_correction(inputdata.copy())
+            print("ZX: y = " + str(m) + " * x + " + str(c))
+            lm_corr['sensor'] = sensor
+            lm_corr['height'] = height
+            lm_corr['correction'] = 'ZX'
+            correctionName = 'ZX'
+           
+            baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
+                                                     Timestamps, method)
+            TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
+            
+            if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
+                print('Applying Correction Method: ZX by stability class (TKE)')
+                logger.info('Applying Correction Method: ZX by stability class (TKE)')
+                # stability subset output for primary height (all classes)
+                ResultsLists_class = initialize_resultsLists('class_')
+                className = 1
+                for item in All_class_data:
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_ZX_correction(item[primary_idx].copy())
+                    print("ZX: y = " + str(m) + " * x + " + str(c))
+                    lm_corr['sensor'] = sensor
+                    lm_corr['height'] = height
+                    lm_corr['correction'] = str('ZX' + '_' + 'class_' + str(className))
+                    correctionName = str('ZX' + '_TKE_' + str(className))
+                    ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', correctionName, lm_corr,
+                                                               inputdata_corr, Timestamps, method)
+                    className += 1
+                ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
+
+            if RSD_alphaFlag:
+                print('Applying Correction Method: ZX by stability class Alpha w/ RSD')
+                logger.info('Applying Correction Method: ZX by stability class Alpha w/ RSD')
+                ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
+                className = 1
+                for item in All_class_data_alpha_RSD:
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_ZX_correction(item.copy())
+                    print ("ZX: y = " + str(m) + "* x +" + str(c))
+                    lm_corr['sensor'] = sensor
+                    lm_corr['height'] = height
+                    lm_corr['correction'] = str('ZX' + '_' + 'class_' + str(className))
+                    correctionName = str('ZX' + '_alphaRSD_' + str(className))
+                    ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', correctionName, lm_corr,
+                                                                         inputdata_corr, Timestamps, method)
+                    className += 1
+                ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD,
+                                                                                   ResultsLists_class_alpha_RSD, 'alpha_RSD')
+
+            if cup_alphaFlag:
+                print('Applying correction Method: ZX by stability class Alpha w/cup')
+                logger.info('Applying correction Method: ZX by stability class Alpha w/cup')
+                ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
+                className = 1
+                for item in All_class_data_alpha_Ane:
+                    inputdata_corr, lm_corr, m, c = adjuster.perform_ZX_correction(item.copy())
+                    print ("ZX: y = " + str(m) + "* x +" + str(c))
+                    lm_corr['sensor'] = sensor
+                    lm_corr['height'] = height
+                    lm_corr['correction'] = str('ZX' + '_' + 'class_' + str(className))
+                    correctionName = str('ZX' + '_alphaCup_' + str(className))
+                    ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', correctionName, lm_corr,
+                                                                         inputdata_corr, Timestamps, method)
+                    className += 1
+                ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane,
+                                                                                   ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
 
         # ************************ #
@@ -6542,31 +6620,32 @@ if __name__ == '__main__':
     else:
         ResultsLists_stability_alpha_Ane = ResultsList_stability
 
+    
     if RSDtype['Selection'][0:4] != 'Wind':
-        reg_results_class1 = np.nan
-        reg_results_class2 = np.nan
-        reg_results_class3 = np.nan
-        reg_results_class4 = np.nan
-        reg_results_class5 = np.nan
-        TI_MBEList_stability = np.nan
-        TI_DiffList_stability = np.nan
-        TI_DiffRefBinsList_stability = np.nan
-        TI_RMSEList_stability = np.nan
-        RepTI_MBEList_stability = np.nan
-        RepTI_DiffList_stability = np.nan
-        RepTI_DiffRefBinsList_stability = np.nan
-        RepTI_RMSEList_stability = np.nan
-        rep_TI_results_1mps_List_stability = np.nan
-        rep_TI_results_05mps_List_stability = np.nan
-        TIBinList_stability = np.nan
-        TIRefBinList_stability = np.nan
-        total_StatsList_stability = np.nan
-        belownominal_statsList_stability = np.nan
-        abovenominal_statsList_stability = np.nan
-        lm_CorrList_stability = np.nan
-        correctionTagList_stability = np.nan
-        Distibution_statsList_stability = np.nan
-        sampleTestsLists_stability = np.nan
+ #       reg_results_class1 = np.nan
+ #       reg_results_class2 = np.nan
+ #       reg_results_class3 = np.nan
+ #       reg_results_class4 = np.nan
+ #       reg_results_class5 = np.nan
+        TI_MBEList_stability = [np.nan]*5
+        TI_DiffList_stability = [np.nan]*5
+        TI_DiffRefBinsList_stability = [np.nan]*5
+        TI_RMSEList_stability = [np.nan]*5
+        RepTI_MBEList_stability = [np.nan]*5
+        RepTI_DiffList_stability = [np.nan]*5
+        RepTI_DiffRefBinsList_stability = [np.nan]*5
+        RepTI_RMSEList_stability = [np.nan]*5
+        rep_TI_results_1mps_List_stability = [np.nan]*5
+        rep_TI_results_05mps_List_stability = [np.nan]*5
+        TIBinList_stability = [np.nan]*5
+        TIRefBinList_stability = [np.nan]*5
+        total_StatsList_stability = [np.nan]*5
+        belownominal_statsList_stability = [np.nan]*5
+        abovenominal_statsList_stability = [np.nan]*5
+        lm_CorrList_stability = [np.nan]*5
+        correctionTagList_stability = [np.nan]*5
+        Distibution_statsList_stability = [np.nan]*5
+        sampleTestsLists_stability = [np.nan]*5
 
     # Write 10 minute Adjusted data to a csv file
     outpath_dir = os.path.dirname(results_filename)

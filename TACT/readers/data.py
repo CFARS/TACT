@@ -76,6 +76,7 @@ class Data(Config):
         self.inputdata.rename(index=str, columns=rename_cols, inplace=True)
         keepCols = list(rename_cols.values())
         delCols = [x for x in self.inputdata.columns.to_list() if x not in keepCols]
+       
         self.inputdata.drop(columns=delCols,inplace=True)
 
         if self.inputdata.empty == True:
@@ -85,6 +86,7 @@ class Data(Config):
 
         # Get Hour from timestamp and add as column
         Timestamps_dt = pd.to_datetime(self.timestamps)
+        self.inputdata['Timestamp'] = pd.to_datetime(self.inputdata['Timestamp'])
 
         def hr_func(ts):
             h = ts.hour
@@ -98,7 +100,7 @@ class Data(Config):
             self.inputdata['Hour'] = Hour
 
         # drop timestamp colum from inputdata data frame, replace any 9999 cells with NaN's
-        self.inputdata.drop('Timestamp', axis=1, inplace=True)
+     #   self.inputdata.drop('Timestamp', axis=1, inplace=True)
         self.inputdata.replace(9999, np.NaN, inplace=True)
         
         # flag any non-numeric data rows to the user

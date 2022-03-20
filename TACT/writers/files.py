@@ -442,27 +442,30 @@ def write_all_resultstofile(reg_results, baseResultsLists, count_1mps, count_05m
         Dist_stats_df = pd.concat([Dist_stats_df,baseResultsLists['Distribution_statsList_'][idx]], axis=1)
         correctionTag = baseResultsLists['correctionTagList_'][idx]
 
-        if stabilityFlag:
-            TI_MBE_j_stability = ResultsLists_stability['TI_MBEList_stability_'][idx]
-            TI_Diff_j_stability =  ResultsLists_stability['TI_DiffList_stability_'][idx]
-            TI_Diff_r_stability = ResultsLists_stability['TI_DiffRefBinsList_stability_'][idx]
-            TI_RMSE_j_stability =  ResultsLists_stability['TI_RMSEList_stability_'][idx]
-            RepTI_MBE_j_stability = ResultsLists_stability['RepTI_MBEList_stability_'][idx]
-            RepTI_Diff_j_stability = ResultsLists_stability['RepTI_DiffList_stability_'][idx]
-            RepTI_Diff_r_stability = ResultsLists_stability['RepTI_DiffRefBinsList_stability_'][idx]
-            RepTI_RMSE_j_stability = ResultsLists_stability['RepTI_RMSEList_stability_'][idx]
-            rep_TI_results_1mps_stability = ResultsLists_stability['rep_TI_results_1mps_List_stability_'][idx]
-            rep_TI_results_05mps_stability = ResultsLists_stability['rep_TI_results_05mps_List_stability_'][idx]
-            TIbybin_stability = ResultsLists_stability['TIBinList_stability_'][idx]
-            TIbyRefbin_stability = ResultsLists_stability['TIRefBinList_stability_'][idx]
-            total_stats_stability = ResultsLists_stability['total_StatsList_stability_'][idx]
-            belownominal_stats_stability = ResultsLists_stability['belownominal_statsList_stability_'][idx]
-            abovenominal_stats_stability = ResultsLists_stability['abovenominal_statsList_stability_'][idx]
-            lm_corr_stability = ResultsLists_stability['lm_CorrList_stability_'][idx]
-            corrrectionTag_stability = ResultsLists_stability['correctionTagList_stability_'][idx]
-            for i in ResultsLists_stability['Distribution_statsList_stability_'][idx]:
-                if isinstance(i, pd.DataFrame):
-                    Dist_stats_df = pd.concat([Dist_stats_df,i], axis=1)
+        try:
+            if stabilityFlag:
+                TI_MBE_j_stability = ResultsLists_stability['TI_MBEList_stability_'][idx]
+                TI_Diff_j_stability =  ResultsLists_stability['TI_DiffList_stability_'][idx]
+                TI_Diff_r_stability = ResultsLists_stability['TI_DiffRefBinsList_stability_'][idx]
+                TI_RMSE_j_stability =  ResultsLists_stability['TI_RMSEList_stability_'][idx]
+                RepTI_MBE_j_stability = ResultsLists_stability['RepTI_MBEList_stability_'][idx]
+                RepTI_Diff_j_stability = ResultsLists_stability['RepTI_DiffList_stability_'][idx]
+                RepTI_Diff_r_stability = ResultsLists_stability['RepTI_DiffRefBinsList_stability_'][idx]
+                RepTI_RMSE_j_stability = ResultsLists_stability['RepTI_RMSEList_stability_'][idx]
+                rep_TI_results_1mps_stability = ResultsLists_stability['rep_TI_results_1mps_List_stability_'][idx]
+                rep_TI_results_05mps_stability = ResultsLists_stability['rep_TI_results_05mps_List_stability_'][idx]
+                TIbybin_stability = ResultsLists_stability['TIBinList_stability_'][idx]
+                TIbyRefbin_stability = ResultsLists_stability['TIRefBinList_stability_'][idx]
+                total_stats_stability = ResultsLists_stability['total_StatsList_stability_'][idx]
+                belownominal_stats_stability = ResultsLists_stability['belownominal_statsList_stability_'][idx]
+                abovenominal_stats_stability = ResultsLists_stability['abovenominal_statsList_stability_'][idx]
+                lm_corr_stability = ResultsLists_stability['lm_CorrList_stability_'][idx]
+                corrrectionTag_stability = ResultsLists_stability['correctionTagList_stability_'][idx]
+                for i in ResultsLists_stability['Distribution_statsList_stability_'][idx]:
+                    if isinstance(i, pd.DataFrame):
+                        Dist_stats_df = pd.concat([Dist_stats_df,i], axis=1)
+        except:
+            pass
 
         if cup_alphaFlag:
             TI_MBE_j_stability_alpha_Ane = ResultsLists_stability_alpha_Ane['TI_MBEList_stability_alpha_Ane'][idx]
