@@ -242,7 +242,7 @@ class Adjustments():
                 m = np.NaN
                 c = np.NaN
             else:
-                 model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
+                model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
                 m = model[0]
                 c = model[1]
                 RSD_TI = inputdata_test['RSD_TI'].copy()
