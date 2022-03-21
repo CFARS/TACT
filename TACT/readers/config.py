@@ -179,7 +179,7 @@ class Config(object):
         correctionsManager = {'SS-SF':True,'SS-S':True,'SS-SS':True,'SS-Match2':False,'SS-WS':True,'SS-WS-Std':True,
                             'SS-LTERRA-WC-1HZ':False,'SS-LTERRA-MLa':True,'SS-LTERRA-MLb':True,'SS-LTERRA-MLc':True,'TI-Extrap':False,
                             'G-Sa':True,'G-SFa':True,'G-Sc':True,'G-SFc':True,'G-Std':False,'G-Match':True,'G-Ref-S':True,
-                              'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True,'ZX':False,'G-LTERRA-ML'}
+                              'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True,'ZX':False,'G-LTERRA-ML':True}
         # input data checking
         subset = ['Ref_TI','RSD_TI']
         result = all(elem in self.available_data for elem in subset)
