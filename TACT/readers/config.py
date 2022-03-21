@@ -54,7 +54,7 @@ class Config(object):
 
     def __init__(self, input_filename='', config_file='', rtd_files='', 
                     results_file='', save_model_location='', time_test_flag='', 
-                    global_model='', outpath_dir='', outpath_file='',   ):
+                    global_model='', outpath_dir='', outpath_file='', overwrite_transfer_models = False):
 
         logger.info(f"initiated Config object")
 
@@ -93,6 +93,7 @@ class Config(object):
         parser.add_argument("-saveModel", "--save_model_location", help="this argument specifies the location to save output global model", default=False)
         parser.add_argument("-timetestFlag", "--timetestFlag", action="store_true",
                             help = "initiates timing tests for model generation")
+        parser.add_argument("-overwrite_transfer_models", "--overwrite_transfers", action="store_true", default=False)
         args = parser.parse_args()
 
         logger.info('input data file: {}'.format(args.input_filename))
@@ -114,6 +115,7 @@ class Config(object):
         self.save_model_location = args.save_model_location
         self.time_test_flag = args.timetestFlag
         self.global_model = args.global_model_to_test
+        self.overwrite_transfer_models = args.overwrite_transfers
 
         self.outpath_dir = os.path.dirname(self.results_file)
         self.outpath_file = os.path.basename(self.results_file)
@@ -179,7 +181,8 @@ class Config(object):
         correctionsManager = {'SS-SF':True,'SS-S':True,'SS-SS':True,'SS-Match2':False,'SS-WS':True,'SS-WS-Std':True,
                             'SS-LTERRA-WC-1HZ':False,'SS-LTERRA-MLa':True,'SS-LTERRA-MLb':True,'SS-LTERRA-MLc':True,'TI-Extrap':False,
                             'G-Sa':True,'G-SFa':True,'G-Sc':True,'G-SFc':True,'G-Std':False,'G-Match':True,'G-Ref-S':True,
-                              'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True,'ZX':False,'G-LTERRA-ML':True}
+                            'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True,'ZX':False,'GT-LTERRA-MLa':True,'GT-LTERRA-MLb':True,'GT-LTERRA-MLc':True}
+        
         # input data checking
         subset = ['Ref_TI','RSD_TI']
         result = all(elem in self.available_data for elem in subset)
