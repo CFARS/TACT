@@ -66,7 +66,7 @@ class Adjustments():
             result = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
         # results order: m, c, r2, mean difference, mse, rmse
 
-        logger.debug(result)
+        # logger.debug(result)
 
         return result
 
