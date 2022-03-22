@@ -1,5 +1,4 @@
-# <img src="https://cfars.github.io/images/CFARS_MembershipLogos_Logo_RGB.jpg" alt="CFARS" /> 
-# TACT site_suitability_tool
+# ![CFARS](assets/cfars_logo_48.png) TACT site_suitability_tool
 
 TACT = Turbulence intensity Adjustment Comparison Tool
 
