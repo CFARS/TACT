@@ -24,10 +24,12 @@ class Adjustments():
     document parameters
     """
 
-    def __init__(self, raw_data='', adjustments_list='' ,baseResultsLists=''):
+    def __init__(self, height, raw_data='', adjustments_list=''):
         self.raw_data = raw_data
         self.adjusted_data =pd.DataFrame()
+        self.height = height # primary height of rsd and ane comparison
         self.results_stats = [] # make this a dictionary of results with adjustment_list items as keys
+        #self.Adjustments queue
         
     def get_regression(self, x, y):
         '''
@@ -99,14 +101,18 @@ class Adjustments():
     
     def perform_SS_S_correction(self, inputdata):
         '''
-        Note: Representative TI computed with original RSD_SD
+        Site-specific method adjusting TI data based on resgressions slope and offset adjustments
+        Note: Representative TI computed with original RSD_SD ---> delete this
         '''
         results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
-                                    'c', 'rsquared', 'difference','mse', 'rmse'])
+                                        'c', 'rsquared', 'difference','mse', 'rmse'])
+        
+        # rely on test-train split so that method is not tested on the data that the
+        #      model was generated from 
         inputdata_train = inputdata[inputdata['split'] == True].copy()
         inputdata_test = inputdata[inputdata['split'] == False].copy()
 
-        if inputdata.empty or len(inputdata) < 2:
+        if inputdata.empty or len(inputdata) < 2: # if there is a problem with input dataframe
             results = self.post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
                 results = self.post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
@@ -119,8 +125,7 @@ class Adjustments():
             m = np.NaN
             c = np.NaN
             inputdata = False
-
-        else:
+        else: # isolate timestamps with data
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ref_TI']
             full['RSD_TI'] = inputdata_test['RSD_TI']
@@ -147,7 +152,7 @@ class Adjustments():
                     m = np.NaN
                     c = np.NaN
                 else:
-                    model = self.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
+                    model = self.get_regression(inputdata_train['RSD_TI_Ht1'], inputdata_train['Ane_TI_Ht1'])
                     RSD_TI = inputdata_test['RSD_TI_Ht1'].copy()
                     RSD_TI = (model[0]*RSD_TI) + model[1]
                     inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
@@ -320,6 +325,65 @@ class Adjustments():
                     results = self.post_correction_stats(inputdata_test,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
         results['correction'] = ['SS-SF'] * len(results)
+        results = results.drop(columns=['sensor','height'])
+
+        return inputdata_test, results, m, c
+
+    def perform_ZX_correction(self, inputdata):
+    
+
+        results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
+                                    'c', 'rsquared', 'difference','mse', 'rmse'])
+        inputdata_train = inputdata[inputdata['split'] == True].copy()
+        inputdata_test = inputdata[inputdata['split'] == False].copy()
+
+        if inputdata.empty or len(inputdata) < 2:
+            results = self.post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
+            if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
+                results = self.post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+            if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
+                results = self.post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+            if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
+                results = self.post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
+            if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
+                results = self.post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
+            m = np.NaN
+            c = np.NaN
+            inputdata = False
+
+        else:
+            m_h = 0.2073*self.height + 13.294
+            c_h = 0.4707*self.height + 20.041
+            m = None
+            c = None
+            
+            temp = pd.DataFrame()
+            temp['RSD_TI'] = inputdata_test['RSD_TI'].astype(float)
+            temp['corrTI_RSD_TI'] = temp['RSD_TI'].astype(float)*(1-((m_h * np.log(temp['RSD_TI'].astype(float)))/100) - (c_h/100))
+            temp.loc[temp['RSD_TI'] > 0.2, 'corrTI_RSD_TI'] = temp['RSD_TI']*(1-((m_h * np.log(0.2))/100) - (c_h/100))
+
+            inputdata_test['corrTI_RSD_TI'] = temp['corrTI_RSD_TI']
+            inputdata_test['corrRepTI_RSD_RepTI'] = inputdata_test['RSD_TI'] + 1.28 * inputdata_test['RSD_SD']
+            results = self.post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
+
+            if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
+                results = self.post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+                # can complete this when we have variables for diff RSD heights                                                                    
+
+            if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
+                results = self.post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+                # can complete this when we have variables for diff RSD heights                                                                    
+
+
+            if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns:
+                results = self.post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
+                # can complete this when we have variables for diff RSD heights                                                                    
+
+            if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns:
+                results = self.post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
+                # can complete this when we have variables for diff RSD heights                                                                    
+
+        results['correction'] = ['Zx'] * len(results)
         results = results.drop(columns=['sensor','height'])
 
         return inputdata_test, results, m, c
