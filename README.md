@@ -1,4 +1,4 @@
-# ![CFARS](assets/cfars_logo_24.png) TACT site_suitability_tool
+# ![CFARS](assets/cfars_logo_48.png) TACT site_suitability_tool
 
 TACT = Turbulence intensity Adjustment Comparison Tool
 
