@@ -767,8 +767,12 @@ def perform_SS_LTERRA_ML_correction(inputdata, method_key):
         all_test['TI_test'] = inputdata_test['RSD_TI'].copy()
         all_test['RSD_SD'] = inputdata_test['RSD_SD'].copy()
         all_train = all_train.dropna()
+        all_test['Timestamp'] = inputdata_test['Timestamp'].copy()
+        save_timestamps= all_test['Timestamp']
+        save_ti_test = all_test['TI_test']
+        all_test = all_test.drop(['Timestamp'], axis=1)
         all_test = all_test.dropna()
-
+        
         if len(all_train) < 5 and len(all_test) < 5:
             results = post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             m = np.NaN
@@ -782,11 +786,15 @@ def perform_SS_LTERRA_ML_correction(inputdata, method_key):
                 all_test['x_test'] = inputdata['RSD_TI'].copy()
                 all_test['TI_test'] = inputdata['RSD_TI'].copy()
                 all_test['RSD_SD'] = inputdata['RSD_SD'].copy()
+                all_test['Timestamp'] = inputdata['Timestamp'].copy()
+                save_timestamps= all_test['Timestamp']
+                save_ti_test = all_test['TI_test']
                 all_test = all_test.dropna()
+                all_test = all_test.drop(['Timestamp'], axis=1)
                 TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF_transferMLa', all_test['TI_test'])
             else:
                 TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
-
+            
             if config.overwrite_transfer_models:
                 # write model
                 outdir = os.path.join(os.getcwd(), 'transfer_models')
@@ -799,10 +807,19 @@ def perform_SS_LTERRA_ML_correction(inputdata, method_key):
                 
             all_test['corrTI_RSD_TI'] = TI_pred_RF
             all_test['Ref_TI'] = all_test['y_test']
-            inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
-            results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
+
+            out_test = pd.DataFrame()
+            out_test['Timestamp'] = save_timestamps
+            out_test['coorTI_RSD_TI'] = save_ti_test
 
             
+            if method_key == 'GT-LTERRA-MLa':
+                inputdata_test_result = pd.merge(inputdata,all_test,how='left')
+                results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
+            else: 
+                inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
+                results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
+
             
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns and 'RSD_SD_Ht1' in inputdata.columns:
             all_train = pd.DataFrame()
@@ -823,11 +840,12 @@ def perform_SS_LTERRA_ML_correction(inputdata, method_key):
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
-                 all_test['Ane_TI_Ht1'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+                 results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+  #               TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+  #               all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
+  #               all_test['Ane_TI_Ht1'] = all_test['y_test']
+  #               inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+  #               results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
 
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             all_train = pd.DataFrame()
@@ -848,11 +866,12 @@ def perform_SS_LTERRA_ML_correction(inputdata, method_key):
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
-                 all_test['Ane_TI_Ht2'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+                 results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+  #               TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+  #               all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
+  #               all_test['Ane_TI_Ht2'] = all_test['y_test']
+  #               inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+  #               results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
 
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             all_train = pd.DataFrame()
@@ -873,11 +892,12 @@ def perform_SS_LTERRA_ML_correction(inputdata, method_key):
             else:
                 m = np.NaN
                 c = np.NaN
-                TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
-                all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
-                all_test['Ane_TI_Ht3'] = all_test['y_test']
-                inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                results = post_correction_stats(inputdata_test_result, results, 'Ane_TI_Ht3', 'corrTI_RSD_TI_Ht3')
+                results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
+  #              TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+  #              all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
+  #              all_test['Ane_TI_Ht3'] = all_test['y_test']
+  #              inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+  #              results = post_correction_stats(inputdata_test_result, results, 'Ane_TI_Ht3', 'corrTI_RSD_TI_Ht3')
                  
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
@@ -897,14 +917,16 @@ def perform_SS_LTERRA_ML_correction(inputdata, method_key):
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
-                 all_test['Ane_TI_Ht4'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
+                 results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
+  #               TI_pred_RF, model = machine_learning_TI(all_train['x_train'], all_train['y_train'], all_test['x_test'], all_test['y_test'],'RF', all_test['TI_test'])
+  #               all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
+  #               all_test['Ane_TI_Ht4'] = all_test['y_test']
+  #               inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+  #               results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     if inputdata_test_result.empty:
         inputdata_test_result = inputdata_test
+        
     return inputdata_test_result, results, m, c
 
 def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols, method_key):
@@ -992,9 +1014,19 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             all_test['corrTI_RSD_TI'] = TI_pred_RF
             all_test['corrRepTI_RSD_RepTI'] = [None] *len(TI_pred_RF)
             all_test['Ref_TI'] = all_test['y_test']
-            
-            inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
-            results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
+
+
+            if method_key == 'GT-LTERRA-MLb':
+                inputdata_test_result = pd.merge(inputdata,all_test,how='left')
+                results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
+
+            if method_key == 'GT-LTERRA-MLc':
+                inputdata_test_result = pd.merge(inputdata,all_test,how='left')
+                results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
+
+            else:
+                inputdata_test_result = pd.merge(inputdata_test,all_test,how='left')
+                results = post_correction_stats(inputdata_test_result,results, 'Ref_TI','corrTI_RSD_TI')
 
             if config.overwrite_transfer_models:
                 # write model
@@ -1033,12 +1065,13 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF,model = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                                  all_test[all_testY_cols],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
-                 all_test['Ane_TI_Ht1'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+                 results = post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
+     #            TI_pred_RF,model = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+     #                                             all_test[all_testY_cols],'RF', all_test['TI_test'])
+     #            all_test['corrTI_RSD_TI_Ht1'] = TI_pred_RF
+     #            all_test['Ane_TI_Ht1'] = all_test['y_test']
+     #            inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+     #            results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
 
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns and 'RSD_SD_Ht2' in inputdata.columns:
             all_train = pd.DataFrame()
@@ -1066,12 +1099,13 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF,model = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                                  all_test[all_testY_cols],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
-                 all_test['Ane_TI_Ht2'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+                 results = post_correction_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
+  #               TI_pred_RF,model = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+  #                                                all_test[all_testY_cols],'RF', all_test['TI_test'])
+  #               all_test['corrTI_RSD_TI_Ht2'] = TI_pred_RF
+  #               all_test['Ane_TI_Ht2'] = all_test['y_test']
+  #               inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+  #               results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_TI_Ht3' in inputdata.columns and 'RSD_TI_Ht3' in inputdata.columns and 'RSD_SD_Ht3' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht3'].copy()
@@ -1098,12 +1132,14 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF,model = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                                  all_test[all_testY_cols],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
-                 all_test['Ane_TI_Ht3'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
+  #               results = post_correction_stats([None],results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
+  #               TI_pred_RF,model = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+  #                                                all_test[all_testY_cols],'RF', all_test['TI_test'])
+  #               all_test['corrTI_RSD_TI_Ht3'] = TI_pred_RF
+  #               all_test['Ane_TI_Ht3'] = all_test['y_test']
+  #               inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+  #               results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht3','corrTI_RSD_TI_Ht3')
+  
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht4'].copy()
@@ -1129,12 +1165,13 @@ def perform_SS_LTERRA_S_ML_correction(inputdata,all_trainX_cols,all_trainY_cols,
             else:
                  m = np.NaN
                  c = np.NaN
-                 TI_pred_RF,model = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
-                                                  all_test[all_testY_cols],'RF', all_test['TI_test'])
-                 all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
-                 all_test['Ane_TI_Ht4'] = all_test['y_test']
-                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
-                 results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
+                 results = post_correction_stats([None],results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
+   #              TI_pred_RF,model = machine_learning_TI(all_train[all_trainX_cols],all_train[all_trainY_cols], all_test[all_testX_cols],
+   #                                               all_test[all_testY_cols],'RF', all_test['TI_test'])
+   #              all_test['corrTI_RSD_TI_Ht4'] = TI_pred_RF
+   #              all_test['Ane_TI_Ht4'] = all_test['y_test']
+   #              inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
+   #              results = post_correction_stats(inputdata_test_result,results, 'Ane_TI_Ht4','corrTI_RSD_TI_Ht4')
 
     if inputdata_test_result.empty:
         inputdata_test_result = inputdata_test
@@ -4983,19 +5020,52 @@ def enable_print():
     '''
     sys.stdout = sys.__stdout__
 
-
-def record_TIadj(correctionName, inputdata_corr, timestamp, method, TI_10minuteAdjusted, emptyclassFlag=False):
+def record_TIadj_full(correctionName, inputdata_corr, Timestamps, method, TI_10minuteAdjusted_full, emptyclassFlag=False):
 
     if isinstance(inputdata_corr, pd.DataFrame) == False:
         pass
-    else: 
+    else:
+        res_cols = [s for s in TI_10minuteAdjusted_full.columns.to_list()]
+        if 'Timestamp' not in res_cols:
+            TI_10minuteAdjusted_full['Timestamp'] = inputdata_corr['Timestamp']
+        if 'RSD_WS' not in res_cols:
+            TI_10minuteAdjusted_full['RSD_WS'] = inputdata_corr['RSD_WS']
+        if 'Ref_WS' not in res_cols:
+            TI_10minuteAdjusted_full['Ref_WS'] = inputdata_corr['Ref_WS']
+        if 'RSD_TI' not in res_cols:
+            TI_10minuteAdjusted_full['RSD_TI'] = inputdata_corr['RSD_TI']
+        if 'Ref_TI' not in res_cols:
+            TI_10minuteAdjusted_full['Ref_TI'] = inputdata_corr['Ref_TI']
+      
+        corr_cols = [s for s in inputdata_corr.columns.to_list() if 'corrTI' in s]
+        corr_cols = [s for s in corr_cols if not ('diff' in s or 'Diff' in s or 'error' in s)]
+        for c in corr_cols:
+            TI_10minuteAdjusted_full[str(c + '_' + method)] = inputdata_corr[c]
+        
+    return TI_10minuteAdjusted_full
+
+def record_TIadj(correctionName, inputdata_corr, timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False):
+
+    if isinstance(inputdata_corr, pd.DataFrame) == False:
+        pass
+    else:
+        res_cols = [s for s in TI_10minuteAdjusted.columns.to_list()]
+        if 'Timestamp' not in res_cols:
+            TI_10minuteAdjusted['Timestamp'] = inputdata_corr['Timestamp']
+        if 'RSD_WS' not in res_cols:
+            TI_10minuteAdjusted['RSD_WS'] = inputdata_corr['RSD_WS']
+        if 'Ref_WS' not in res_cols:
+            TI_10minuteAdjusted['Ref_WS'] = inputdata_corr['Ref_WS']
+        if 'RSD_TI' not in res_cols:
+            TI_10minuteAdjusted['RSD_TI'] = inputdata_corr['RSD_TI']
+        if 'Ref_TI' not in res_cols:
+            TI_10minuteAdjusted['Ref_TI'] = inputdata_corr['Ref_TI']
+      
         corr_cols = [s for s in inputdata_corr.columns.to_list() if 'corrTI' in s]
         corr_cols = [s for s in corr_cols if not ('diff' in s or 'Diff' in s or 'error' in s)]
         for c in corr_cols:
             TI_10minuteAdjusted[str(c + '_' + method)] = inputdata_corr[c]
 
-            TI_10minuteAdjusted['Timestamp'] = timestamp
-    
     return TI_10minuteAdjusted
 
 
@@ -5287,6 +5357,7 @@ if __name__ == '__main__':
         RSD_h = []
 
         Alldata_inputdata = inputdata.copy()
+        
         for h in stabilityClass_tke.columns.to_list():
             RSD_h.append(h)
             inputdata_class1.append(Alldata_inputdata[Alldata_inputdata[h] == 1])
@@ -5434,14 +5505,15 @@ if __name__ == '__main__':
 
 
     # intialize 10 minute output
-    TI_10minuteAdjusted = pd.DataFrame()
-    TI_10minuteAdjusted_full = pd.DataFrame()
+    TI_10minuteAdjusted = pd.DataFrame()   # save adjusted time series for methods that adjust test data
+    TI_10minuteAdjusted_full = pd.DataFrame() # save adjusted time series for methods that adjust all data
 
     # initialize Adjustments object
     adjuster = Adjustments(height, inputdata.copy(), correctionsMetadata)
     
     for method in correctionsMetadata:
-
+    #for method in ['SS-LTERRA-MLa']:
+        
         # ************************************ #
         # Site Specific Simple Correction (SS-S)
         if method != 'SS-S':
@@ -5451,7 +5523,8 @@ if __name__ == '__main__':
         else:
             print('Applying Correction Method: SS-S')
             logger.info('Applying Correction Method: SS-S')
-            inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(inputdata.copy())  
+            # determine model with train data and adjust the test data
+            inputdata_corr, lm_corr, m, c = adjuster.perform_SS_S_correction(inputdata.copy())
             print("SS-S: y = " + str(m) + " * x + " + str(c))
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
@@ -5460,7 +5533,6 @@ if __name__ == '__main__':
 
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-           
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method,
                                                TI_10minuteAdjusted, emptyclassFlag=False)
 
@@ -5817,12 +5889,14 @@ if __name__ == '__main__':
             logger.info('Applying Correction Method: SS-LTERRA-MLa')
 
             inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_correction(inputdata.copy(),'SS-LTERRA-MLa')
+           
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = 'SS_LTERRA_MLa'
             correctionName = 'SS_LTERRA_MLa'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
+           
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,timestamp_test, method, TI_10minuteAdjusted, emptyclassFlag=False)
             
             if RSDtype['Selection'][0:4] == 'Wind':
@@ -5893,8 +5967,8 @@ if __name__ == '__main__':
             correctionName = 'GT_LTERRA_MLa'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
-            TI_10minuteAdjusted_full = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted_full, emptyclassFlag=False)
-            
+            TI_10minuteAdjusted_full = record_TIadj_full(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted_full, emptyclassFlag=False)
+         
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: GT-LTERRA MLa by stability class (TKE)')
                 logger.info('Applying Correction Method: GT-LTERRA MLa by stability class (TKE)')
@@ -6040,7 +6114,7 @@ if __name__ == '__main__':
             correctionName = 'GT_LTERRA_MLc'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
             
-            TI_10minuteAdjusted_full = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted_full, emptyclassFlag=False)
+            TI_10minuteAdjusted_full = record_TIadj_full(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted_full, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: GT-LTERRA_MLc by stability class (TKE)')
@@ -6183,7 +6257,7 @@ if __name__ == '__main__':
             correctionName = 'GT_LTERRA_MLb'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
             
-            TI_10minuteAdjusted_full = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted_full, emptyclassFlag=False)
+            TI_10minuteAdjusted_full = record_TIadj_full(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted_full, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: GT-LTERRA_MLb by stability class (TKE)')

@@ -7,7 +7,7 @@ TIOUTFILE=test/TI_10minuteAdjusted_test_output.csv
 
 source venv/bin/activate
 pip install -e .
-python3 TACT.py -in $INFILE -config $CONFIG -res $OUTFILE --timetestFlag
+python3 TACT.py -in $INFILE -config $CONFIG -res $OUTFILE #--timetestFlag
 deactivate
 
 # check outputs

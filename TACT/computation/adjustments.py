@@ -101,14 +101,18 @@ class Adjustments():
     
     def perform_SS_S_correction(self, inputdata):
         '''
-        Note: Representative TI computed with original RSD_SD
+        Site-specific method adjusting TI data based on resgressions slope and offset adjustments
+        Note: Representative TI computed with original RSD_SD ---> delete this
         '''
         results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
-                                    'c', 'rsquared', 'difference','mse', 'rmse'])
+                                        'c', 'rsquared', 'difference','mse', 'rmse'])
+        
+        # rely on test-train split so that method is not tested on the data that the
+        #      model was generated from 
         inputdata_train = inputdata[inputdata['split'] == True].copy()
         inputdata_test = inputdata[inputdata['split'] == False].copy()
 
-        if inputdata.empty or len(inputdata) < 2:
+        if inputdata.empty or len(inputdata) < 2: # if there is a problem with input dataframe
             results = self.post_correction_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
             if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
                 results = self.post_correction_stats([None],results, 'Ane_TI_Ht1','corrTI_RSD_TI_Ht1')
@@ -121,8 +125,7 @@ class Adjustments():
             m = np.NaN
             c = np.NaN
             inputdata = False
-
-        else:
+        else: # isolate timestamps with data
             full = pd.DataFrame()
             full['Ref_TI'] = inputdata_test['Ref_TI']
             full['RSD_TI'] = inputdata_test['RSD_TI']
@@ -149,7 +152,7 @@ class Adjustments():
                     m = np.NaN
                     c = np.NaN
                 else:
-                    model = self.get_regression(inputdata_train['RSD_TI'], inputdata_train['Ref_TI'])
+                    model = self.get_regression(inputdata_train['RSD_TI_Ht1'], inputdata_train['Ane_TI_Ht1'])
                     RSD_TI = inputdata_test['RSD_TI_Ht1'].copy()
                     RSD_TI = (model[0]*RSD_TI) + model[1]
                     inputdata_test['corrTI_RSD_TI_Ht1'] = RSD_TI
