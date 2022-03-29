@@ -181,7 +181,7 @@ class Config(object):
         correctionsManager = {'SS-SF':True,'SS-S':True,'SS-SS':True,'SS-Match2':False,'SS-WS':True,'SS-WS-Std':True,
                             'SS-LTERRA-WC-1HZ':False,'SS-LTERRA-MLa':True,'SS-LTERRA-MLb':True,'SS-LTERRA-MLc':True,'TI-Extrap':False,
                             'G-Sa':True,'G-SFa':True,'G-Sc':True,'G-SFc':True,'G-Std':False,'G-Match':True,'G-Ref-S':True,
-                            'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True,'ZX':False,'GT-LTERRA-MLa':True,'GT-LTERRA-MLb':True,'GT-LTERRA-MLc':True}
+                              'G-Ref-SF':True, 'G-Ref-SS':True,'G-Ref-WS-Std':True,'ZX':False,'GT-LTERRA-MLa':False,'GT-LTERRA-MLb':False,'GT-LTERRA-MLc':False}
         
         # input data checking
         subset = ['Ref_TI','RSD_TI']
