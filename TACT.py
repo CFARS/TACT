@@ -3,7 +3,7 @@ This is the main script to analyze projects without an NDA in place.
 Authors: Nikhil Kondabala, Alexandra Arntsen, Andrew Black, Barrett Goudeau, Nigel Swytink-Binnema, Nicolas Jolin
 Updated: 7/01/2021
 
-Example command line execution: 
+Example command line execution:
 
 python TACT.py -in /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/518Tower_Windcube_Filtered_subset.csv -config /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/configuration_518Tower_Windcube_Filtered_subset_ex.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/out.xlsx --timetestFlag
 
@@ -16,6 +16,10 @@ except ImportError:
     pass
 
 from TACT.computation.adjustments import Adjustments
+from TACT.computation.post_adjustment import post_correction_stats
+from TACT.computation.TI_computations import get_count_per_WSbin, get_stats_per_WSbin, get_stats_per_TIbin, get_RMSE_per_WSbin, get_TI_MBE_Diff_j, get_TI_Diff_r, get_representative_TI, get_TI_bybin, get_TI_byTIrefbin, get_description_stats, Dist_stats, get_representative_TI, get_representative_TI_15mps
+from TACT.extrapolation.extrapolation import get_extrap_col_and_ht, get_modelRegression_extrap, log_of_ratio, perform_TI_extrapolation, change_extrap_names, extrap_configResult
+from TACT.extrapolation.calculations import log_of_ratio, power_law
 import pandas as pd
 import numpy as np
 import sys
@@ -36,48 +40,6 @@ import requests
 from glob2 import glob
 import matplotlib.pyplot as plt
 from string import printable
-
-
-def get_shear_exponent(inputdata, extrap_metadata, height):
-    """
-    Calculate shear exponent for TI extrapolation from two anemometers at different heights
-    :param inputdata: input data (dataframe)
-    :param extrap_metadata: DataFrame with metadata required for TI extrapolation
-    :param height: Primary comparison height
-    :return shear: shear exponent calculated from anemometer data
-    alpha = log(v2/v1)/ log(z2/z1)
-    """
-    # get columns
-    inputs = extrap_metadata.loc[extrap_metadata['type'] == 'input', ['height', 'num']]
-
-    # Combine all anemometers into one table
-    df = pd.DataFrame(None)
-    for ix, irow in inputs.iloc[:-1, :].iterrows():
-        col_i, ht_i = get_extrap_col_and_ht(irow['height'], irow['num'], height)
-        for jx, jrow in inputs.loc[ix+1:, :].iterrows():
-            col_j, ht_j = get_extrap_col_and_ht(jrow['height'], jrow['num'], height)
-            tmp = pd.DataFrame(None)
-            baseName = str(str(col_i) + '_' + str(col_j) + '_' + str(ht_i) + '_' + str(ht_j))
-            tmp[str(baseName + '_y')] = log_of_ratio(inputdata[col_i].values.astype(float),
-                                    inputdata[col_j].values.astype(float))
-            tmp[str(baseName + '_x')] = log_of_ratio(ht_i, ht_j)
-            tmp[str(baseName + '_alpha')] = tmp[str(baseName + '_y')] / tmp[str(baseName + '_x')]
-            df = pd.concat((df, tmp), axis=1)
-    df = df.reset_index(drop=True)
-
-    # Calculate shear exponent
-    alphaCols = [s for s in df.columns.to_list() if 'alpha' in s]
-    splitList = [s.split('_') for s in alphaCols]
-    ht_diffs = []
-    for l in splitList:
-        htList = [item for item in l if '.' in item]
-        ht_diffs.append(float(htList[1]) - float(htList[0]))
-    maxdif_idx = ht_diffs.index(max(ht_diffs))
-    shearTimeseries = df[alphaCols[maxdif_idx]]
-   # reg_extrap = get_modelRegression_extrap(df, 'x', 'y', fit_intercept=False)
-   # shear = reg_extrap['m']
-
-    return shearTimeseries
 
 
 def hist_match(inputdata_train, inputdata_test, refCol, testCol):
@@ -141,62 +103,6 @@ def hist_match(inputdata_train, inputdata_test, refCol, testCol):
     return output_res
 
 
-def get_extrap_col_and_ht(height, num, primary_height, sensor='Ane', var='WS'):
-    """
-    Determine name of column and height to use for extrapolation purposes
-    :param height: comparison height
-    :param num: number/label of comparison height
-    :param primary_height: Primary comparison height
-    :param sensor: type of sensor (either "Ane" or "RSD")
-    :param var: variable to be extracted (can be 'WS', 'SD', or 'TI')
-    :return col_name: column name of data to be extracted from inputdata
-    :return ht: height to be extracted for extrapolation
-    """
-    col_name = sensor + "_" + str(var) + "_Ht" + str(num)
-    if 'primary' in col_name:
-        if sensor == 'Ane':
-            col_name = "Ref_" + str(var)
-        elif sensor == 'RSD':
-            col_name = 'RSD_' + str(var)
-        height = float(primary_height)
-    else:
-        height = float(height)
-
-    return col_name, height
-
-
-def get_modelRegression_extrap(inputdata, column1, column2, fit_intercept=True):
-    '''
-    :param inputdata: input data (dataframe)
-    :param column1: string, column name for x-variable
-    :param column2: string, column name for y-variable
-    :param columnNameOut: string, column name for predicted value
-    :return: dict with out of regression
-    '''
-    x = inputdata[column1].values.astype(float)
-    y = inputdata[column2].values.astype(float)
-    mask = ~np.isnan(x) & ~np.isnan(y)
-    x = x[mask]
-    y = y[mask]
-    x = x.reshape(len(x), 1)
-    y = y.reshape(len(y), 1)
-    regr = linear_model.LinearRegression(fit_intercept=fit_intercept)
-    regr.fit(x, y)
-    slope = regr.coef_[0]
-    intercept = regr.intercept_
-    predict = regr.predict(x)
-    y = y.astype(np.float)
-    r = np.corrcoef(x, y)[0, 1]
-    r2 = r2_score(x, predict)  # coefficient of determination, explained variance
-    mse = mean_squared_error(x, predict, multioutput='raw_values')
-    rmse = np.sqrt(mse)
-    difference = abs((x - y).mean())
-    results = {'c': intercept, 'm': slope, 'r': r, 'r2': r2, 'mse': mse, 'rmse': rmse, 'predicted': predict,
-               'difference': difference}
-
-    return results
-
-
 def get_modelRegression(inputdata, column1, column2, fit_intercept=True):
     '''
     :param inputdata: input data (dataframe)
@@ -243,20 +149,20 @@ def get_all_regressions(inputdata, title=None):
 
     columns = [title, 'm', 'c', 'rsquared', 'mean difference', 'mse', 'rmse']
     results = pd.DataFrame(columns=columns)
-    
+
     logger.debug(f"getting regr for {title}")
 
     for p in pairList:
 
         res_name = str(p[0].split('_')[1] + '_regression_' + p[0].split('_')[0] + '_' + p[1].split('_')[0])
-        
+
         if p[1] in inputdata.columns and lenFlag == False:
             _adjuster = Adjustments(inputdata)
             results_regr = [res_name] + _adjuster.get_regression(inputdata[p[0]], inputdata[p[1]])
 
         else:
             results_regr = [res_name, 'NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-            
+
         _results = pd.DataFrame(columns=columns, data=[results_regr])
         results = pd.concat([results, _results], ignore_index=True, axis=0, join='outer')
 
@@ -268,7 +174,6 @@ def get_all_regressions(inputdata, title=None):
     labelsAne = ['Ane_SD_Ht1', 'Ane_TI_Ht1', 'Ane_WS_Ht1', 'Ane_SD_Ht2', 'Ane_TI_Ht2', 'Ane_WS_Ht2',
                  'Ane_SD_Ht3', 'Ane_TI_Ht3', 'Ane_WS_Ht3', 'Ane_WS_Ht4', 'Ane_SD_Ht4','Ane_TI_Ht4']
 
-# DRC >> method to eliminate pandas futurewarning in console. unfortunately, breaks file write.
     for l in labelsExtra:
 
         parts = l.split('_')
@@ -303,137 +208,6 @@ def get_all_regressions(inputdata, title=None):
 
     return results
 
-def post_correction_stats(inputdata,results,ref_col,TI_col):
-
-    if isinstance(inputdata, pd.DataFrame):
-        fillEmpty = False
-        if ref_col in inputdata.columns and TI_col in inputdata.columns:
-            _adjuster_post_correction = Adjustments()
-            model_corrTI = _adjuster_post_correction.get_regression(inputdata[ref_col], inputdata[TI_col])
-            name1 = 'TI_regression_' + TI_col + '_' + ref_col
-            results.loc[name1, ['m']] = model_corrTI[0]
-            results.loc[name1, ['c']] = model_corrTI[1]
-            results.loc[name1, ['rsquared']] = model_corrTI[2]
-            results.loc[name1, ['difference']] = model_corrTI[3]
-            results.loc[name1, ['mse']] = model_corrTI[4]
-            results.loc[name1, ['rmse']] = model_corrTI[5]
-        else:
-            fillEmpty = True
-    else:
-        fillEmpty = True
-    if fillEmpty:
-        name1 = 'TI_regression_' + TI_col + '_' + ref_col
-        results.loc[name1, ['m']] = 'NaN'
-        results.loc[name1, ['c']] = 'NaN'
-        results.loc[name1, ['rsquared']] = 'NaN'
-        results.loc[name1, ['difference']] = 'NaN'
-        results.loc[name1, ['mse']] = 'NaN'
-        results.loc[name1, ['rmse']] = 'NaN'
-    return results
-
-
-def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, height):
-    """
-    Perform the TI extrapolation on anemometer data.
-    :param inputdata: input data (dataframe)
-    :param extrap_metadata: DataFrame with metadata required for TI extrapolation
-    :param extrapolation_type: str to decide what type of extrapolation to perform
-    :param height: Primary comparison height (m)
-    :return inputdata: input data (dataframe) with additional columns
-    v2 = v1(z2/z1)^alpha
-    """
-
-    # Calculate shear exponent
-    shearTimeseries = get_shear_exponent(inputdata, extrap_metadata, height)
-
-    # TI columns and heights
-    row = extrap_metadata.loc[extrap_metadata['type'] == 'extrap', :].squeeze()
-    col_extrap_ane, ht_extrap = get_extrap_col_and_ht(row['height'], row['num'], height,
-                                                      sensor='Ane', var='TI')
-    col_extrap_RSD, ht_extrap = get_extrap_col_and_ht(row['height'], row['num'], height,
-                                                      sensor='RSD', var='TI')
-    col_extrap_RSD_SD, ht_extrap = get_extrap_col_and_ht(row['height'], row['num'], height,
-                                                         sensor='RSD', var='SD')
-    col_extrap_ane_SD, ht_extrap = get_extrap_col_and_ht(row['height'], row['num'], height,
-                                                         sensor='Ane', var='SD')
-
-
-    # Select reference height just below extrapolation height
-    hts = extrap_metadata.loc[extrap_metadata['height'] < ht_extrap, :]
-    ref = hts.loc[hts['height'] == max(hts['height']), :].squeeze()
-
-    col_ref, ht_ref = get_extrap_col_and_ht(ref['height'], ref['num'], height, 'Ane')
-    col_ref_sd, ht_ref = get_extrap_col_and_ht(ref['height'], ref['num'], height, 'Ane', var='SD')
-
-    # Extrapolate wind speed and st. dev. and calculate extrapolated TI
-    WS_ane_extrap = power_law(inputdata[col_ref], ht_extrap, ht_ref, shearTimeseries)
-    SD_ane_extrap = power_law(inputdata[col_ref_sd], ht_extrap, ht_ref, -shearTimeseries)
-    TI_ane_extrap = SD_ane_extrap / WS_ane_extrap
-
-    # Extract available TI values
-    TI_RSD = inputdata[col_extrap_RSD].values
-    SD_RSD = inputdata[col_extrap_RSD_SD].values
-    if extrapolation_type == 'truth':
-        TI_ane_truth = inputdata[col_extrap_ane].values
-
-    # Insert new columns into DataFrame
-    inputdata['TI_RSD'] = TI_RSD
-    inputdata['TI_ane_extrap'] = TI_ane_extrap
-    if extrapolation_type == 'truth':
-        inputdata['TI_ane_truth'] = TI_ane_truth
-
-    results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
-                                    'c', 'rsquared', 'difference','mse', 'rmse'])
-
-    results = post_correction_stats(inputdata,results, 'TI_RSD','TI_ane_extrap')
-    restults = post_correction_stats(inputdata,results, 'TI_ane_truth', 'TI_RSD')
-    if extrapolation_type == 'truth':
-        results = post_correction_stats(inputdata,results, 'TI_ane_truth','TI_ane_extrap')
-
-    return inputdata, results, shearTimeseries
-
-
-def change_extrap_names(TI_list, rename):
-    """
-    Rename columns and rows for tables created for TI extrapolation
-    :param TI_list: list of DataFrames like TI_MBE_j_
-    :param rename: dict to map existing names to new names, supplied to pd.DataFrame.rename()
-    :return TI_list: same list with all appropriate columns and rows renamed
-    """
-    for t, tab in enumerate(TI_list):
-        if not isinstance(tab, list):
-            continue
-        for b, bins in enumerate(tab):
-            if not isinstance(bins, pd.DataFrame):
-                continue
-            TI_list[t][b] = bins.rename(columns=rename, index=rename)
-
-    return TI_list
-
-
-def power_law(uref, h, href, shear):
-    """
-    Extrapolate wind speed (or other) according to power law.
-    NOTE: see  https://en.wikipedia.org/wiki/Wind_profile_power_law
-    :param uref: wind speed at reference height (same units as extrapolated wind speed, u)
-    :param h: height of extrapolated wind speed (same units as href)
-    :param href: reference height (same units as h)
-    :param shear: shear exponent alpha (1/7 in neutral stability) (unitless)
-    :return u: extrapolated wind speed (same units as uref)
-    """
-    u = np.array(uref) * np.array(h / href) ** np.array(shear)
-    return u
-
-
-def log_of_ratio(x, xref):
-    """
-    Calculate natural logarithm of ratio between two values... useful for power law extrapolation
-    :param x: numerator inside log
-    :param xref: denominator inside log
-    :return: log(x / xref)
-    """
-    x_new = np.log(x / xref)
-    return x_new
 
 def perform_G_Sa_correction(inputdata,override):
     '''
@@ -569,22 +343,22 @@ def perform_G_Sa_correction(inputdata,override):
 
     results['correction'] = ['G-Sa'] * len(results)
     results = results.drop(columns=['sensor','height'])
-    
+
     return inputdata_test, results, m, c
 
 
 def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col, RSD_SD_col, Ref_WS_col, RSD_WS_col):
     '''
-    set adjustment values 
+    set adjustment values
     '''
     inputdata_test = inputdata.copy()
 
-    # get col names      
+    # get col names
     name_ref = Ref_TI_col.split('_TI')
-    name_rsd = RSD_TI_col.split('_TI')    
+    name_rsd = RSD_TI_col.split('_TI')
     name = RSD_TI_col.split('_TI')
     corrTI_name = str('corrTI_'+RSD_TI_col)
-    
+
     if len(inputdata) < 2:
         results = post_correction_stats([None],results, Ref_TI_col, corrTI_name)
         m = np.NaN
@@ -594,7 +368,7 @@ def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col
         tmp = str('corr'+ RSD_SD_col)
         inputdata_test[tmp] = inputdata_test[RSD_SD_col].copy()
         inputdata_test[str('corrTI_'+  RSD_TI_col)] = inputdata_test[RSD_TI_col].copy()
-        
+
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), tmp] = ((1.116763*inputdata_test[tmp]) + 0.024685) - (((1.116763*inputdata_test[tmp]) + 0.024685)*0.00029)
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), corrTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
 
@@ -603,9 +377,9 @@ def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col
 
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), tmp] = ((0.97865*inputdata_test[tmp]) + 0.124371) - (((0.97865*inputdata_test[tmp]) + 0.124371)*-0.00093)
         inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), corrTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
-        
+
         results = post_correction_stats(inputdata_test,results, Ref_TI_col, corrTI_name)
-        
+
     return inputdata_test,results
 
 
@@ -631,7 +405,7 @@ def perform_G_C_correction(inputdata):
         inputdata_test = inputdata.copy()
         inputdata = False
     else:
-        inputdata_test, results = empirical_stdAdjustment(inputdata,results,'Ref_TI', 'RSD_TI', 'Ref_SD', 'RSD_SD', 'Ref_WS', 'RSD_WS')        
+        inputdata_test, results = empirical_stdAdjustment(inputdata,results,'Ref_TI', 'RSD_TI', 'Ref_SD', 'RSD_SD', 'Ref_WS', 'RSD_WS')
         if 'Ane_TI_Ht1' in inputdata.columns and 'RSD_TI_Ht1' in inputdata.columns:
             inputdata_test, results = empirical_stdAdjustment(inputdata_test,results,'Ane_TI_Ht1','RSD_TI_Ht1', 'Ane_SD_Ht1', 'RSD_SD_Ht1','Ane_WS_Ht1', 'RSD_WS_Ht1')
         if 'Ane_TI_Ht2' in inputdata.columns and 'RSD_TI_Ht2' in inputdata.columns:
@@ -644,14 +418,14 @@ def perform_G_C_correction(inputdata):
     results = results.drop(columns=['sensor','height'])
     m = np.NaN
     c = np.NaN
-    
+
     return inputdata_test, results, m, c
 
 
 def perform_G_SFc_correction(inputdata):
     '''
-    simple filtered regression results from phase 2 averages used 
-    ''' 
+    simple filtered regression results from phase 2 averages used
+    '''
 
     results = pd.DataFrame(columns=['sensor', 'height', 'correction', 'm',
                                     'c', 'rsquared', 'difference','mse', 'rmse'])
@@ -855,7 +629,7 @@ def perform_SS_LTERRA_ML_correction(inputdata):
                 all_test['Ane_TI_Ht3'] = all_test['y_test']
                 inputdata_test_result = pd.merge(inputdata_test_result,all_test,how='left')
                 results = post_correction_stats(inputdata_test_result, results, 'Ane_TI_Ht3', 'corrTI_RSD_TI_Ht3')
-                 
+
         if 'Ane_TI_Ht4' in inputdata.columns and 'RSD_TI_Ht4' in inputdata.columns and 'RSD_Sd_Ht4' in inputdata.columns:
             all_train = pd.DataFrame()
             all_train['y_train'] = inputdata_train['Ane_TI_Ht4'].copy()
@@ -2608,6 +2382,7 @@ def lidar_processing_vol_averaging(u,frequency,mode_ws,mode_vol):
 
     return var_diff
 
+
 def lidar_processing_var_contam(vr_n,vr_e,vr_s,vr_w,vr_z,wd,U,height_needed,frequency_vert_beam,el_angle,mode):
     #Function to estimate additional variance that results from variance contamination
 
@@ -3445,14 +3220,14 @@ def perform_SS_SS_correction(inputdata,All_class_data,primary_idx):
         del temp
         className += 1
 
-    correctedData = items_corrected[0] 
+    correctedData = items_corrected[0]
     for item in items_corrected[1:]:
         correctedData = pd.concat([correctedData, item])
     results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
 
     results['correction'] = ['SS-SS'] * len(results)
     results = results.drop(columns=['sensor','height'])
-    
+
     return inputdata_test, results, m, c
 
 
@@ -3622,7 +3397,7 @@ def perform_SS_WS_Std_correction(inputdata):
             RSD_corrWS = (model[0]*RSD_WS) + model[1]
             RSD_corrSD = (model_std[0]*RSD_SD) + model_std[1]
             inputdata_test['RSD_corrWS'] = RSD_corrWS
-            inputdata_test['RSD_corrSD'] = RSD_corrSD               
+            inputdata_test['RSD_corrSD'] = RSD_corrSD
             RSD_TI = inputdata_test['RSD_corrSD']/inputdata_test['RSD_corrWS']
             inputdata_test['corrTI_RSD_TI'] = RSD_TI
             results = post_correction_stats(inputdata_test,results, 'Ref_TI','corrTI_RSD_TI')
@@ -3920,615 +3695,6 @@ def perform_Match(inputdata):
     return inputdata_test, results
 
 
-def get_representative_TI(inputdata):
-    # get the representaive TI, there is an error here. Std is std of WS not TI so the calculation is currently in error
-    if 'Ane2_TI' in inputdata.columns:
-        representative_TI_bins = inputdata[['RSD_TI', 'Ref_TI', 'Ane2_TI', 'bins']].groupby(by=['bins']).agg(['mean', 'std', lambda x: x.mean() + 1.28 * x.std()])
-        representative_TI_bins.columns = ['RSD_TI_mean', 'RSD_TI_std', 'RSD_TI_rep', 'Ref_TI_mean', 'Ref_TI_std', 'Ref_TI_rep','Ane2_TI_mean', 'Ane2_TI_std', 'Ane2_TI_rep']
-
-        representative_TI_binsp5 = inputdata[['RSD_TI', 'Ref_TI', 'Ane2_TI', 'bins_p5']].groupby(by=['bins_p5']).agg(['mean', 'std', lambda x: x.mean() + 1.28 * x.std()])
-        representative_TI_binsp5.columns = ['RSD_TI_mean', 'RSD_TI_std', 'RSD_TI_rep', 'Ref_TI_mean', 'Ref_TI_std', 'Ref_TI_rep','Ane2_TI_mean', 'Ane2_TI_std', 'Ane2_TI_rep']
-    else:
-        representative_TI_bins = inputdata[['RSD_TI', 'Ref_TI', 'bins']].groupby(by=['bins']).agg(['mean', 'std', lambda x: x.mean() + 1.28 * x.std()])
-        representative_TI_bins.columns = ['RSD_TI_mean', 'RSD_TI_std', 'RSD_TI_rep', 'Ref_TI_mean', 'Ref_TI_std', 'Ref_TI_rep']
-
-        representative_TI_binsp5 = inputdata[['RSD_TI', 'Ref_TI', 'bins_p5']].groupby(by=['bins_p5']).agg(['mean', 'std', lambda x: x.mean() + 1.28 * x.std()])
-        representative_TI_binsp5.columns = ['RSD_TI_mean', 'RSD_TI_std', 'RSD_TI_rep', 'Ref_TI_mean', 'Ref_TI_std', 'Ref_TI_rep']
-
-    return representative_TI_bins,representative_TI_binsp5
-
-def get_count_per_WSbin(inputdata, column):
-    # Count per wind speed bin
-    inputdata = inputdata[(inputdata['bins_p5'].astype(float) > 1.5) & (inputdata['bins_p5'].astype(float) < 21)]
-    resultsstats_bin = inputdata[[column, 'bins']].groupby(by='bins').agg(['count'])
-    resultsstats_bin_p5 = inputdata[[column, 'bins_p5']].groupby(by='bins_p5').agg(['count'])
-    resultsstats_bin = pd.DataFrame(resultsstats_bin.unstack()).T
-    resultsstats_bin.index = [column]
-    resultsstats_bin_p5 = pd.DataFrame(resultsstats_bin_p5.unstack()).T
-    resultsstats_bin_p5.index = [column]
-    return resultsstats_bin, resultsstats_bin_p5
-
-
-def get_stats_per_WSbin(inputdata, column):
-    # this will be used as a base function for all frequency agg caliculaitons for each bin to get the stats per wind speed bins
-    inputdata = inputdata[(inputdata['bins_p5'].astype(float) > 1.5) & (inputdata['bins_p5'].astype(float) < 21)]
-    resultsstats_bin = inputdata[[column, 'bins']].groupby(by='bins').agg(['mean', 'std'])           #get mean and standard deviation of values in the 1mps bins
-    resultsstats_bin_p5 = inputdata[[column, 'bins_p5']].groupby(by='bins_p5').agg(['mean', 'std'])  #get mean and standard deviation of values in the 05mps bins
-    resultsstats_bin = pd.DataFrame(resultsstats_bin.unstack()).T
-    resultsstats_bin.index = [column]
-    resultsstats_bin_p5 = pd.DataFrame(resultsstats_bin_p5.unstack()).T
-    resultsstats_bin_p5.index = [column]
-    return resultsstats_bin, resultsstats_bin_p5
-
-def get_stats_per_TIbin(inputdata, column):
-    # this will be used as a base function for all frequency agg caliculaitons for each bin to get the stats per refereence TI bins
-    inputdata = inputdata[(inputdata['RefTI_bins'].astype(float) > 0.00) & (inputdata['RefTI_bins'].astype(float) < 1.0)]
-    resultsstats_RefTI_bin = inputdata[[column, 'RefTI_bins']].groupby(by='RefTI_bins').agg(['mean', 'std'])  #get mean and standard deviation of values in the 05mps bins
-    resultsstats_RefTI_bin = pd.DataFrame(resultsstats_RefTI_bin.unstack()).T
-    resultsstats_RefTI_bin.index = [column]
-
-    return resultsstats_RefTI_bin
-
-
-def get_RMSE_per_WSbin(inputdata, column):
-    """
-    get RMSE with no fit model, just based on residual being the reference
-    """
-    squared_TI_Diff_j_RSD_Ref, squared_TI_Diff_jp5_RSD_Ref = get_stats_per_WSbin(inputdata, column)
-    TI_RMSE_j = squared_TI_Diff_j_RSD_Ref ** (.5)
-    TI_RMSE_jp5 = squared_TI_Diff_jp5_RSD_Ref ** (.5)
-    TI_RMSE_j = TI_RMSE_j[column].drop(columns=['std'])
-    TI_RMSE_jp5 = TI_RMSE_jp5[column].drop(columns=['std'])
-
-    idx = TI_RMSE_j.index
-    old = idx[0]
-    idx_str = idx[0].replace('SquaredDiff','RMSE')
-    TI_RMSE_j = TI_RMSE_j.rename(index={old:idx_str})
-    idxp5  = TI_RMSE_jp5.index
-    oldp5 = idxp5[0]
-    idxp5_str = idxp5[0].replace('SquaredDiff','RMSE')
-    TI_RMSE_jp5 = TI_RMSE_jp5.rename(index={oldp5:idxp5_str})
-
-    return TI_RMSE_j, TI_RMSE_jp5
-
-
-def get_TI_MBE_Diff_j(inputdata):
-    
-    TI_MBE_j_ = []
-    TI_Diff_j_ = []
-    TI_RMSE_j_ = []
-
-    RepTI_MBE_j_ = []
-    RepTI_Diff_j_ = []
-    RepTI_RMSE_j_ = []
-
-    # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref TI (UNCORRECTED)
-    if 'RSD_TI' in inputdata.columns:
-        inputdata['RSD_TI'] = inputdata['RSD_TI'].astype(float)
-        inputdata['Ref_TI'] = inputdata['Ref_TI'].astype(float)
-        inputdata['TI_diff_RSD_Ref'] = inputdata['RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
-        inputdata['TI_error_RSD_Ref'] = inputdata['TI_diff_RSD_Ref'] / inputdata['Ref_TI']  # calculating the error for each timestamp (diff normalized to ref_TI)
-        inputdata['TI_SquaredDiff_RSD_Ref'] = inputdata['TI_diff_RSD_Ref'] * inputdata['TI_diff_RSD_Ref']  # calculating squared diff each Timestamp
-        TI_MBE_j_RSD_Ref, TI_MBE_jp5_RSD_Ref = get_stats_per_WSbin(inputdata, 'TI_error_RSD_Ref')
-        TI_Diff_j_RSD_Ref, TI_Diff_jp5_RSD_Ref = get_stats_per_WSbin(inputdata, 'TI_diff_RSD_Ref')
-        TI_RMSE_j_RSD_Ref, TI_RMSE_jp5_RSD_Ref = get_RMSE_per_WSbin(inputdata, 'TI_SquaredDiff_RSD_Ref')
-
-        TI_MBE_j_.append([TI_MBE_j_RSD_Ref, TI_MBE_jp5_RSD_Ref])
-        TI_Diff_j_.append([TI_Diff_j_RSD_Ref, TI_Diff_jp5_RSD_Ref])
-        TI_RMSE_j_.append([TI_RMSE_j_RSD_Ref, TI_RMSE_jp5_RSD_Ref])
-    else:
-        print ('Warning: No RSD TI. Cannot compute error stats for this category')
-
-    # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref TI (CORRECTED)
-    if 'corrTI_RSD_TI' in inputdata.columns:
-        inputdata['TI_diff_corrTI_RSD_Ref'] = inputdata['corrTI_RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
-        inputdata['TI_error_corrTI_RSD_Ref'] = inputdata['TI_diff_corrTI_RSD_Ref'] / inputdata['Ref_TI']  # calculating the error for each timestamp (diff normalized to ref_TI)
-        inputdata['TI_SquaredDiff_corrTI_RSD_Ref'] = inputdata['TI_diff_corrTI_RSD_Ref'] * inputdata['TI_diff_corrTI_RSD_Ref']  # calculating squared diff each Timestamp
-        TI_MBE_j_corrTI_RSD_Ref, TI_MBE_jp5_corrTI_RSD_Ref = get_stats_per_WSbin(inputdata, 'TI_error_corrTI_RSD_Ref')
-        TI_Diff_j_corrTI_RSD_Ref, TI_Diff_jp5_corrTI_RSD_Ref = get_stats_per_WSbin(inputdata, 'TI_diff_corrTI_RSD_Ref')
-        TI_RMSE_j_corrTI_RSD_Ref, TI_RMSE_jp5_corrTI_RSD_Ref = get_RMSE_per_WSbin(inputdata, 'TI_SquaredDiff_corrTI_RSD_Ref')
-
-        TI_MBE_j_.append([TI_MBE_j_corrTI_RSD_Ref, TI_MBE_jp5_corrTI_RSD_Ref])
-        TI_Diff_j_.append([TI_Diff_j_corrTI_RSD_Ref, TI_Diff_jp5_corrTI_RSD_Ref])
-        TI_RMSE_j_.append([TI_RMSE_j_corrTI_RSD_Ref, TI_RMSE_jp5_corrTI_RSD_Ref])
-    else:
-        print ('Warning: No corrected RSD TI. Cannot compute error stats for this category')
-
-
-    # get the bin wise stats for DIFFERENCE and ERROR and RMSE between redundant anemometer and Ref TI
-    if 'Ane2_TI' in inputdata.columns:
-        inputdata['Ane2_TI'] = inputdata['Ane2_TI'].astype(float)
-        inputdata['TI_diff_Ane2_Ref'] = inputdata['Ane2_TI'] - inputdata['Ref_TI']
-        inputdata['TI_error_Ane2_Ref'] = inputdata['TI_diff_Ane2_Ref'] / inputdata['Ref_TI']
-        inputdata['TI_SquaredDiff_Ane2_Ref'] = inputdata['TI_diff_Ane2_Ref'] * inputdata['TI_diff_Ane2_Ref']
-        TI_MBE_j_Ane2_Ref, TI_MBE_jp5_Ane2_Ref = get_stats_per_WSbin(inputdata, 'TI_error_Ane2_Ref')
-        TI_Diff_j_Ane2_Ref, TI_Diff_jp5_Ane2_Ref = get_stats_per_WSbin(inputdata, 'TI_diff_Ane2_Ref')
-        TI_RMSE_j_Ane2_ref, TI_RMSE_jp5_Ane2_ref = get_RMSE_per_WSbin(inputdata, 'TI_SquaredDiff_Ane2_Ref')
-        TI_MBE_j_.append([TI_MBE_j_Ane2_Ref, TI_MBE_jp5_Ane2_Ref])
-        TI_Diff_j_.append([TI_Diff_j_Ane2_Ref, TI_Diff_jp5_Ane2_Ref])
-        TI_RMSE_j_.append([TI_RMSE_j_Ane2_ref, TI_RMSE_jp5_Ane2_ref])
-    else:
-        print ('Warning: No Ane2 TI. Cannot compute error stats for this category')
-
-    return TI_MBE_j_, TI_Diff_j_, TI_RMSE_j_, RepTI_MBE_j_, RepTI_Diff_j_, RepTI_RMSE_j_
-
-
-def get_TI_Diff_r(inputdata):
-    '''
-    get TI abs difference by reference TI bin
-    '''
-
-    TI_Diff_r_ = []
-    RepTI_Diff_r_ = []
-
-    # get the bin wise stats for DIFFERENCE between RSD and Ref TI (UNCORRECTED)
-    if 'RSD_TI' in inputdata.columns:
-        inputdata['RSD_TI'] = inputdata['RSD_TI'].astype(float)
-        inputdata['Ref_TI'] = inputdata['Ref_TI'].astype(float)
-        inputdata['TI_diff_RSD_Ref'] = inputdata['RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
-        TI_Diff_r_RSD_Ref = get_stats_per_TIbin(inputdata,'TI_diff_RSD_Ref')
-        TI_Diff_r_.append([TI_Diff_r_RSD_Ref])
-    else:
-        print ('Warning: No RSD TI. Cannot compute error stats for this category')
-
-    # get the bin wise stats for DIFFERENCE between RSD and Ref TI (CORRECTED)
-    if 'corrTI_RSD_TI' in inputdata.columns:
-        inputdata['TI_error_corrTI_RSD_Ref'] = inputdata['TI_diff_corrTI_RSD_Ref'] / inputdata['Ref_TI']  # calculating the error for each timestamp (diff normalized to ref_TI)
-        TI_Diff_r_corrTI_RSD_Ref = get_stats_per_TIbin(inputdata, 'TI_diff_corrTI_RSD_Ref')
-        TI_Diff_r_.append([TI_Diff_r_corrTI_RSD_Ref])
-    else:
-        print ('Warning: No corrected RSD TI. Cannot compute error stats for this category')
-
-    # get the bin wise stats for DIFFERENCE and ERROR and RMSE between redundant anemometer and Ref TI
-    if 'Ane2_TI' in inputdata.columns:
-        inputdata['Ane2_TI'] = inputdata['Ane2_TI'].astype(float)
-        inputdata['TI_diff_Ane2_Ref'] = inputdata['Ane2_TI'] - inputdata['Ref_TI']
-        TI_Diff_r_Ane2_Ref = get_stats_per_TIbin(inputdata, 'TI_diff_Ane2_Ref')
-        TI_Diff_r_.append([TI_Diff_r_Ane2_Ref])
-    else:
-        print ('Warning: No Ane2 TI. Cannot compute error stats for this category')
-
-    return TI_Diff_r_, RepTI_Diff_r_
-
-
-def get_TI_bybin(inputdata):
-    results = []
-
-    if 'RSD_TI' in inputdata.columns:
-        RSD_TI_j, RSD_TI_jp5 = get_stats_per_WSbin(inputdata, 'RSD_TI')
-        results.append([RSD_TI_j, RSD_TI_jp5])
-    else:
-        results.append(['NaN', 'NaN'])
-
-    Ref_TI_j, Ref_TI_jp5 = get_stats_per_WSbin(inputdata, 'Ref_TI')
-    results.append([Ref_TI_j, Ref_TI_jp5])
-
-    if 'corrTI_RSD_TI' in inputdata.columns:  # this is checking if corrected TI windspeed is present in the input data and using that for getting the results.
-        corrTI_RSD_TI_j, corrTI_RSD_TI_jp5 = get_stats_per_WSbin(inputdata, 'corrTI_RSD_TI')
-        results.append([corrTI_RSD_TI_j, corrTI_RSD_TI_jp5])
-    else:
-        results.append(pd.DataFrame(['NaN', 'NaN']))
-
-    # get the bin wise stats for both diff and error between RSD corrected for ws and Ref
-    if 'Ane2_TI' in inputdata.columns:
-        Ane2_TI_j, Ane2_TI_jp5 = get_stats_per_WSbin(inputdata, 'Ane2_TI')
-        results.append([Ane2_TI_j, Ane2_TI_jp5])
-    else:
-        results.append(pd.DataFrame(['NaN', 'NaN']))
-
-    return results
-
-def get_TI_byTIrefbin(inputdata):
-    results = []
-
-    if 'RSD_TI' in inputdata.columns:
-        RSD_TI_r = get_stats_per_TIbin(inputdata,'RSD_TI')
-        results.append([RSD_TI_r])
-    else:
-        results.append(['NaN'])
-
-    if 'corrTI_RSD_TI' in inputdata.columns:  # this is checking if corrected TI is present
-        corrTI_RSD_TI_r = get_stats_per_TIbin(inputdata, 'corrTI_RSD_TI')
-        results.append([corrTI_RSD_TI_r])
-    else:
-        results.append(pd.DataFrame(['NaN']))
-
-    # get the bin wise stats for both diff and error between RSD corrected for ws and Ref
-    if 'Ane2_TI' in inputdata.columns:
-        Ane2_TI_r = get_stats_per_TIbin(inputdata, 'Ane2_TI')
-        results.append([Ane2_TI_r])
-    else:
-        results.append(pd.DataFrame(['NaN']))
-
-    return results
-
-
-def get_stats_inBin(inputdata_m, start, end):
-    # this was discussed in the meeting , but the results template didn't ask for this.
-    inputdata = inputdata_m.loc[(inputdata_m['Ref_WS'] > start) & (inputdata_m['Ref_WS'] <= end)].copy()
-    _adjuster_stats = Adjustments()
-
-    if 'RSD_TI' in inputdata.columns:
-        inputdata['TI_diff_RSD_Ref'] = inputdata['RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
-        inputdata['TI_error_RSD_Ref'] = inputdata['TI_diff_RSD_Ref'] / inputdata['Ref_TI']  # calculating the error for each timestamp
-
-    if 'RSD_TI' in inputdata.columns:
-        TI_error_RSD_Ref_Avg = inputdata['TI_error_RSD_Ref'].mean()
-        TI_error_RSD_Ref_Std = inputdata['TI_error_RSD_Ref'].std()
-        TI_diff_RSD_Ref_Avg = inputdata['TI_diff_RSD_Ref'].mean()
-        TI_diff_RSD_Ref_Std = inputdata['TI_diff_RSD_Ref'].std()
-    else:
-        TI_error_RSD_Ref_Avg = None
-        TI_error_RSD_Ref_Std = None
-        TI_diff_RSD_Ref_Avg = None
-        TI_diff_RSD_Ref_Std = None
-
-    # RSD V Reference
-    if 'RSD_TI' in inputdata.columns:
-        modelResults = _adjuster_stats.get_regression(inputdata['Ref_TI'], inputdata['RSD_TI'])
-        rmse = modelResults[5]
-        slope = modelResults[0]
-        offset = modelResults[1]
-        r2 = modelResults[2]
-    else:
-        rmse = None
-        slope = None
-        offset = None
-        r2 = None
-
-    results = pd.DataFrame(
-        [TI_error_RSD_Ref_Avg, TI_error_RSD_Ref_Std, TI_diff_RSD_Ref_Avg, TI_diff_RSD_Ref_Std, slope, offset, rmse, r2],
-        columns=['RSD_Ref'])
-
-    if 'corrTI_RSD_TI' in inputdata.columns:  # this is checking if corrected TI windspeed is present in the input data and using that for getting the results.
-        # Cor RSD vs Reg RSD
-        inputdata['TI_diff_corrTI_RSD_Ref'] = inputdata['corrTI_RSD_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
-        inputdata['TI_error_corrTI_RSD_Ref'] = inputdata['TI_diff_corrTI_RSD_Ref'] / inputdata['Ref_TI']  # calculating the error for each timestamp
-        TI_error_corrTI_RSD_Ref_Avg = inputdata['TI_error_corrTI_RSD_Ref'].mean()
-        TI_error_corrTI_RSD_Ref_Std = inputdata['TI_error_corrTI_RSD_Ref'].std()
-        TI_diff_corrTI_RSD_Ref_Avg = inputdata['TI_diff_corrTI_RSD_Ref'].mean()
-        TI_diff_corrTI_RSD_Ref_Std = inputdata['TI_diff_corrTI_RSD_Ref'].std()
-
-        modelResults = _adjuster_stats.get_regression(inputdata['corrTI_RSD_TI'], inputdata['Ref_TI'])
-        rmse = modelResults[5]
-        slope = modelResults[0]
-        offset = modelResults[1]
-        r2 = modelResults[2]
-
-        results['CorrTI_RSD_Ref'] = [TI_error_corrTI_RSD_Ref_Avg, TI_error_corrTI_RSD_Ref_Std,
-                                     TI_diff_corrTI_RSD_Ref_Avg, TI_diff_corrTI_RSD_Ref_Std, slope, offset, rmse, r2]
-    else:
-        results['CorrTI_RSD_Ref'] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN']
-
-    # anem 2 vs ref
-    if 'Ane2_TI' in inputdata.columns:
-        inputdata['TI_diff_Ane2_Ref'] = inputdata['Ane2_TI'] - inputdata['Ref_TI']  # caliculating the diff in ti for each timestamp
-        inputdata['TI_error_Ane2_Ref'] = inputdata['TI_diff_Ane2_Ref'] / inputdata['Ref_TI']  # calculating the error for each timestamp
-        TI_error_Ane2_Ref_Avg = inputdata['TI_error_Ane2_Ref'].mean()
-        TI_error_Ane2_Ref_Std = inputdata['TI_error_Ane2_Ref'].std()
-        TI_diff_Ane2_Ref_Avg = inputdata['TI_diff_Ane2_Ref'].mean()
-        TI_diff_Ane2_Ref_Std = inputdata['TI_diff_Ane2_Ref'].std()
-
-        modelResults = _adjuster_stats.get_regression(inputdata['Ane2_TI'], inputdata['Ref_TI'])
-        rmse = modelResults[5]
-        slope = modelResults[0]
-        offset = modelResults[1]
-        r2 = modelResults[2]
-
-        results['Ane2_Ref'] = [TI_error_Ane2_Ref_Avg, TI_error_Ane2_Ref_Std, TI_diff_Ane2_Ref_Avg, TI_diff_Ane2_Ref_Std,
-                               slope, offset, rmse,r2]
-    else:
-        results['Ane2_Ref'] = ['NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN', 'NaN','NaN']
-
-    results.index = ['TI_error_mean', 'TI_error_std', 'TI_diff_mean', 'TI_diff_std', 'Slope', 'Offset', 'RMSE', 'R-squared']
-
-    return results.T  # T(ranspose) so that reporting looks good.
-
-
-def get_description_stats(inputdata):
-    totalstats = get_stats_inBin(inputdata, 1.75, 20)
-    belownominal = get_stats_inBin(inputdata, 1.75, 11.5)
-    abovenominal = get_stats_inBin(inputdata, 10, 20)
-    return totalstats, belownominal, abovenominal
-
-
-def get_distribution_test_results(inputdata_corr,ref_col, test_col, subset = False):
-    """
-    performs statistical tests on results. Kolmogorov-Smirnov test. The K-S statistical test is a nonparametric
-    test used to quantify the distance between the empirical distribution functions of two samples. It is
-    sensitive to differences in both location and shape of the empirical cumulative distribution functions of the two
-    samples, and thus acts as a stand-alone detection of statistical difference.
-    """
-    # K-S test to compare samples from two different sensors
-    import numpy as np
-    from scipy import stats
-
-    if ref_col in inputdata_corr.columns and test_col in inputdata_corr.columns:
-        if isinstance(subset,pd.DataFrame):
-            a = np.array(inputdata_corr[ref_col])
-            b = np.array(subset[test_col])
-        else:
-            a = np.array(inputdata_corr[ref_col])
-            b = np.array(inputdata_corr[test_col])
-        distribution_test_results = stats.ks_2samp(a,b)
-    else:
-        distribution_test_results = stats.ks_2samp([np.NaN,np.NaN],[np.NaN,np.NaN])
-
-    return distribution_test_results
-
-
-class StatResult:
-    pass
-
-
-def Dist_stats(inputdata_corr,Timestamps,correctionName):
-    """
-    test all relevant chunks of data
-    """
-
-    distribution_test_results = pd.DataFrame()
-    sampleWindow_test_results = pd.DataFrame()
-    sampleWindow_test_results_new = pd.DataFrame()
-
-    # full test data
-    names = []
-    KStest_stat = []
-    p_value = []
-
-    # for subsets
-    idx = []
-    T = []
-    p_value_T = []
-    ref_list = []
-    test_list = []
-
-    pairs = [['Ref_WS','Ane2_WS'], ['Ref_WS', 'RSD_WS'], ['Ref_SD','Ane2_SD'], ['Ref_SD','RSD_SD'], ['Ref_TI','Ane2_TI'], ['Ref_TI','RSD_TI'],
-             ['Ane_WS_Ht1','RSD_WS_Ht1'], ['Ane_WS_Ht2','RSD_WS_Ht2'], ['Ane_WS_Ht3', 'RSD_WS_Ht3'],['Ane_WS_Ht4','RSD_WS_Ht4'],
-             ['Ane_SD_Ht1','RSD_SD_Ht1'], ['Ane_SD_Ht2','RSD_SD_Ht2'], ['Ane_SD_Ht3', 'RSD_SD_Ht3'],['Ane_SD_Ht4','RSD_SD_Ht4'],
-             ['Ane_TI_Ht1','RSD_TI_Ht1'], ['Ane_TI_Ht2','RSD_TI_Ht2'], ['Ane_TI_Ht3', 'RSD_TI_Ht3'],['Ane_TI_Ht4','RSD_TI_Ht4'],
-             ['Ref_RepTI','Ane2_RepTI'], ['Ref_RepTI','RSD_RepTI'], ['Ane_RepTI_Ht1','RSD_RepTI_Ht1'], ['Ane_RepTI_Ht2','RSD_RepTI_Ht2'],
-             ['Ane_RepTI_Ht3','RSD_RepTI_Ht3'], ['Ane_RepTI_Ht4','RSD_RepTI_Ht4'],['Ref_TI','corrTI_RSD_TI'], ['Ref_RepTI','corrRepTI_RSD_RepTI'],
-             ['Ane_TI_Ht1','corrTI_RSD_TI_Ht1'], ['Ane_RepTI_Ht1','corrRepTI_RSD_RepTI_Ht1'],['Ane_TI_Ht2','corrTI_RSD_TI_Ht2'], ['Ane_RepTI_Ht2','corrRepTI_RSD_RepTI_Ht2'],
-             ['Ane_TI_Ht3','corrTI_RSD_TI_Ht3'], ['Ane_RepTI_Ht3','corrRepTI_RSD_RepTI_Ht3'], ['Ane_TI_Ht4','corrTI_RSD_TI_Ht4'], ['Ane_RepTI_Ht4','corrRepTI_RSD_RepTI_Ht4']]
-
-    b1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
-
-    Nsamples_90days = 12960
-    inputdata_corr = inputdata_corr.reset_index()
-    t_length = len(inputdata_corr) - Nsamples_90days
-
-    for p in pairs:
-        ref = p[0]
-        test = p[1]
-        if ref == 'Ref_WS' or ref == 'Ref_SD' or ref == 'Ref_TI':
-            idx.append('0:end')
-            T.append('all_data')
-            chunk = inputdata_corr
-            results = get_distribution_test_results(inputdata_corr,ref,test,subset = chunk)
-            p_value_T.append(results.pvalue)
-            if len(inputdata_corr) > Nsamples_90days:
-                for i in range(0,t_length,60): # shift by 60
-                    nn = str(str(i) + '_' + str(12960+i))
-                    tt = list(Timestamps)[i] + '_to_' + list(Timestamps)[Nsamples_90days+i]
-                    idx.append(nn)
-                    T.append(tt)
-                    chunk = inputdata_corr[i:12960+i]
-                    results = get_distribution_test_results(inputdata_corr,ref,test,subset = chunk)
-                    p_value_T.append(results.pvalue)
-            sampleWindow_test_results_new['idx'] = idx
-            sampleWindow_test_results_new[str('chunk' + '_'+ ref + '_' + test)] = T
-            sampleWindow_test_results_new[str('p_score' + '_'+ ref + '_' + test)] = p_value_T
-            sampleWindow_test_results = pd.concat([sampleWindow_test_results,sampleWindow_test_results_new], axis=1)
-            sampleWindow_test_results_new = pd.DataFrame()
-            ref_list.append(ref)
-            ref_list.append(ref)
-            ref_list.append(ref)
-            test_list.append(test)
-            test_list.append(test)
-            test_list.append(test)
-
-        idx = []
-        T = []
-        p_value_T = []
-
-        if ref in inputdata_corr.columns and test in inputdata_corr.columns:
-            results = get_distribution_test_results(inputdata_corr,ref, test)
-            names.append(str(p[0] + '_VS_' + p[1]))
-            KStest_stat.append(results.statistic)
-            p_value.append(results.pvalue)
-            for bin in b1:
-                binsubset = inputdata_corr[inputdata_corr['bins'] == bin]
-                if len(binsubset) == 0:
-                    names.append(str(p[0] + '_VS_' + p[1]))
-                    KStest_stat.append(None)
-                    p_value.append(None)
-                else:
-                    results = get_distribution_test_results(binsubset,ref, test)
-                    names.append(str('bin_' + str(bin) + '_' + p[0] + '_VS_' + p[1]))
-                    KStest_stat.append(results.statistic)
-                    p_value.append(results.pvalue)
-        else:
-            names.append(str(p[0] + '_VS_' + p[1]))
-            KStest_stat.append(None)
-            p_value.append(None)
-    distribution_test_results[str('Test Name' + '_' + correctionName)] = names
-    distribution_test_results[str('KS test statistics' + '_' + 'all_data' + '_' + correctionName)] = KStest_stat
-    distribution_test_results[str('p_value' + '_' + 'all_data' + '_' + correctionName)] = p_value
-
-    if len(sampleWindow_test_results) > 1:
-        pick = [c for c in sampleWindow_test_results.columns.to_list() if 'p_score' in c]
-        plist = sampleWindow_test_results[pick]
-        plist = plist[1:]
-        pick2 = [c for c in sampleWindow_test_results.columns.to_list() if 'idx' in c]
-        idxlist = sampleWindow_test_results['idx']
-        cols_idx = idxlist.columns.to_list()
-        cols_idx[0] = 'idx_all'
-        idxlist.columns = cols_idx
-        cols_plist = plist.columns.to_list()
-        idx_data = list(idxlist['idx_all'])[1:]
-        min_idx = []
-        median_idx = []
-        max_idx = []
-        for c in cols_plist:
-            ix = cols_plist.index(c)
-            r = ref_list[ix]
-            t = test_list[ix]
-            cols_plist = plist.columns.to_list()
-            cp = cols_plist[ix]
-            minx = plist[cp].idxmin()
-            if len(plist) %2 == 0:
-                medVal = plist[cp][:-1].median()
-            else:
-                medVal = plist[cp].median()
-            try:
-                medx = list(plist[cp]).index(medVal)
-            except:
-                temp = list(plist[cp])
-                del temp[-1]
-                import statistics
-                medVal = statistics.median(temp)
-                medx = list(plist[cp]).index(medVal[0])
-            maxx = plist[cp].idxmax()
-            minInt = idx_data[minx]
-            medInt = idx_data[medx]
-            maxInt = idx_data[maxx]
-            min_idx.append([minInt])
-            median_idx.append([medInt])
-            max_idx.append([maxInt])
-            # fig = plt.figure()
-            # plt.plot(idx_data[1:],plist[cp])
-            # plotName = str(r + '_vs_' + t +  '.png')
-            # fig.savefig(plotName)
-
-    return distribution_test_results, sampleWindow_test_results
-
-
-def get_representative_TI_15mps(inputdata):
-    # this is the represetative TI, this is currently only done at a 1m/s bins not sure if this needs to be on .5m/s
-    # TODO: find out if this needs to be on the 1m/s bin or the .5m/s bin
-    inputdata_TI15 = inputdata[inputdata['bins'] == 15]
-    listofcols = ['Ref_TI']
-    if 'RSD_TI' in inputdata.columns:
-        listofcols.append('RSD_TI')
-    if 'Ane2_TI' in inputdata.columns:
-        listofcols.append('Ane2_TI')
-    if 'corrTI_RSD_WS' in inputdata.columns:
-        listofcols.append('corrTI_RSD_WS')
-    results = inputdata_TI15[listofcols].describe()
-    results.loc['Rep_TI', :] = results.loc['mean'] + 1.28 * results.loc['std']
-    results = results.loc[['mean', 'std', 'Rep_TI'], :].T
-    results.columns = ['mean_15mps', 'std_15mps', 'Rep_TI']
-    return results
-
-
-def extrap_configResult(inputdataEXTRAP, resLists, method, lm_corr, appendString = ''):
-    # Temporarily fudge the names of variables so they fit with the standard functions
-    if 'corrWS_RSD_TI' in inputdataEXTRAP:
-        inputdataEXTRAP = inputdataEXTRAP.drop(columns=['corrWS_RSD_TI'])
-    if 'Ane2_TI' in inputdataEXTRAP:
-        inputdataEXTRAP = inputdataEXTRAP.drop(columns=['Ane2_TI'])
-    if extrapolation_type == 'truth':
-        inputdataEXTRAP['RSD_TI'] = inputdataEXTRAP['TI_ane_truth']
-    else:
-        inputdataEXTRAP = inputdataEXTRAP.drop(columns=['RSD_TI'])
-    inputdataEXTRAP['Ref_TI'] = inputdataEXTRAP['TI_ane_extrap']
-    inputdataEXTRAP['corrTI_RSD_TI'] = inputdataEXTRAP['TI_RSD']
-
-    # Run through the standard functions
-    try:
-        TI_MBE_j_, TI_Diff_j_, TI_RMSE_j_, RepTI_MBE_j_, RepTI_Diff_j_, RepTI_RMSE_j_ = get_TI_MBE_Diff_j(inputdataEXTRAP)
-        TI_Diff_r_, RepTI_Diff_r_ = get_TI_Diff_r(inputdataEXTRAP)
-        rep_TI_results_1mps, rep_TI_results_05mps = get_representative_TI(inputdataEXTRAP)
-        TIbybin = get_TI_bybin(inputdataEXTRAP)
-        TIbyRefbin = get_TI_byTIrefbin(inputdataEXTRAP)
-        total_stats, belownominal_stats, abovenominal_stats = get_description_stats(inputdataEXTRAP)
-        Distribution_stats, sampleTests = Dist_stats(inputdataEXTRAP, Timestamps, correctionName)
-        resDict = True
-
-    except:
-        resDict = False
-        resLists[str('TI_MBEList_' + appendString)].append(None)
-        resLists[str('TI_DiffList_' + appendString)].append(None)
-        resLists[str('TI_DiffRefBinsList_' + appendString)].append(None)
-        resLists[str('TI_RMSEList_' + appendString)].append(None)
-        resLists[str('RepTI_MBEList_' + appendString)].append(None)
-        resLists[str('RepTI_DiffList_' + appendString)].append(None)
-        resLists[str('RepTI_DiffRefBinsList_' + appendString)].append(None)
-        resLists[str('RepTI_RMSEList_' + appendString)].append(None)
-        resLists[str('rep_TI_results_1mps_List_' + appendString)].append(None)
-        resLists[str('rep_TI_results_05mps_List_' + appendString)].append(None)
-        resLists[str('TIBinList_' + appendString)].append(None)
-        resLists[str('TIRefBinList_' + appendString)].append(None)
-        resLists[str('total_StatsList_' + appendString)].append(None)
-        resLists[str('belownominal_statsList_' + appendString)].append(None)
-        resLists[str('abovenominal_statsList_' + appendString)].append(None)
-        resLists[str('lm_CorrList_' + appendString)].append(lm_corr)
-        resLists[str('correctionTagList_' + appendString)].append(method)
-        resLists[str('Distribution_statsList_' + appendString)].append(None)
-        resLists[str('sampleTestsLists_' + appendString)].append(None)
-
-    if resDict:
-        resDict = {}
-        # Rename labels after forcing them through the standard functions
-        rename = {"TI_diff_RSD_Ref": "TI_diff_AneTruth_AneExtrap",
-                  "TI_diff_corrTI_RSD_Ref": "TI_diff_RSD_AneExtrap",
-                  "TI_error_RSD_Ref": "TI_error_AneTruth_AneExtrap",
-                  "TI_error_corrTI_RSD_Ref": "TI_error_RSD_AneExtrap",
-                  "TI_RMSE_RSD_Ref": "TI_RMSE_AneTruth_AneExtrap",
-                  "TI_RMSE_corrTI_RSD_Ref": "TI_RMSE_RSD_AneExtrap",
-                  'Ref_TI': 'AneExtrap_TI',
-                  'RSD_TI': 'AneTruth_TI',
-                  'corrTI_RSD_TI': 'RSD_TI',
-                  'RSD_Ref': 'AneTruth_AneExtrap',
-                  'CorrTI_RSD_Ref': 'RSD_AneExtrap',
-                  'RepTI_diff_RSD_Ref': 'RepTI_diff_AneTruth_AneExtrap',
-                  'RepTI_diff_corrRepTI_RSD_Ref': 'RepTI_diff_RSD_AneExtrap',
-                  'RepTI_error_RSD_Ref': 'RepTI_error_AneTruth_AneExtrap',
-                  'RepTI_error_corrRepTI_RSD_Ref': 'RepTI_error_RSD_AneExtrap',
-                  'RepTI_RMSE_RSD_Ref': 'RepTI_RMSE_AneTruth_AneExtrap',
-                  'RepTI_RMSE_corrRepTI_RSD_Ref': 'RepTI_RMSE_RSD_AneExtrap',
-                  }
-        resDict['TI_MBE_j_'] = change_extrap_names(TI_MBE_j_, rename)
-        resDict['TI_Diff_j_'] = change_extrap_names(TI_Diff_j_, rename)
-        resDict['TI_Diff_r_'] = change_extrap_names(TI_Diff_r_, rename)
-        resDict['TI_RMSE_j_'] = change_extrap_names(TI_RMSE_j_, rename)
-        resDict['RepTI_MBE_j_'] = change_extrap_names(RepTI_MBE_j_, rename)
-        resDict['RepTI_Diff_j_'] = change_extrap_names(RepTI_Diff_j_, rename)
-        resDict['RepTI_Diff_r_'] = change_extrap_names(RepTI_Diff_r_, rename)
-        resDict['RepTI_RMSE_j_'] = change_extrap_names(RepTI_RMSE_j_, rename)
-        resDict['rep_TI_results_1mps'] = change_extrap_names([[rep_TI_results_1mps]], rename)[0][0]
-        resDict['rep_TI_results_05mps'] = change_extrap_names([[rep_TI_results_05mps]], rename)[0][0]
-        resDict['TIbybin'] = change_extrap_names(TIbybin, rename)
-        resDict['TIbyRefbin'] = change_extrap_names(TIbyRefbin, rename)
-        resDict['total_stats'] = tuple(change_extrap_names([list(total_stats)], rename)[0])
-        resDict['belownominal_stats'] = tuple(change_extrap_names([list(belownominal_stats)], rename)[0])
-        resDict['abovenominal_stats'] = tuple(change_extrap_names([list(abovenominal_stats)], rename)[0])
-        resDict['Distribution_stats'] = change_extrap_names(Distribution_stats, rename)
-        resDict['sampleTests'] = change_extrap_names(sampleTests, rename)
-
-        resLists[str('TI_MBEList_' + appendString)].append(resDict['TI_MBE_j_'])
-        resLists[str('TI_DiffList_' + appendString)].append(resDict['TI_Diff_j_'])
-        resLists[str('TI_DiffRefBinsList_' + appendString)].append(resDict['TI_Diff_r_'])
-        resLists[str('TI_RMSEList_' + appendString)].append(resDict['TI_RMSE_j_'])
-        resLists[str('RepTI_MBEList_' + appendString)].append(resDict['RepTI_MBE_j_'])
-        resLists[str('RepTI_DiffList_' + appendString)].append(resDict['RepTI_Diff_j_'])
-        resLists[str('RepTI_DiffRefBinsList_' + appendString)].append(resDict['RepTI_Diff_r_'])
-        resLists[str('RepTI_RMSEList_' + appendString)].append(resDict['RepTI_RMSE_j_'])
-        resLists[str('rep_TI_results_1mps_List_' + appendString)].append(resDict['rep_TI_results_1mps'])
-        resLists[str('rep_TI_results_05mps_List_' + appendString)].append(resDict['rep_TI_results_05mps'])
-        resLists[str('TIBinList_' + appendString)].append(resDict['TIbybin'])
-        resLists[str('TIRefBinList_' + appendString)].append(resDict['TIbyRefbin'])
-        resLists[str('total_StatsList_' + appendString)].append(resDict['total_stats'])
-        resLists[str('belownominal_statsList_' + appendString)].append(resDict['belownominal_stats'])
-        resLists[str('abovenominal_statsList_' + appendString)].append(resDict['abovenominal_stats'])
-        resLists[str('lm_CorrList_' + appendString)].append(lm_corr)
-        resLists[str('correctionTagList_' + appendString)].append(method)
-        resLists[str('Distribution_statsList_' + appendString)].append(resDict['Distribution_stats'])
-        resLists[str('sampleTestsLists_' + appendString)].append(resDict['sampleTests'])
-
-    return inputdataEXTRAP, resLists
-
-
 def calculate_stability_alpha(inputdata, config_file, RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd):
     '''
     from Wharton and Lundquist 2012
@@ -4689,7 +3855,7 @@ def calculate_stability_TKE(inputdata):
                 regimeBreakdown[name_percent] = [len(inputdata[(inputdata[name_stabilityClass] == 1)])/totalCount, len(inputdata[(inputdata[name_stabilityClass] == 2)])/totalCount,
                                                len(inputdata[(inputdata[name_stabilityClass] == 3)])/totalCount, len(inputdata[(inputdata[name_stabilityClass] == 4)])/totalCount,
                                                len(inputdata[(inputdata[name_stabilityClass] == 5)])/totalCount]
-                              
+
     elif 'WindCube' in RSDtype['Selection']:
         # convert to radians
         dir_cols = [s for s in inputdata.columns.to_list() if 'Direction' in s]
@@ -4789,7 +3955,7 @@ def train_test_split(trainPercent, inputdata, stepOverride = False):
         msk = [False] * len(inputdata)
         _inputdata['split'] = msk
         _inputdata.loc[stepOverride[0]:stepOverride[1], 'split'] =  True
-        
+
     else:
         msk = np.random.rand(len(_inputdata)) < float(trainPercent/100)
         train = _inputdata[msk]
@@ -4824,7 +3990,7 @@ def quick_metrics(inputdata, results_df, lm_corr_dict, testID):
     results_Ane2_Ref_WS.loc[0,'testID'] = [testID]
     results_df = pd.concat([results_df,results_RSD_Ref,results_Ane2_Ref,results_RSD_Ref_SD,results_Ane2_Ref_SD,
                             results_RSD_Ref_WS,results_Ane2_Ref_WS],axis = 0)
- 
+
     # Run a few corrections with this timing test aswell
     inputdata_corr, lm_corr, m, c = _adjuster.perform_SS_S_correction(inputdata.copy())
     lm_corr_dict[str(str(testID) + ' :SS_S' )] = lm_corr
@@ -4861,16 +4027,16 @@ def record_TIadj(correctionName, inputdata_corr, Timestamps, method, TI_10minute
 
     if isinstance(inputdata_corr, pd.DataFrame) == False:
         pass
-    else: 
+    else:
         corr_cols = [s for s in inputdata_corr.columns.to_list() if 'corr' in s]
         corr_cols = [s for s in corr_cols if not ('diff' in s or 'Diff' in s or 'error' in s)]
         for c in corr_cols:
             TI_10minuteAdjusted[str(c + '_' + method)] = inputdata_corr[c]
-    
+
     return TI_10minuteAdjusted
 
 
-def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inputdata_corr, 
+def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inputdata_corr,
                             Timestamps, method, emptyclassFlag = False):
     """"""
 
@@ -4930,7 +4096,7 @@ def populate_resultsLists(resultDict, appendString, correctionName, lm_corr, inp
         resultDict[str('lm_CorrList' + '_' + appendString)].append(lm_corr)
         resultDict[str('correctionTagList' + '_' + appendString)].append(method)
     try:
-        Distribution_stats, sampleTests = Dist_stats(inputdata_corr,Timestamps,correctionName)
+        Distribution_stats, sampleTests = Dist_stats(inputdata_corr, Timestamps,correctionName)
         resultDict[str('Distribution_statsList' + '_' + appendString)].append(Distribution_stats)
         resultDict[str('sampleTestsLists' + '_' + appendString)].append(sampleTests)
 
@@ -4988,7 +4154,7 @@ if __name__ == '__main__':
     results_filename = config.results_file
     saveModel = config.save_model_location
     timetestFlag = config.time_test_flag
-    globalModel  = config.global_model 
+    globalModel  = config.global_model
 
     """config object assignments"""
     outpath_dir = config.outpath_dir
@@ -5005,10 +4171,10 @@ if __name__ == '__main__':
     correctionsMetadata = config.adjustments_metadata
     RSDtype = config.RSDtype
     extrap_metadata = config.extrap_metadata
-    extrapolation_type = config.extrapolation_type 
+    extrapolation_type = config.extrapolation_type
 
     """data object assignments"""
-    
+
     data=Data(input_filename, config_file)
     data.get_inputdata()
     data.get_refTI_bins()      # >> to data_file.py
@@ -5021,12 +4187,12 @@ if __name__ == '__main__':
     RSD_alphaFlag = data.RSD_alphaFlag
     Ht_1_rsd = data.Ht_1_rsd
     Ht_2_rsd = data.Ht_2_rsd
-    
+
     """sensor, height"""
     sensor = config.model
     height = config.height
 
-    
+
     print ('%%%%%%%%%%%%%%%%%%%%%%%%% Processing Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
     # -------------------------------
     # special handling for data types
@@ -5058,7 +4224,7 @@ if __name__ == '__main__':
     # TimeTestA = pd.DataFrame()
     # TimeTestB = pd.DataFrame()
     # TimeTestC = pd.DataFrame()
-    
+
     if timetestFlag == True:
         # A) increase % of test train split -- check for convergence --- basic metrics recorded baseline but also for every corrections
         splitList = np.linspace(0.0, 100.0, num = 20, endpoint =False)
@@ -5067,7 +4233,7 @@ if __name__ == '__main__':
         TimeTestA_baseline_df = pd.DataFrame()
 
         for s in splitList[1:]:
-            
+
             sys.stdout.write("\r")
             sys.stdout.write(f"{str(s).rjust(10, ' ')} %      ")
 
@@ -5088,7 +4254,7 @@ if __name__ == '__main__':
         for i in range(0,numberofDaysInTest):
 
             sys.stdout.write("\r")
-            sys.stdout.write(f"{str(i).rjust(10, ' ')} of {str(numberofDaysInTest)} days   ")    
+            sys.stdout.write(f"{str(i).rjust(10, ' ')} of {str(numberofDaysInTest)} days   ")
 
             windowEnd = (i+1)*(numberofObsinOneDay)
             inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [0,windowEnd])
@@ -5109,7 +4275,7 @@ if __name__ == '__main__':
                 print (str('After observation #' + str(windowStart) + ' ' + 'Before observation #' + str(windowEnd)))
                 windowStart += numberofObsinOneDay*7
                 windowEnd = windowStart + (numberofObsinOneDay*42)
-                inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [windowStart,windowEnd])  
+                inputdata_test = train_test_split(i,inputdata.copy(), stepOverride = [windowStart,windowEnd])
                 TimeTestC_baseline_df, TimeTestC_corrections_df = quick_metrics(inputdata_test, TimeTestC_baseline_df, TimeTestC_corrections_df,
                                                                               str('After_' + str(windowStart) + '_' + 'Before_' + str(windowEnd)))
     else:
@@ -5309,7 +4475,7 @@ if __name__ == '__main__':
 
     # initialize Adjustments object
     adjuster = Adjustments(inputdata.copy(), correctionsMetadata, baseResultsLists)
-    
+
     for method in correctionsMetadata:
 
         # ************************************ #
@@ -5405,7 +4571,7 @@ if __name__ == '__main__':
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
-            
+
             if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
                 print('Applying Correction Method: SS-SF by stability class (TKE)')
                 logger.info('Applying Correction Method: SS-SF by stability class (TKE)')
@@ -5481,7 +4647,7 @@ if __name__ == '__main__':
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
-            
+
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-SS by stability class (TKE). SAME as Baseline')
                 logger.info('Applying Correction Method: SS-SS by stability class (TKE). SAME as Baseline')
@@ -5692,7 +4858,7 @@ if __name__ == '__main__':
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
-            
+
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: SS-LTERRA MLa by stability class (TKE)')
                 logger.info('Applying Correction Method: SS-LTERRA MLa by stability class (TKE)')
@@ -5754,14 +4920,14 @@ if __name__ == '__main__':
             all_trainY_cols = ['y_train']
             all_testX_cols = ['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']
             all_testY_cols = ['y_test']
-            
+
             inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = 'SS_LTERRA_MLc'
             correctionName = 'SS_LTERRA_MLc'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
-            
+
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
@@ -5826,14 +4992,14 @@ if __name__ == '__main__':
             all_trainY_cols = ['y_train']
             all_testX_cols = ['x_test_TI','x_test_TKE']
             all_testY_cols = ['y_test']
-            
+
             inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_correction(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
             lm_corr['sensor'] = sensor
             lm_corr['height'] = height
             lm_corr['correction'] = 'SS_LTERRA_MLb'
             correctionName = 'SS_LTERRA_MLb'
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr, Timestamps, method)
-            
+
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
             if RSDtype['Selection'][0:4] == 'Wind':
@@ -5902,7 +5068,7 @@ if __name__ == '__main__':
             lm_corr['correction'] = correctionName
 
             inputdataEXTRAP = inputdata_corr.copy()
-            inputdataEXTRAP, baseResultsLists = extrap_configResult(inputdataEXTRAP, baseResultsLists, method,lm_corr)
+            inputdataEXTRAP, baseResultsLists = extrap_configResult(extrapolation_type, inputdataEXTRAP, baseResultsLists, method,lm_corr)
 
             if RSDtype['Selection'][0:4] == 'Wind':
                 # stability subset output for primary height (all classes)
@@ -5913,7 +5079,7 @@ if __name__ == '__main__':
                                                                                        extrapolation_type, height)
                     lm_corr['correction'] = str('TI_EXT_class1' + '_TKE_' + 'class_' + str(className))
                     inputdataEXTRAP = inputdata_corr.copy()
-                    inputdataEXTRAP, ResultsLists_class = extrap_configResult(inputdataEXTRAP, ResultsLists_class,
+                    inputdataEXTRAP, ResultsLists_class = extrap_configResult(extrapolation_type, inputdataEXTRAP, ResultsLists_class,
                                                                               method, lm_corr, appendString = 'class_')
                     className += 1
 
@@ -5927,7 +5093,7 @@ if __name__ == '__main__':
                                                                                        extrapolation_type, height)
                     lm_corr['correction'] = str('TI_Ane_class1' + '_alphaCup_' + 'class_' + str(className))
                     inputdataEXTRAP = inputdata_corr.copy()
-                    inputdataEXTRAP, ResultsLists_class_alpha_Ane = extrap_configResult(inputdataEXTRAP,
+                    inputdataEXTRAP, ResultsLists_class_alpha_Ane = extrap_configResult(extrapolation_type, inputdataEXTRAP,
                                                                                         ResultsLists_class_alpha_Ane, method,
                                                                                         lm_corr, appendString = 'class_alpha_Ane')
                     className += 1
@@ -5942,7 +5108,7 @@ if __name__ == '__main__':
                                                                                        extrapolation_type, height)
                     lm_corr['correction'] = str('TI_RSD_class1' + '_alphaRSD_' + 'class_' + str(className))
                     inputdataEXTRAP = inputdata_corr.copy()
-                    inputdataEXTRAP, ResultsLists_class_alpha_RSD = extrap_configResult(inputdataEXTRAP,
+                    inputdataEXTRAP, ResultsLists_class_alpha_RSD = extrap_configResult(extrapolation_type, inputdataEXTRAP,
                                                                                         ResultsLists_class_alpha_RSD, method,
                                                                                         lm_corr, appendString = 'class_alpha_RSD')
                     className += 1
@@ -6100,9 +5266,9 @@ if __name__ == '__main__':
         # ************************************************** #
         # Global Simple Phase II mean Linear Reressions (G-Sa) + project
         '''
-            RSD_TI = .984993 * RSD_TI + .087916 
+            RSD_TI = .984993 * RSD_TI + .087916
         '''
-        
+
         if method != 'G-Sa':
             pass
         elif method == 'G-Sa' and correctionsMetadata['G-Sa'] == False:
@@ -6342,7 +5508,7 @@ if __name__ == '__main__':
             baseResultsLists = populate_resultsLists(baseResultsLists, '', correctionName, lm_corr, inputdata_corr,
                                                      Timestamps, method)
             TI_10minuteAdjusted = record_TIadj(correctionName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
-           
+
             if RSDtype['Selection'][0:4] == 'Wind':
                 print('Applying Correction Method: G-C by stability class (TKE)')
                 logger.info('Applying Correction Method: G-C by stability class (TKE)')
@@ -6377,7 +5543,7 @@ if __name__ == '__main__':
                                                                          inputdata_corr, Timestamps, method)
                     className += 1
                 ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
-                
+
 
             if cup_alphaFlag:
                 print('Applying correction Method: G-C by stability class Alpha w/cup')
@@ -6426,7 +5592,7 @@ if __name__ == '__main__':
         else:
             print('Applying Correction Method: G-Ref-Sf')
             logger.info('Applying Correction Method: G-Ref-Sf')
-            
+
         # ************************ #
         # Global Comprehensive (G-Ref-SS)
         if method != 'G-Ref-SS':
