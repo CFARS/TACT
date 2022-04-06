@@ -448,13 +448,22 @@ class Config(object):
         return apply_correction
 
 
-def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type):
-    """
-    get metadata for TI extrapolation
-    :param ane_heights: dictionary of height labels and values for anemometers
-    :param RSD_heights: dictionary of height labels and values for RSD
-    :param extrapolation_type: str to decide what type of extrapolation to perform
-    :return extrap_metadata: DataFrame with metadata required for TI extrapolation
+def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type="simple"):
+    """Get metadata for TI extrapolation
+
+    Parameters
+    ----------
+    ane_heights : dict
+        height labels and values for anemometers
+    RSD_heights : dict
+        height labels and values for RSD
+    extrapolation_type : str
+        ('simple', 'truth') decide what type of extrapolation to perform
+
+    Returns
+    -------
+    DataFrame
+        metadata required for TI extrapolation
     """
     unique_ane_hts = set(ane_heights.values()).difference(set(["unknown"]))
     unique_RSD_hts = set(RSD_heights.values()).difference(set(["unknown"]))
@@ -495,12 +504,19 @@ def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type):
 
 
 def check_for_extrapolations(ane_heights, RSD_heights):
-    """
-    Check if columns are specified for other anemometer heights, and extract the column names.
-    :param ane_heights: dictionary of height labels and values for anemometers
-    :param RSD_heights: dictionary of height labels and values for RSD
-    :return extrapolation_type: None or str to decide what type of extrapolation to perform
-    Notes on what we need for extrapolation analysis
+    """Check if columns are specified for other anemometer heights, and extract the column names.
+
+    Parameters
+    ----------
+    ane_heights : dict
+        height labels and values for anemometers
+    RSD_heights : dict
+        height labels and values for RSD
+
+    Returns
+    -------
+    None or str
+        to decide what type of extrapolation to perform
     """
     unique_ane_hts = set(ane_heights.values()).difference(set(["unknown"]))
     unique_RSD_hts = set(RSD_heights.values()).difference(set(["unknown"]))
@@ -524,10 +540,17 @@ def check_for_extrapolations(ane_heights, RSD_heights):
 
 
 def get_optional_height_names(num=4):
-    """
-    Get list of possible column names for optional extrapolation. (of form Ane_WS_Ht1, for example)
-    :param num: number of possible Additional Comparison Heights (int)
-    :return: list of allowed names
+    """Get list of possible column names for optional extrapolation. (of form Ane_WS_Ht1, for example)
+
+    Parameters
+    ----------
+    num : int
+        number of possible Additional Comparison Heights
+
+    Returns
+    -------
+    list
+        list of allowed names
     """
     optionalData = []
     for typ in ["Ane", "RSD"]:

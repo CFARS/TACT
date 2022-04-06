@@ -3,9 +3,7 @@ try:
 except ImportError:
     pass
 from TACT.readers.config import Config
-import argparse
 from future.utils import itervalues, iteritems
-import os
 import pandas as pd
 import re
 import sys
@@ -19,13 +17,13 @@ class Data(Config):
 
     Attributes
     ----------
-    inputdata : pandas array
+    inputdata : DataFrame
         DataFrame with all anemometer, RSD data, and site atmospheric data
     timestamps : DateTime array
         array of timestamps for each row of inputdata
-    a : array
+    a : numpy array
         Edges of Reference TI bins
-    lab_a : array
+    lab_a : numpy array
         Center values of Reference TI bins
     RSD_alphaFlag : bool
         whether there exists an additional upper of lower RSD height to
@@ -42,11 +40,13 @@ class Data(Config):
 
         Parameters
         ----------
-        None. Uses object attributes
+        None
+            Uses object attributes
 
         Returns
         -------
-        Silent. Sets inputdata attribute to pandas array
+        Silent
+            Sets inputdata attribute to pandas array
 
         """
         filename = self.input_filename
@@ -147,16 +147,19 @@ class Data(Config):
         ]  # we can only analyze where the ref_TI is not 0
 
     def set_inputdataformat(self):
-        """Takes header data from configuration file, and converts to a
-        CFARS uniform headers, and returns dict of pairs
+        """Formats header data from configuration file
+
+        Converts input header data to CFARS uniform headers, and returns dict of pairs
 
         Parameters
         ----------
-        None. Uses object attributes
+        None
+            Uses object attributes
 
         Returns
         ------
-        Dictionary of column name pairs
+        dict
+            Dictionary of column name pairs
         """
 
         df = pd.read_excel(self.config_file, usecols=[0, 1]).dropna()
@@ -222,6 +225,7 @@ class Data(Config):
 
     def get_refTI_bins(self):
         """Create column to group data by ref TI bins
+
         Parameters
         ----------
         None
@@ -229,8 +233,7 @@ class Data(Config):
         Returns
         -------
         Silent
-            Adds column RefTI_bins to self.inputdata
-            Sets attributes self.a, self.lab_a
+            Adds column RefTI_bins to self.inputdata. Sets attributes self.a, self.lab_a.
         """
 
         self.inputdata["RefTI_bins"] = self.inputdata["Ref_TI"]
