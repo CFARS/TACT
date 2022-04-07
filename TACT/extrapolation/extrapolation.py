@@ -343,7 +343,7 @@ def extrap_configResult(
         resLists[str("total_StatsList_" + appendString)].append(None)
         resLists[str("belownominal_statsList_" + appendString)].append(None)
         resLists[str("abovenominal_statsList_" + appendString)].append(None)
-        resLists[str("lm_CorrList_" + appendString)].append(lm_adj)
+        resLists[str("lm_adjList_" + appendString)].append(lm_adj)
         resLists[str("adjustmentTagList_" + appendString)].append(method)
         resLists[str("Distribution_statsList_" + appendString)].append(None)
         resLists[str("sampleTestsLists_" + appendString)].append(None)
@@ -425,7 +425,7 @@ def extrap_configResult(
         resLists[str("abovenominal_statsList_" + appendString)].append(
             resDict["abovenominal_stats"]
         )
-        resLists[str("lm_CorrList_" + appendString)].append(lm_adj)
+        resLists[str("lm_adjList_" + appendString)].append(lm_adj)
         resLists[str("adjustmentTagList_" + appendString)].append(method)
         resLists[str("Distribution_statsList_" + appendString)].append(
             resDict["Distribution_stats"]

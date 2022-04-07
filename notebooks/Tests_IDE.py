@@ -366,16 +366,16 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Adjustment Method: SS-S')
-        inputdata_corr, lm_corr, m, c = perform_SS_S_adjustment(inputdata.copy())
+        inputdata_adj, lm_adj, m, c = perform_SS_S_adjustment(inputdata.copy())
         print("SS-S: y = " + str(m) + " * x + " + str(c))
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS-S'
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS-S'
         adjustmentName = 'SS_S'
 
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: SS-S by stability class (TKE)')
@@ -383,14 +383,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c = perform_SS_S_adjustment(item[primary_idx].copy())
+                inputdata_adj, lm_adj, m, c = perform_SS_S_adjustment(item[primary_idx].copy())
                 print("SS-S: y = " + str(m) + " * x + " + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-S' + '_TKE_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-S' + '_TKE_' + 'class_' + str(className))
                 adjustmentName = str('SS-S'+ '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
@@ -400,14 +400,14 @@ for method in adjustmentsMetadata:
             className = 1
             print (str('class ' + str(className)))
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_SS_S_adjustment(item.copy())
+                iputdata_adj, lm_adj, m, c = perform_SS_S_adjustment(item.copy())
                 print ("SS-S: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-S' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-S' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS-S' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
@@ -416,14 +416,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_SS_S_adjustment(item.copy())
+                iputdata_adj, lm_adj, m, c = perform_SS_S_adjustment(item.copy())
                 print ("SS-S: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-S' + '_alphaCup_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-S' + '_alphaCup_' + 'class_' + str(className))
                 adjustmentName = str('SS-S' + '_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -435,16 +435,16 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Adjustment Method: SS-SF')
-        inputdata_corr, lm_corr, m, c = perform_SS_SF_adjustment(inputdata.copy())
+        inputdata_adj, lm_adj, m, c = perform_SS_SF_adjustment(inputdata.copy())
         print("SS-SF: y = " + str(m) + " * x + " + str(c))
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS-SF'
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS-SF'
         adjustmentName = 'SS_SF'
 
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
         
         if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
             print ('Applying Adjustment Method: SS-SF by stability class (TKE)')
@@ -452,14 +452,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c = perform_SS_SF_adjustment(item[primary_idx].copy())
+                inputdata_adj, lm_adj, m, c = perform_SS_SF_adjustment(item[primary_idx].copy())
                 print("SS-SF: y = " + str(m) + " * x + " + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-SF' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-SF' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_SF' + '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
@@ -468,14 +468,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_SS_SF_adjustment(item.copy())
+                iputdata_adj, lm_adj, m, c = perform_SS_SF_adjustment(item.copy())
                 print ("SS-SF: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-SF' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-SF' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_SF' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
@@ -484,14 +484,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_SS_SF_adjustment(item.copy())
+                iputdata_adj, lm_adj, m, c = perform_SS_SF_adjustment(item.copy())
                 print ("SS-SF: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-SF' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-SF' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_SF' + '_alphaCup_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -505,16 +505,16 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Adjustment Method: SS-SS')
-        inputdata_corr, lm_corr, m, c = perform_SS_SS_adjustment(inputdata.copy(),All_class_data,primary_idx)
+        inputdata_adj, lm_adj, m, c = perform_SS_SS_adjustment(inputdata.copy(),All_class_data,primary_idx)
         print("SS-SS: y = " + str(m) + " * x + " + str(c))
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS-SS'
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS-SS'
         adjustmentName = 'SS_SS'
 
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
         
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: SS-SS by stability class (TKE). SAME as Baseline')
@@ -523,8 +523,8 @@ for method in adjustmentsMetadata:
             for item in All_class_data:
                 print("SS-SS: y = " + str(m) + " * x + " + str(c))
                 adjustmentName = str('SS_SS' + '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
         if RSD_alphaFlag:
@@ -534,8 +534,8 @@ for method in adjustmentsMetadata:
             for item in All_class_data_alpha_RSD:
                 print ("SS-SS: y = " + str(m) + "* x +" + str(c))
                 adjustmentName = str('SS_SS' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
         if cup_alphaFlag:
@@ -546,8 +546,8 @@ for method in adjustmentsMetadata:
                 print ("SS-SS: y = " + str(m) + "* x +" + str(c))
                 emptyclassFlag = False
                 adjustmentName = str('SS_SS' + '_alphaCup_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -559,16 +559,16 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Adjustment Method: SS-WS')
-        inputdata_corr, lm_corr, m, c = perform_SS_WS_adjustment(inputdata.copy())
+        inputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(inputdata.copy())
         print("SS-WS: y = " + str(m) + " * x + " + str(c))
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS-WS'
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS-WS'
         adjustmentName = 'SS_WS'
 
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
             print ('Applying Adjustment Method: SS-WS by stability class (TKE)')
@@ -576,14 +576,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c = perform_SS_WS_adjustment(item[primary_idx].copy())
+                inputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(item[primary_idx].copy())
                 print("SS-WS: y = " + str(m) + " * x + " + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-WS' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-WS' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_WS' + '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
         if RSD_alphaFlag:
@@ -591,14 +591,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_SS_WS_adjustment(item.copy())
+                iputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(item.copy())
                 print ("SS-WS: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-WS' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-WS' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_WS' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
         if cup_alphaFlag:
@@ -606,15 +606,15 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_SS_WS_adjustment(item.copy())
+                iputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(item.copy())
                 print ("SS-WS: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-WS' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-WS' + '_' + 'class_' + str(className))
                 emptyclassFlag = False
                 adjustmentName = str('SS_WS' + '_alphaCup_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -626,16 +626,16 @@ for method in adjustmentsMetadata:
         pass
     else:
        print ('Applying Adjustment Method: SS-WS-Std')
-       inputdata_corr, lm_corr, m, c = perform_SS_WS_Std_adjustment(inputdata.copy())
+       inputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(inputdata.copy())
        print("SS-WS-Std: y = " + str(m) + " * x + " + str(c))
-       lm_corr['sensor'] = sensor
-       lm_corr['height'] = height
-       lm_corr['adjustment'] = 'SS-WS-Std'
+       lm_adj['sensor'] = sensor
+       lm_adj['height'] = height
+       lm_adj['adjustment'] = 'SS-WS-Std'
        adjustmentName = 'SS_WS_Std'
 
-       baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+       baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                 Timestamps, method)
-       TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+       TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
        if RSDtype['Selection'][0:4] == 'Wind' or 'ZX' in RSDtype['Selection']:
            print ('Applying Adjustment Method: SS-WS-Std by stability class (TKE)')
@@ -643,14 +643,14 @@ for method in adjustmentsMetadata:
            ResultsLists_class = initialize_resultsLists('class_')
            className = 1
            for item in All_class_data:
-               inputdata_corr, lm_corr, m, c = perform_SS_WS_Std_adjustment(item[primary_idx].copy())
+               inputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(item[primary_idx].copy())
                print("SS-WS-Std: y = " + str(m) + " * x + " + str(c))
-               lm_corr['sensor'] = sensor
-               lm_corr['height'] = height
-               lm_corr['adjustment'] = str('SS-WS-Std' + '_' + 'class_' + str(className))
+               lm_adj['sensor'] = sensor
+               lm_adj['height'] = height
+               lm_adj['adjustment'] = str('SS-WS-Std' + '_' + 'class_' + str(className))
                adjustmentName = str('SS_WS_Std' + '_TKE_' + str(className))
-               ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+               ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                className += 1
            ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
        if RSD_alphaFlag:
@@ -658,14 +658,14 @@ for method in adjustmentsMetadata:
            ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
            className = 1
            for item in All_class_data_alpha_RSD:
-               iputdata_corr, lm_corr, m, c = perform_SS_WS_Std_adjustment(item.copy())
+               iputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(item.copy())
                print ("SS-WS-Std: y = " + str(m) + "* x +" + str(c))
-               lm_corr['sensor'] = sensor
-               lm_corr['height'] = height
-               lm_corr['adjustment'] = str('SS-WS-Std' + '_' + 'class_' + str(className))
+               lm_adj['sensor'] = sensor
+               lm_adj['height'] = height
+               lm_adj['adjustment'] = str('SS-WS-Std' + '_' + 'class_' + str(className))
                adjustmentName = str('SS_WS_Std' + '_alphaRSD_' + str(className))
-               ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                    inputdata_corr, Timestamps, method)
+               ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                    inputdata_adj, Timestamps, method)
                className += 1
            ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
        if cup_alphaFlag:
@@ -673,15 +673,15 @@ for method in adjustmentsMetadata:
            ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
            className = 1
            for item in All_class_data_alpha_Ane:
-               iputdata_corr, lm_corr, m, c = perform_SS_WS_Std_adjustment(item.copy())
+               iputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(item.copy())
                print ("SS-WS-Std: y = " + str(m) + "* x +" + str(c))
-               lm_corr['sensor'] = sensor
-               lm_corr['height'] = height
-               lm_corr['adjustment'] = str('SS-WS-Std' + '_' + 'class_' + str(className))
+               lm_adj['sensor'] = sensor
+               lm_adj['height'] = height
+               lm_adj['adjustment'] = str('SS-WS-Std' + '_' + 'class_' + str(className))
                emptyclassFlag = False
                adjustmentName = str('SS_WS_Std' + '_alphaCup_' + str(className))
-               ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                    inputdata_corr, Timestamps, method)
+               ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                    inputdata_adj, Timestamps, method)
                className += 1
            ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -704,14 +704,14 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Adjustment Method: SS-LTERRA-MLa')
-        inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_adjustment(inputdata.copy())
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS_LTERRA_MLa'
+        inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_ML_adjustment(inputdata.copy())
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS_LTERRA_MLa'
         adjustmentName = 'SS_LTERRA_MLa'
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
         
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: SS-LTERRA MLa by stability class (TKE)')
@@ -719,13 +719,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_ML_adjustment(item[primary_idx].copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj, m, c= perform_SS_LTERRA_ML_adjustment(item[primary_idx].copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_LTERRA_MLa' + '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
         if RSD_alphaFlag:
@@ -733,13 +733,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_adjustment(item.copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-LTERRA_MLa' + '_' + 'class_' + str(className))
+                iputdata_adj, lm_adj, m, c = perform_SS_LTERRA_ML_adjustment(item.copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-LTERRA_MLa' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_LTERRA_ML' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
         if cup_alphaFlag:
@@ -747,14 +747,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_ML_adjustment(item.copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
+                iputdata_adj, lm_adj, m, c = perform_SS_LTERRA_ML_adjustment(item.copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS_LTERRA_MLa' + '_' + 'class_' + str(className))
                 emptyclassFlag = False
                 adjustmentName = str('SS_LTERRA_MLa' + '_alphaCup_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -771,14 +771,14 @@ for method in adjustmentsMetadata:
         all_testX_cols = ['x_test_TI','x_test_TKE','x_test_WS','x_test_DIR','x_test_Hour']
         all_testY_cols = ['y_test']
         
-        inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_adjustment(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS_LTERRA_MLc'
+        inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS_LTERRA_MLc'
         adjustmentName = 'SS_LTERRA_MLc'
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr, Timestamps, method)
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj, Timestamps, method)
         
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: SS-LTERRA_MLc by stability class (TKE)')
@@ -786,13 +786,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_S_ML_adjustment(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS_LTERRA_MLc' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj, m, c= perform_SS_LTERRA_S_ML_adjustment(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS_LTERRA_MLc' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_LTERRA_MLc' + '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
         if RSD_alphaFlag:
@@ -800,13 +800,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_adjustment(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-LTERRA_MLc' + '_' + 'class_' + str(className))
+                iputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-LTERRA_MLc' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_LTERRA_S_ML' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
         if cup_alphaFlag:
@@ -814,14 +814,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_adjustment(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS_LTERRA_MLc' + '_' + 'class_' + str(className))
+                iputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS_LTERRA_MLc' + '_' + 'class_' + str(className))
                 emptyclassFlag = False
                 adjustmentName = str('SS_LTERRA_MLc' + '_alphaCup_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -838,14 +838,14 @@ for method in adjustmentsMetadata:
         all_testX_cols = ['x_test_TI','x_test_TKE']
         all_testY_cols = ['y_test']
         
-        inputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_adjustment(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS_LTERRA_MLb'
+        inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(inputdata.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS_LTERRA_MLb'
         adjustmentName = 'SS_LTERRA_MLb'
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr, Timestamps, method)
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj, Timestamps, method)
         
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: SS-LTERRA_MLb by stability class (TKE)')
@@ -853,13 +853,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c= perform_SS_LTERRA_S_ML_adjustment(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS_LTERRA_MLb' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj, m, c= perform_SS_LTERRA_S_ML_adjustment(item[primary_idx].copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS_LTERRA_MLb' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_LTERRA_MLb' + '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
         if RSD_alphaFlag:
@@ -867,13 +867,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_adjustment(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-LTERRA_MLb' + '_' + 'class_' + str(className))
+                iputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-LTERRA_MLb' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_LTERRA_MLb' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
         if cup_alphaFlag:
@@ -881,14 +881,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_SS_LTERRA_S_ML_adjustment(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS_LTERRA_MLb' + '_' + 'class_' + str(className))
+                iputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(item.copy(),all_trainX_cols,all_trainY_cols,all_testX_cols,all_testY_cols)
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS_LTERRA_MLb' + '_' + 'class_' + str(className))
                 emptyclassFlag = False
                 adjustmentName = str('SS_LTERRA_MLb' + '_alphaCup_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -904,25 +904,25 @@ for method in adjustmentsMetadata:
         # Get extrapolation height
         height_extrap = float(extrap_metadata['height'][extrap_metadata['type'] == 'extrap'])
         # Extrapolate
-        inputdata_corr, lm_corr, shearTimeseries= perform_TI_extrapolation(inputdata.copy(), extrap_metadata,
+        inputdata_adj, lm_adj, shearTimeseries= perform_TI_extrapolation(inputdata.copy(), extrap_metadata,
                                                                            extrapolation_type, height)
         adjustmentName = 'TI_EXTRAP'
-        lm_corr['adjustment'] = adjustmentName
+        lm_adj['adjustment'] = adjustmentName
 
-        inputdataEXTRAP = inputdata_corr.copy()
-        inputdataEXTRAP, baseResultsLists = extrap_configResult(inputdataEXTRAP, baseResultsLists, method,lm_corr)
+        inputdataEXTRAP = inputdata_adj.copy()
+        inputdataEXTRAP, baseResultsLists = extrap_configResult(inputdataEXTRAP, baseResultsLists, method,lm_adj)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             # stability subset output for primary height (all classes)
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, shearTimeseries= perform_TI_extrapolation(item[primary_idx].copy(), extrap_metadata,
+                inputdata_adj, lm_adj, shearTimeseries= perform_TI_extrapolation(item[primary_idx].copy(), extrap_metadata,
                                                                                    extrapolation_type, height)
-                lm_corr['adjustment'] = str('TI_EXT_class1' + '_TKE_' + 'class_' + str(className))
-                inputdataEXTRAP = inputdata_corr.copy()
+                lm_adj['adjustment'] = str('TI_EXT_class1' + '_TKE_' + 'class_' + str(className))
+                inputdataEXTRAP = inputdata_adj.copy()
                 inputdataEXTRAP, ResultsLists_class = extrap_configResult(inputdataEXTRAP, ResultsLists_class,
-                                                                          method, lm_corr, appendString = 'class_')
+                                                                          method, lm_adj, appendString = 'class_')
                 className += 1
 
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
@@ -931,13 +931,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                inputdata_corr, lm_corr, shearTimeseries= perform_TI_extrapolation(item.copy(), extrap_metadata,
+                inputdata_adj, lm_adj, shearTimeseries= perform_TI_extrapolation(item.copy(), extrap_metadata,
                                                                                    extrapolation_type, height)
-                lm_corr['adjustment'] = str('TI_Ane_class1' + '_alphaCup_' + 'class_' + str(className))
-                inputdataEXTRAP = inputdata_corr.copy()
+                lm_adj['adjustment'] = str('TI_Ane_class1' + '_alphaCup_' + 'class_' + str(className))
+                inputdataEXTRAP = inputdata_adj.copy()
                 inputdataEXTRAP, ResultsLists_class_alpha_Ane = extrap_configResult(inputdataEXTRAP,
                                                                                     ResultsLists_class_alpha_Ane, method,
-                                                                                    lm_corr, appendString = 'class_alpha_Ane')
+                                                                                    lm_adj, appendString = 'class_alpha_Ane')
                 className += 1
 
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane,
@@ -946,13 +946,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                inputdata_corr, lm_corr, shearTimeseries= perform_TI_extrapolation(item.copy(), extrap_metadata,
+                inputdata_adj, lm_adj, shearTimeseries= perform_TI_extrapolation(item.copy(), extrap_metadata,
                                                                                    extrapolation_type, height)
-                lm_corr['adjustment'] = str('TI_RSD_class1' + '_alphaRSD_' + 'class_' + str(className))
-                inputdataEXTRAP = inputdata_corr.copy()
+                lm_adj['adjustment'] = str('TI_RSD_class1' + '_alphaRSD_' + 'class_' + str(className))
+                inputdataEXTRAP = inputdata_adj.copy()
                 inputdataEXTRAP, ResultsLists_class_alpha_RSD = extrap_configResult(inputdataEXTRAP,
                                                                                     ResultsLists_class_alpha_RSD, method,
-                                                                                    lm_corr, appendString = 'class_alpha_RSD')
+                                                                                    lm_adj, appendString = 'class_alpha_RSD')
                 className += 1
 
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD,
@@ -980,28 +980,28 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Match algorithm: SS-Match')
-        inputdata_corr, lm_corr = perform_Match(inputdata.copy())
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS-Match'
+        inputdata_adj, lm_adj = perform_Match(inputdata.copy())
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS-Match'
         adjustmentName = 'SS_Match'
 
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: SS-Match by stability class (TKE)')
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr = perform_Match(item[primary_idx].copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj = perform_Match(item[primary_idx].copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_Match' + '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
@@ -1010,13 +1010,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                inputdata_corr, lm_corr = perform_Match(item.copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj = perform_Match(item.copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_Match' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
@@ -1025,13 +1025,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                inputdata_corr, lm_corr = perform_Match(item.copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj = perform_Match(item.copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_Match' + '_alphaCup_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -1043,28 +1043,28 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying input match algorithm: SS-Match2')
-        inputdata_corr, lm_corr = perform_Match_input(inputdata.copy())
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'SS-Match2'
+        inputdata_adj, lm_adj = perform_Match_input(inputdata.copy())
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'SS-Match2'
         adjustmentName = 'SS_Match2'
 
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: SS-Match2 by stability class (TKE)')
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr = perform_Match_input(item[primary_idx].copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj = perform_Match_input(item[primary_idx].copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_Match2' + '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
@@ -1073,13 +1073,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                inputdata_corr, lm_corr = perform_Match_input(item.copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj = perform_Match_input(item.copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_Match2' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
@@ -1088,13 +1088,13 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                inputdata_corr, lm_corr = perform_Match_input(item.copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))
+                inputdata_adj, lm_adj = perform_Match_input(item.copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))
                 adjustmentName = str('SS_Match2' + '_alphaCup_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
     # ************************************************** #
@@ -1110,15 +1110,15 @@ for method in adjustmentsMetadata:
     else:
         print ('Applying Adjustment Method: G-Sa')
         override = False
-        inputdata_corr, lm_corr, m, c = perform_G_Sa_adjustment(inputdata.copy(),override)
+        inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(inputdata.copy(),override)
         print("G-Sa: y = " + str(m) + " * x + " + str(c))
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'G-Sa'
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'G-Sa'
         adjustmentName = 'G_Sa'
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: G-Sa by stability class (TKE)')
@@ -1126,14 +1126,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c = perform_G_Sa_adjustment(item[primary_idx].copy(),override)
+                inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(item[primary_idx].copy(),override)
                 print("G-Sa: y = " + str(m) + " * x + " + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-Sa' + '_TKE_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-Sa' + '_TKE_' + 'class_' + str(className))
                 adjustmentName = str('G-Sa'+ '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
@@ -1142,14 +1142,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_G_Sa_adjustment(item.copy(),override)
+                iputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(item.copy(),override)
                 print ("G-Sa: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-Sa' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-Sa' + '_' + 'class_' + str(className))
                 adjustmentName = str('G-Sa' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
@@ -1158,14 +1158,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_G_Sa_adjustment(item.copy(),override)
+                iputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(item.copy(),override)
                 print ("G-Sa: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-Sa' + '_alphaCup_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-Sa' + '_alphaCup_' + 'class_' + str(className))
                 adjustmentName = str('G-Sa' + '_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -1181,15 +1181,15 @@ for method in adjustmentsMetadata:
     else:
         print ('Applying Adjustment Method: G-SFa')
         override = [0.7086, 0.0225]
-        inputdata_corr, lm_corr, m, c = perform_G_Sa_adjustment(inputdata.copy(),override)
+        inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(inputdata.copy(),override)
         print("G-SFa: y = " + str(m) + " * x + " + str(c))
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'G-SFa'
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'G-SFa'
         adjustmentName = 'G_SFa'
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: G-SFa by stability class (TKE)')
@@ -1197,14 +1197,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c = perform_G_Sa_adjustment(item[primary_idx].copy(),override)
+                inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(item[primary_idx].copy(),override)
                 print("G-SFa: y = " + str(m) + " * x + " + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-SFa' + '_TKE_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-SFa' + '_TKE_' + 'class_' + str(className))
                 adjustmentName = str('G-SFa'+ '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
@@ -1213,14 +1213,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_G_Sa_adjustment(item.copy(),override)
+                iputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(item.copy(),override)
                 print ("G-SFa: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-Sa' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-Sa' + '_' + 'class_' + str(className))
                 adjustmentName = str('G-SFa' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
@@ -1229,14 +1229,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_G_Sa_adjustment(item.copy(),override)
+                iputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(item.copy(),override)
                 print ("G-SFa: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-SFa' + '_alphaCup_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-SFa' + '_alphaCup_' + 'class_' + str(className))
                 adjustmentName = str('G-SFa' + '_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -1250,15 +1250,15 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Adjustment Method: G-Sc')
-        inputdata_corr, lm_corr, m, c = perform_G_SFc_adjustment(inputdata.copy())
+        inputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(inputdata.copy())
         print("G-SFc: y = " + str(m) + " * x + " + str(c))
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'G-SFc'
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'G-SFc'
         adjustmentName = 'G_SFc'
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
 
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: G-SFa by stability class (TKE)')
@@ -1266,14 +1266,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_corr, lm_corr, m, c = perform_G_SFc_adjustment(item[primary_idx].copy())
+                inputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(item[primary_idx].copy())
                 print("G-SFc: y = " + str(m) + " * x + " + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-SFc' + '_TKE_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-SFc' + '_TKE_' + 'class_' + str(className))
                 adjustmentName = str('G-SFc'+ '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
@@ -1282,14 +1282,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                iputdata_corr, lm_corr, m, c = perform_G_SFc_adjustment(item.copy())
+                iputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(item.copy())
                 print ("G-SFc: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-SFc' + '_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-SFc' + '_' + 'class_' + str(className))
                 adjustmentName = str('G-SFc' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
 
@@ -1298,14 +1298,14 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                iputdata_corr, lm_corr, m, c = perform_G_SFc_adjustment(item.copy())
+                iputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(item.copy())
                 print ("G-SFc: y = " + str(m) + "* x +" + str(c))
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-SFc' + '_alphaCup_' + 'class_' + str(className))
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-SFc' + '_alphaCup_' + 'class_' + str(className))
                 adjustmentName = str('G-SFc' + '_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -1321,14 +1321,14 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Adjustment Method: G-C')
-        inputdata_corr, lm_corr, m, c = perform_G_C_adjustment(inputdata.copy())
-        lm_corr['sensor'] = sensor
-        lm_corr['height'] = height
-        lm_corr['adjustment'] = 'G-C'
+        inputdata_adj, lm_adj, m, c = perform_G_C_adjustment(inputdata.copy())
+        lm_adj['sensor'] = sensor
+        lm_adj['height'] = height
+        lm_adj['adjustment'] = 'G-C'
         adjustmentName = 'G_C'
-        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_corr, inputdata_corr,
+        baseResultsLists = populate_resultsLists(baseResultsLists, '', adjustmentName, lm_adj, inputdata_adj,
                                                  Timestamps, method)
-        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_corr,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
+        TI_10minuteAdjusted = record_TIadj(adjustmentName,inputdata_adj,Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False)
        
         if RSDtype['Selection'][0:4] == 'Wind':
             print ('Applying Adjustment Method: G-C by stability class (TKE)')
@@ -1337,13 +1337,13 @@ for method in adjustmentsMetadata:
             className = 1
             for item in All_class_data:
                 print (str('class ' + str(className)))
-                inputdata_corr, lm_corr, m, c = perform_G_C_adjustment(item[primary_idx].copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-C' + '_TKE_' + 'class_' + str(className))
+                inputdata_adj, lm_adj, m, c = perform_G_C_adjustment(item[primary_idx].copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-C' + '_TKE_' + 'class_' + str(className))
                 adjustmentName = str('G-C'+ '_TKE_' + str(className))
-                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_corr,
-                                                           inputdata_corr, Timestamps, method)
+                ResultsLists_class = populate_resultsLists(ResultsLists_class, 'class_', adjustmentName, lm_adj,
+                                                           inputdata_adj, Timestamps, method)
                 className += 1
             ResultsList_stability = populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, '')
 
@@ -1353,13 +1353,13 @@ for method in adjustmentsMetadata:
             className = 1
             for item in All_class_data_alpha_RSD:
                 print (str('class ' + str(className)))
-                iputdata_corr, lm_corr, m, c = perform_G_C_adjustment(item.copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-C' + '_' + 'class_' + str(className))
+                iputdata_adj, lm_adj, m, c = perform_G_C_adjustment(item.copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-C' + '_' + 'class_' + str(className))
                 adjustmentName = str('G-C' + '_alphaRSD_' + str(className))
-                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_RSD = populate_resultsLists(ResultsLists_class_alpha_RSD, 'class_alpha_RSD', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_RSD = populate_resultsLists_stability(ResultsLists_stability_alpha_RSD, ResultsLists_class_alpha_RSD, 'alpha_RSD')
             
@@ -1370,13 +1370,13 @@ for method in adjustmentsMetadata:
             className = 1
             for item in All_class_data_alpha_Ane:
                 print (str('class ' + str(className)))
-                iputdata_corr, lm_corr, m, c = perform_G_C_adjustment(item.copy())
-                lm_corr['sensor'] = sensor
-                lm_corr['height'] = height
-                lm_corr['adjustment'] = str('G-C' + '_alphaCup_' + 'class_' + str(className))
+                iputdata_adj, lm_adj, m, c = perform_G_C_adjustment(item.copy())
+                lm_adj['sensor'] = sensor
+                lm_adj['height'] = height
+                lm_adj['adjustment'] = str('G-C' + '_alphaCup_' + 'class_' + str(className))
                 adjustmentName = str('G-C' + '_' + str(className))
-                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_corr,
-                                                                     inputdata_corr, Timestamps, method)
+                ResultsLists_class_alpha_Ane = populate_resultsLists(ResultsLists_class_alpha_Ane, 'class_alpha_Ane', adjustmentName, lm_adj,
+                                                                     inputdata_adj, Timestamps, method)
                 className += 1
             ResultsLists_stability_alpha_Ane = populate_resultsLists_stability(ResultsLists_stability_alpha_Ane, ResultsLists_class_alpha_Ane, 'alpha_Ane')
 
@@ -1509,7 +1509,7 @@ if RSDtype['Selection'][0:4] != 'Wind':
     total_StatsList_stability = np.nan
     belownominal_statsList_stability = np.nan
     abovenominal_statsList_stability = np.nan
-    lm_CorrList_stability = np.nan
+    lm_adjList_stability = np.nan
     adjustmentTagList_stability = np.nan
     Distibution_statsList_stability = np.nan
     sampleTestsLists_stability = np.nan

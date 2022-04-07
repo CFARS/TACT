@@ -541,7 +541,7 @@ def write_all_resultstofile(
         total_stats = baseResultsLists["total_StatsList_"][idx]
         belownominal_stats = baseResultsLists["belownominal_statsList_"][idx]
         abovenominal_stats = baseResultsLists["abovenominal_statsList_"][idx]
-        lm_corr = baseResultsLists["lm_CorrList_"][idx]
+        lm_adj = baseResultsLists["lm_adjList_"][idx]
         Dist_stats_df = pd.concat(
             [Dist_stats_df, baseResultsLists["Distribution_statsList_"][idx]], axis=1
         )
@@ -585,7 +585,7 @@ def write_all_resultstofile(
             abovenominal_stats_stability = ResultsLists_stability[
                 "abovenominal_statsList_stability_"
             ][idx]
-            lm_corr_stability = ResultsLists_stability["lm_CorrList_stability_"][idx]
+            lm_adj_stability = ResultsLists_stability["lm_adjList_stability_"][idx]
             corrrectionTag_stability = ResultsLists_stability[
                 "adjustmentTagList_stability_"
             ][idx]
@@ -639,8 +639,8 @@ def write_all_resultstofile(
             abovenominal_stats_stability_alpha_Ane = ResultsLists_stability_alpha_Ane[
                 "abovenominal_statsList_stability_alpha_Ane"
             ][idx]
-            lm_corr_stability_alpha_Ane = ResultsLists_stability_alpha_Ane[
-                "lm_CorrList_stability_alpha_Ane"
+            lm_adj_stability_alpha_Ane = ResultsLists_stability_alpha_Ane[
+                "lm_adjList_stability_alpha_Ane"
             ][idx]
             corrrectionTag_stability_alpha_Ane = ResultsLists_stability_alpha_Ane[
                 "adjustmentTagList_stability_alpha_Ane"
@@ -697,8 +697,8 @@ def write_all_resultstofile(
             abovenominal_stats_stability_alpha_RSD = ResultsLists_stability_alpha_RSD[
                 "abovenominal_statsList_stability_alpha_RSD"
             ][idx]
-            lm_corr_stability_alpha_RSD = ResultsLists_stability_alpha_RSD[
-                "lm_CorrList_stability_alpha_RSD"
+            lm_adj_stability_alpha_RSD = ResultsLists_stability_alpha_RSD[
+                "lm_adjList_stability_alpha_RSD"
             ][idx]
             corrrectionTag_stability_alpha_RSD = ResultsLists_stability_alpha_RSD[
                 "adjustmentTagList_stability_alpha_RSD"
@@ -722,7 +722,7 @@ def write_all_resultstofile(
 
         className = 1
         if stabilityFlag:
-            for i in lm_corr_stability:
+            for i in lm_adj_stability:
                 start = className * 8 + 1
                 corrName = str(
                     "Corrected RSD Regression Results, stability subset (TKE)"
@@ -742,7 +742,7 @@ def write_all_resultstofile(
         className = 1
         if cup_alphaFlag:
             rowNumber = 13
-            for i in lm_corr_stability_alpha_Ane:
+            for i in lm_adj_stability_alpha_Ane:
                 start = className * 8 + 1
                 corrName = str(
                     "Corrected RSD Regression Results, stability subset (cup alpha)"
@@ -762,7 +762,7 @@ def write_all_resultstofile(
         className = 1
         if RSD_alphaFlag:
             rowNumber = 25
-            for i in lm_corr_stability_alpha_Ane:
+            for i in lm_adj_stability_alpha_Ane:
                 start = className * 8 + 1
                 corrName = str(
                     "Corrected RSD Regression Results, stability subset (RSD alpha)"
@@ -781,53 +781,53 @@ def write_all_resultstofile(
 
         # adjustment regression results
         rowNumber = 2
-        for item in lm_corr.index.to_list():
+        for item in lm_adj.index.to_list():
             ws.cell(row=rowNumber, column=1, value=item)
-            ws.cell(row=rowNumber, column=2, value=lm_corr["m"][item])
-            ws.cell(row=rowNumber, column=3, value=lm_corr["c"][item])
-            ws.cell(row=rowNumber, column=4, value=lm_corr["rsquared"][item])
-            ws.cell(row=rowNumber, column=5, value=lm_corr["difference"][item])
-            ws.cell(row=rowNumber, column=6, value=lm_corr["mse"][item])
-            ws.cell(row=rowNumber, column=7, value=lm_corr["rmse"][item])
+            ws.cell(row=rowNumber, column=2, value=lm_adj["m"][item])
+            ws.cell(row=rowNumber, column=3, value=lm_adj["c"][item])
+            ws.cell(row=rowNumber, column=4, value=lm_adj["rsquared"][item])
+            ws.cell(row=rowNumber, column=5, value=lm_adj["difference"][item])
+            ws.cell(row=rowNumber, column=6, value=lm_adj["mse"][item])
+            ws.cell(row=rowNumber, column=7, value=lm_adj["rmse"][item])
             rowNumber = rowNumber + 1
 
         if stabilityFlag:
             rowNumber = 2
             className = 1
-            for i in range(0, len(lm_corr_stability)):
+            for i in range(0, len(lm_adj_stability)):
                 start = className * 8 + 1
                 try:
-                    for item in lm_corr_stability[i].index.to_list():
+                    for item in lm_adj_stability[i].index.to_list():
                         ws.cell(row=rowNumber, column=start, value=item)
                         ws.cell(
                             row=rowNumber,
                             column=start + 1,
-                            value=lm_corr_stability[i]["m"][item],
+                            value=lm_adj_stability[i]["m"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 2,
-                            value=lm_corr_stability[i]["c"][item],
+                            value=lm_adj_stability[i]["c"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 3,
-                            value=lm_corr_stability[i]["rsquared"][item],
+                            value=lm_adj_stability[i]["rsquared"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 4,
-                            value=lm_corr_stability[i]["difference"][item],
+                            value=lm_adj_stability[i]["difference"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 5,
-                            value=lm_corr_stability[i]["mse"][item],
+                            value=lm_adj_stability[i]["mse"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 6,
-                            value=lm_corr_stability[i]["rmse"][item],
+                            value=lm_adj_stability[i]["rmse"][item],
                         )
                         rowNumber = rowNumber + 1
                 except:
@@ -838,40 +838,40 @@ def write_all_resultstofile(
         if cup_alphaFlag:
             rowNumber = 14
             className = 1
-            for i in range(0, len(lm_corr_stability_alpha_Ane)):
+            for i in range(0, len(lm_adj_stability_alpha_Ane)):
                 start = className * 8 + 1
                 try:
-                    for item in lm_corr_stability_alpha_Ane[i].index.to_list():
+                    for item in lm_adj_stability_alpha_Ane[i].index.to_list():
                         ws.cell(row=rowNumber, column=start, value=item)
                         ws.cell(
                             row=rowNumber,
                             column=start + 1,
-                            value=lm_corr_stability_alpha_Ane[i]["m"][item],
+                            value=lm_adj_stability_alpha_Ane[i]["m"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 2,
-                            value=lm_corr_stability_alpha_Ane[i]["c"][item],
+                            value=lm_adj_stability_alpha_Ane[i]["c"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 3,
-                            value=lm_corr_stability_alpha_Ane[i]["rsquared"][item],
+                            value=lm_adj_stability_alpha_Ane[i]["rsquared"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 4,
-                            value=lm_corr_stability_alpha_Ane[i]["difference"][item],
+                            value=lm_adj_stability_alpha_Ane[i]["difference"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 5,
-                            value=lm_corr_stability_alpha_Ane[i]["mse"][item],
+                            value=lm_adj_stability_alpha_Ane[i]["mse"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 6,
-                            value=lm_corr_stability_alpha_Ane[i]["rmse"][item],
+                            value=lm_adj_stability_alpha_Ane[i]["rmse"][item],
                         )
                         rowNumber = rowNumber + 1
                 except:
@@ -882,40 +882,40 @@ def write_all_resultstofile(
         if RSD_alphaFlag:
             rowNumber = 26
             className = 1
-            for i in range(0, len(lm_corr_stability_alpha_RSD)):
+            for i in range(0, len(lm_adj_stability_alpha_RSD)):
                 start = className * 8 + 1
                 try:
-                    for item in lm_corr_stability_alpha_RSD[i].index.to_list():
+                    for item in lm_adj_stability_alpha_RSD[i].index.to_list():
                         ws.cell(row=rowNumber, column=start, value=item)
                         ws.cell(
                             row=rowNumber,
                             column=start + 1,
-                            value=lm_corr_stability_alpha_RSD[i]["m"][item],
+                            value=lm_adj_stability_alpha_RSD[i]["m"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 2,
-                            value=lm_corr_stability_alpha_RSD[i]["c"][item],
+                            value=lm_adj_stability_alpha_RSD[i]["c"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 3,
-                            value=lm_corr_stability_alpha_RSD[i]["rsquared"][item],
+                            value=lm_adj_stability_alpha_RSD[i]["rsquared"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 4,
-                            value=lm_corr_stability_alpha_RSD[i]["difference"][item],
+                            value=lm_adj_stability_alpha_RSD[i]["difference"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 5,
-                            value=lm_corr_stability_alpha_RSD[i]["mse"][item],
+                            value=lm_adj_stability_alpha_RSD[i]["mse"][item],
                         )
                         ws.cell(
                             row=rowNumber,
                             column=start + 6,
-                            value=lm_corr_stability_alpha_RSD[i]["rmse"][item],
+                            value=lm_adj_stability_alpha_RSD[i]["rmse"][item],
                         )
                         rowNumber = rowNumber + 1
                 except:
