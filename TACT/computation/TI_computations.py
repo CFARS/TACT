@@ -13,7 +13,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 import sys
 from TACT.extrapolation.calculations import log_of_ratio, power_law
 from TACT.computation.adjustments import Adjustments
-from TACT.computation.post_adjustment import post_correction_stats
+from TACT.computation.post_adjustment import post_adjustment_stats
 
 
 def get_representative_TI(inputdata):
@@ -544,7 +544,7 @@ class StatResult:
     pass
 
 
-def Dist_stats(inputdata_corr, Timestamps, correctionName):
+def Dist_stats(inputdata_corr, Timestamps, adjustmentName):
     """
     test all relevant chunks of data
     """
@@ -674,12 +674,12 @@ def Dist_stats(inputdata_corr, Timestamps, correctionName):
             names.append(str(p[0] + "_VS_" + p[1]))
             KStest_stat.append(None)
             p_value.append(None)
-    distribution_test_results[str("Test Name" + "_" + correctionName)] = names
+    distribution_test_results[str("Test Name" + "_" + adjustmentName)] = names
     distribution_test_results[
-        str("KS test statistics" + "_" + "all_data" + "_" + correctionName)
+        str("KS test statistics" + "_" + "all_data" + "_" + adjustmentName)
     ] = KStest_stat
     distribution_test_results[
-        str("p_value" + "_" + "all_data" + "_" + correctionName)
+        str("p_value" + "_" + "all_data" + "_" + adjustmentName)
     ] = p_value
 
     if len(sampleWindow_test_results) > 1:

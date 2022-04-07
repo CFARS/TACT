@@ -12,7 +12,7 @@ from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 import sys
 from .calculations import log_of_ratio, power_law
-from TACT.computation.post_adjustment import post_correction_stats
+from TACT.computation.post_adjustment import post_adjustment_stats
 
 
 def get_extrap_col_and_ht(height, num, primary_height, sensor="Ane", var="WS"):
@@ -225,7 +225,7 @@ def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, hei
         columns=[
             "sensor",
             "height",
-            "correction",
+            "adjustment",
             "m",
             "c",
             "rsquared",
@@ -235,10 +235,10 @@ def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, hei
         ]
     )
 
-    results = post_correction_stats(inputdata, results, "TI_RSD", "TI_ane_extrap")
-    restults = post_correction_stats(inputdata, results, "TI_ane_truth", "TI_RSD")
+    results = post_adjustment_stats(inputdata, results, "TI_RSD", "TI_ane_extrap")
+    restults = post_adjustment_stats(inputdata, results, "TI_ane_truth", "TI_RSD")
     if extrapolation_type == "truth":
-        results = post_correction_stats(
+        results = post_adjustment_stats(
             inputdata, results, "TI_ane_truth", "TI_ane_extrap"
         )
 
@@ -271,7 +271,7 @@ def change_extrap_names(TI_list, rename):
 
 
 def extrap_configResult(
-    extrapolation_type, inputdataEXTRAP, resLists, method, lm_corr, appendString=""
+    extrapolation_type, inputdataEXTRAP, resLists, method, lm_adj, appendString=""
 ):
     """Temporarily fudge the names of variables so they fit with the standard functions
 
@@ -282,7 +282,7 @@ def extrap_configResult(
     inputdataEXTRAP : DataFrame
     resLists : list
     method : str
-    lm_corr : DataFrame
+    lm_adj : DataFrame
     appendString : str
 
     Returns
@@ -322,7 +322,7 @@ def extrap_configResult(
             inputdataEXTRAP
         )
         Distribution_stats, sampleTests = Dist_stats(
-            inputdataEXTRAP, Timestamps, correctionName
+            inputdataEXTRAP, Timestamps, adjustment_name
         )
         resDict = True
 
@@ -343,8 +343,8 @@ def extrap_configResult(
         resLists[str("total_StatsList_" + appendString)].append(None)
         resLists[str("belownominal_statsList_" + appendString)].append(None)
         resLists[str("abovenominal_statsList_" + appendString)].append(None)
-        resLists[str("lm_CorrList_" + appendString)].append(lm_corr)
-        resLists[str("correctionTagList_" + appendString)].append(method)
+        resLists[str("lm_CorrList_" + appendString)].append(lm_adj)
+        resLists[str("adjustmentTagList_" + appendString)].append(method)
         resLists[str("Distribution_statsList_" + appendString)].append(None)
         resLists[str("sampleTestsLists_" + appendString)].append(None)
 
@@ -353,22 +353,22 @@ def extrap_configResult(
         # Rename labels after forcing them through the standard functions
         rename = {
             "TI_diff_RSD_Ref": "TI_diff_AneTruth_AneExtrap",
-            "TI_diff_corrTI_RSD_Ref": "TI_diff_RSD_AneExtrap",
+            "TI_diff_adjTI_RSD_Ref": "TI_diff_RSD_AneExtrap",
             "TI_error_RSD_Ref": "TI_error_AneTruth_AneExtrap",
-            "TI_error_corrTI_RSD_Ref": "TI_error_RSD_AneExtrap",
+            "TI_error_adjTI_RSD_Ref": "TI_error_RSD_AneExtrap",
             "TI_RMSE_RSD_Ref": "TI_RMSE_AneTruth_AneExtrap",
-            "TI_RMSE_corrTI_RSD_Ref": "TI_RMSE_RSD_AneExtrap",
+            "TI_RMSE_adjTI_RSD_Ref": "TI_RMSE_RSD_AneExtrap",
             "Ref_TI": "AneExtrap_TI",
             "RSD_TI": "AneTruth_TI",
             "corrTI_RSD_TI": "RSD_TI",
             "RSD_Ref": "AneTruth_AneExtrap",
             "CorrTI_RSD_Ref": "RSD_AneExtrap",
             "RepTI_diff_RSD_Ref": "RepTI_diff_AneTruth_AneExtrap",
-            "RepTI_diff_corrRepTI_RSD_Ref": "RepTI_diff_RSD_AneExtrap",
+            "RepTI_diff_adjRepTI_RSD_Ref": "RepTI_diff_RSD_AneExtrap",
             "RepTI_error_RSD_Ref": "RepTI_error_AneTruth_AneExtrap",
-            "RepTI_error_corrRepTI_RSD_Ref": "RepTI_error_RSD_AneExtrap",
+            "RepTI_error_adjRepTI_RSD_Ref": "RepTI_error_RSD_AneExtrap",
             "RepTI_RMSE_RSD_Ref": "RepTI_RMSE_AneTruth_AneExtrap",
-            "RepTI_RMSE_corrRepTI_RSD_Ref": "RepTI_RMSE_RSD_AneExtrap",
+            "RepTI_RMSE_adjRepTI_RSD_Ref": "RepTI_RMSE_RSD_AneExtrap",
         }
         resDict["TI_MBE_j_"] = change_extrap_names(TI_MBE_j_, rename)
         resDict["TI_Diff_j_"] = change_extrap_names(TI_Diff_j_, rename)
@@ -425,8 +425,8 @@ def extrap_configResult(
         resLists[str("abovenominal_statsList_" + appendString)].append(
             resDict["abovenominal_stats"]
         )
-        resLists[str("lm_CorrList_" + appendString)].append(lm_corr)
-        resLists[str("correctionTagList_" + appendString)].append(method)
+        resLists[str("lm_CorrList_" + appendString)].append(lm_adj)
+        resLists[str("adjustmentTagList_" + appendString)].append(method)
         resLists[str("Distribution_statsList_" + appendString)].append(
             resDict["Distribution_stats"]
         )

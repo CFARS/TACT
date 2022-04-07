@@ -82,7 +82,7 @@ class Config(object):
             self.get_input_files()
 
         self.model, self.height = self.get_phaseiii_metadata()
-        self.apply_correction = self.check_for_corrections()
+        self.apply_adjustment = self.check_for_adjections()
 
     def get_input_files(self):
         """Used when running tool as script with command line arguments
@@ -181,7 +181,7 @@ class Config(object):
         )
 
     def get_adjustments_metadata(self):
-        """create metadata object containing information about which corrections will be applied
+        """create metadata object containing information about which adjustments will be applied
         to this data set and why
         """
         # get list of available data columns and available ancillary data
@@ -235,7 +235,7 @@ class Config(object):
             )
 
         # Make dictionary of potential methods, Note: SS-LTERRA-WC-1HZ, G-LTERRA-WC-1HZ, and G-Std are windcube only (but we want to test on zx) so they are false until we know sensor
-        correctionsManager = {
+        adjustments_manager = {
             "SS-SF": True,
             "SS-S": True,
             "SS-SS": True,
@@ -282,29 +282,29 @@ class Config(object):
 
         # enable methods
         if self.RSDtype["Selection"][0:4] == "Wind":  # if rsd is windcube
-            correctionsManager["G-C"] = True
+            adjustments_manager["G-C"] = True
             if self.rtd_files == False:
                 print(
                     "Rtd file location not specified. Not running 1Hz adjustment. To change this behavior, use argument -rtd_files"
                 )
             else:
-                correctionsManager["SS-LTERRA-WC-1HZ"] = True
-                correctionsManager["G-LTERRA-WC-1HZ"] = True
+                adjustments_manager["SS-LTERRA-WC-1HZ"] = True
+                adjustments_manager["G-LTERRA-WC-1HZ"] = True
         subset3 = ["RSD_SD"]
         result3 = all(elem in self.available_data for elem in subset3)
         if result3:
             pass
         else:
             print(
-                "Error encountered. Input data does not include RSD standard deviation and cannot utilize some corrections methods. Please modify input data to include standard deviation."
+                "Error encountered. Input data does not include RSD standard deviation and cannot utilize some adjustments methods. Please modify input data to include standard deviation."
             )
             sys.exit()
 
         if self.extrapolation_type is not None:
-            correctionsManager["TI-Extrap"] = True
-            correctionsManager["Name global model"] = globalModel
+            adjustments_manager["TI-Extrap"] = True
+            adjustments_manager["Name global model"] = globalModel
 
-        self.adjustments_metadata = correctionsManager
+        self.adjustments_metadata = adjustments_manager
 
     def check_for_additional_heights(self, height):
         """
@@ -414,7 +414,7 @@ class Config(object):
     def get_phaseiii_metadata(self):
         """
         :param config_file: Input configuration file
-        :return: metadata containing information about model used for correction, height of correction
+        :return: metadata containing information about model used for adjustment, height of adjustment
         """
         df = pd.read_excel(self.config_file, usecols=[3, 4]).dropna()
         try:
@@ -433,9 +433,9 @@ class Config(object):
 
         return model, height
 
-    def check_for_corrections(self):
+    def check_for_adjustments(self):
 
-        apply_correction = True
+        apply_adjustment = True
 
         colLabels = pd.read_excel(self.config_file, usecols=[0, 1])
         colLabels = list(colLabels.dropna()["Header_CFARS_Python"])
@@ -443,9 +443,9 @@ class Config(object):
         requiredData = ["RSD_TI", "RSD_WS"]
 
         if (set(requiredData).issubset(set(rsd_cols))) == False:
-            apply_correction = False
+            apply_adjustment = False
 
-        return apply_correction
+        return apply_adjustment
 
 
 def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type="simple"):
