@@ -82,7 +82,7 @@ class Config(object):
             self.get_input_files()
 
         self.model, self.height = self.get_phaseiii_metadata()
-        self.apply_adjustment = self.check_for_adjections()
+        self.apply_adjustment = self.check_for_adjustments()
 
     def get_input_files(self):
         """Used when running tool as script with command line arguments

@@ -2717,7 +2717,7 @@ def perform_SS_WS_adjustment(inputdata):
     if inputdata.empty or len(inputdata) < 2:
         results = post_adjustment_stats([None],results, 'Ref_TI','corrTI_RSD_TI')
         if 'Ane_WS_Ht1' in inputdata.columns and 'RSD_WS_Ht1' in inputdata.columns:
-            results = post_adjustment_stats([none],results, 'ane_ti_ht1','corrti_rsd_ti_ht1')
+            results = post_adjustment_stats([None],results, 'ane_ti_ht1','corrti_rsd_ti_ht1')
         if 'ane_ws_ht2' in inputdata.columns and 'RSD_WS_Ht2' in inputdata.columns:
              results = post_adjustment_stats([None],results, 'Ane_TI_Ht2','corrTI_RSD_TI_Ht2')
         if 'Ane_WS_Ht3' in inputdata.columns and 'RSD_WS_Ht3' in inputdata.columns:
