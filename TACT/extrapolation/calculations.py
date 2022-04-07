@@ -21,14 +21,25 @@ def log_of_ratio(x, xref):
 
 
 def power_law(uref, h, href, shear):
-    """
-    Extrapolate wind speed (or other) according to power law.
+    """Extrapolate wind speed (or other) according to power law.
+
     NOTE: see  https://en.wikipedia.org/wiki/Wind_profile_power_law
-    :param uref: wind speed at reference height (same units as extrapolated wind speed, u)
-    :param h: height of extrapolated wind speed (same units as href)
-    :param href: reference height (same units as h)
-    :param shear: shear exponent alpha (1/7 in neutral stability) (unitless)
-    :return u: extrapolated wind speed (same units as uref)
+
+    Parameters
+    ----------
+    uref : float
+        wind speed at reference height (same units as extrapolated wind speed, u)
+    h : float
+        height of extrapolated wind speed (same units as href)
+    href : float
+        reference height (same units as h)
+    shear : float
+        shear exponent alpha (1/7 in neutral stability) (unitless)
+
+    Returns
+    -------
+    float
+        extrapolated wind speed (same units as uref)
     """
     u = np.array(uref) * np.array(h / href) ** np.array(shear)
     return u
