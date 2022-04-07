@@ -2,18 +2,13 @@ try:
     from TACT import logger
 except ImportError:
     pass
-import argparse
-from future.utils import itervalues, iteritems
 import numpy as np
-import os
 import pandas as pd
-import re
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
-import sys
 from .calculations import log_of_ratio, power_law
-from TACT.computation.post_adjustment import post_adjustment_stats
-from TACT.computation.TI_computations import (
+from TACT.computation.post import post_adjustment_stats
+from TACT.computation.TI import (
     get_TI_MBE_Diff_j,
     get_TI_Diff_r,
     get_TI_bybin,
