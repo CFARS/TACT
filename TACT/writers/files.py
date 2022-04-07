@@ -586,7 +586,7 @@ def write_all_resultstofile(
                 "abovenominal_statsList_stability_"
             ][idx]
             lm_adj_stability = ResultsLists_stability["lm_adjList_stability_"][idx]
-            corrrectionTag_stability = ResultsLists_stability[
+            adjustmentTag_stability = ResultsLists_stability[
                 "adjustmentTagList_stability_"
             ][idx]
             for i in ResultsLists_stability["Distribution_statsList_stability_"][idx]:
@@ -642,7 +642,7 @@ def write_all_resultstofile(
             lm_adj_stability_alpha_Ane = ResultsLists_stability_alpha_Ane[
                 "lm_adjList_stability_alpha_Ane"
             ][idx]
-            corrrectionTag_stability_alpha_Ane = ResultsLists_stability_alpha_Ane[
+            adjustmentTag_stability_alpha_Ane = ResultsLists_stability_alpha_Ane[
                 "adjustmentTagList_stability_alpha_Ane"
             ][idx]
             for i in ResultsLists_stability_alpha_Ane[
@@ -700,7 +700,7 @@ def write_all_resultstofile(
             lm_adj_stability_alpha_RSD = ResultsLists_stability_alpha_RSD[
                 "lm_adjList_stability_alpha_RSD"
             ][idx]
-            corrrectionTag_stability_alpha_RSD = ResultsLists_stability_alpha_RSD[
+            adjustmentTag_stability_alpha_RSD = ResultsLists_stability_alpha_RSD[
                 "adjustmentTagList_stability_alpha_RSD"
             ][idx]
             for i in ResultsLists_stability_alpha_RSD[
@@ -712,7 +712,7 @@ def write_all_resultstofile(
         ws = wb.create_sheet(title=sheetName)
 
         rowNumber = 1
-        ws.cell(row=rowNumber, column=1, value="Corrected RSD Regression Results")
+        ws.cell(row=rowNumber, column=1, value="Adjusted RSD Regression Results")
         ws.cell(row=rowNumber, column=2, value="m")
         ws.cell(row=rowNumber, column=3, value="c")
         ws.cell(row=rowNumber, column=4, value="r-squared")
@@ -725,7 +725,7 @@ def write_all_resultstofile(
             for i in lm_adj_stability:
                 start = className * 8 + 1
                 corrName = str(
-                    "Corrected RSD Regression Results, stability subset (TKE)"
+                    "Adjusted RSD Regression Results, stability subset (TKE)"
                     + "_"
                     + "class_"
                     + str(className)
@@ -745,7 +745,7 @@ def write_all_resultstofile(
             for i in lm_adj_stability_alpha_Ane:
                 start = className * 8 + 1
                 corrName = str(
-                    "Corrected RSD Regression Results, stability subset (cup alpha)"
+                    "Adjusted RSD Regression Results, stability subset (cup alpha)"
                     + "_"
                     + "class_"
                     + str(className)
@@ -765,7 +765,7 @@ def write_all_resultstofile(
             for i in lm_adj_stability_alpha_Ane:
                 start = className * 8 + 1
                 corrName = str(
-                    "Corrected RSD Regression Results, stability subset (RSD alpha)"
+                    "Adjusted RSD Regression Results, stability subset (RSD alpha)"
                     + "_"
                     + "class_"
                     + str(className)

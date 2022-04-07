@@ -11,8 +11,8 @@ def get_representative_TI_15mps(inputdata):
         listofcols.append('RSD_TI')
     if 'Ane2_TI' in inputdata.columns:
         listofcols.append('Ane2_TI')
-    if 'corrTI_RSD_WS' in inputdata.columns:
-        listofcols.append('corrTI_RSD_WS')
+    if 'adjTI_RSD_WS' in inputdata.columns:
+        listofcols.append('adjTI_RSD_WS')
     results = inputdata_TI15[listofcols].describe()
     results.loc['Rep_TI', :] = results.loc['mean'] + 1.28 * results.loc['std']
     results = results.loc[['mean', 'std', 'Rep_TI'], :].T

@@ -297,8 +297,8 @@ def extrap_configResult(
     List
 
     """
-    if "corrWS_RSD_TI" in inputdataEXTRAP:
-        inputdataEXTRAP = inputdataEXTRAP.drop(columns=["corrWS_RSD_TI"])
+    if "adjWS_RSD_TI" in inputdataEXTRAP:
+        inputdataEXTRAP = inputdataEXTRAP.drop(columns=["adjWS_RSD_TI"])
     if "Ane2_TI" in inputdataEXTRAP:
         inputdataEXTRAP = inputdataEXTRAP.drop(columns=["Ane2_TI"])
     if extrapolation_type == "truth":
@@ -306,7 +306,7 @@ def extrap_configResult(
     else:
         inputdataEXTRAP = inputdataEXTRAP.drop(columns=["RSD_TI"])
     inputdataEXTRAP["Ref_TI"] = inputdataEXTRAP["TI_ane_extrap"]
-    inputdataEXTRAP["corrTI_RSD_TI"] = inputdataEXTRAP["TI_RSD"]
+    inputdataEXTRAP["adjTI_RSD_TI"] = inputdataEXTRAP["TI_RSD"]
 
     # Run through the standard functions
     try:
@@ -366,9 +366,9 @@ def extrap_configResult(
             "TI_RMSE_adjTI_RSD_Ref": "TI_RMSE_RSD_AneExtrap",
             "Ref_TI": "AneExtrap_TI",
             "RSD_TI": "AneTruth_TI",
-            "corrTI_RSD_TI": "RSD_TI",
+            "adjTI_RSD_TI": "RSD_TI",
             "RSD_Ref": "AneTruth_AneExtrap",
-            "CorrTI_RSD_Ref": "RSD_AneExtrap",
+            "adjTI_RSD_Ref": "RSD_AneExtrap",
             "RepTI_diff_RSD_Ref": "RepTI_diff_AneTruth_AneExtrap",
             "RepTI_diff_adjRepTI_RSD_Ref": "RepTI_diff_RSD_AneExtrap",
             "RepTI_error_RSD_Ref": "RepTI_error_AneTruth_AneExtrap",

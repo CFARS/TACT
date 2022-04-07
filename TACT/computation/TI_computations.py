@@ -199,9 +199,9 @@ def get_TI_MBE_Diff_j(inputdata):
         print("Warning: No RSD TI. Cannot compute error stats for this category")
 
     # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref TI (CORRECTED)
-    if "corrTI_RSD_TI" in inputdata.columns:
+    if "adjTI_RSD_TI" in inputdata.columns:
         inputdata["TI_diff_adjTI_RSD_Ref"] = (
-            inputdata["corrTI_RSD_TI"] - inputdata["Ref_TI"]
+            inputdata["adjTI_RSD_TI"] - inputdata["Ref_TI"]
         )  # caliculating the diff in ti for each timestamp
         inputdata["TI_error_adjTI_RSD_Ref"] = (
             inputdata["TI_diff_adjTI_RSD_Ref"] / inputdata["Ref_TI"]
@@ -276,7 +276,7 @@ def get_TI_Diff_r(inputdata):
         print("Warning: No RSD TI. Cannot compute error stats for this category")
 
     # get the bin wise stats for DIFFERENCE between RSD and Ref TI (CORRECTED)
-    if "corrTI_RSD_TI" in inputdata.columns:
+    if "adjTI_RSD_TI" in inputdata.columns:
         inputdata["TI_error_adjTI_RSD_Ref"] = (
             inputdata["TI_diff_adjTI_RSD_Ref"] / inputdata["Ref_TI"]
         )  # calculating the error for each timestamp (diff normalized to ref_TI)
@@ -314,12 +314,12 @@ def get_TI_bybin(inputdata):
     results.append([Ref_TI_j, Ref_TI_jp5])
 
     if (
-        "corrTI_RSD_TI" in inputdata.columns
+        "adjTI_RSD_TI" in inputdata.columns
     ):  # this is checking if corrected TI windspeed is present in the input data and using that for getting the results.
-        corrTI_RSD_TI_j, corrTI_RSD_TI_jp5 = get_stats_per_WSbin(
-            inputdata, "corrTI_RSD_TI"
+        adjTI_RSD_TI_j, adjTI_RSD_TI_jp5 = get_stats_per_WSbin(
+            inputdata, "adjTI_RSD_TI"
         )
-        results.append([corrTI_RSD_TI_j, corrTI_RSD_TI_jp5])
+        results.append([adjTI_RSD_TI_j, adjTI_RSD_TI_jp5])
     else:
         results.append(pd.DataFrame(["NaN", "NaN"]))
 
@@ -343,10 +343,10 @@ def get_TI_byTIrefbin(inputdata):
         results.append(["NaN"])
 
     if (
-        "corrTI_RSD_TI" in inputdata.columns
+        "adjTI_RSD_TI" in inputdata.columns
     ):  # this is checking if corrected TI is present
-        corrTI_RSD_TI_r = get_stats_per_TIbin(inputdata, "corrTI_RSD_TI")
-        results.append([corrTI_RSD_TI_r])
+        adjTI_RSD_TI_r = get_stats_per_TIbin(inputdata, "adjTI_RSD_TI")
+        results.append([adjTI_RSD_TI_r])
     else:
         results.append(pd.DataFrame(["NaN"]))
 
@@ -416,11 +416,11 @@ def get_stats_inBin(inputdata_m, start, end):
     )
 
     if (
-        "corrTI_RSD_TI" in inputdata.columns
+        "adjTI_RSD_TI" in inputdata.columns
     ):  # this is checking if corrected TI windspeed is present in the input data and using that for getting the results.
         # Cor RSD vs Reg RSD
         inputdata["TI_diff_adjTI_RSD_Ref"] = (
-            inputdata["corrTI_RSD_TI"] - inputdata["Ref_TI"]
+            inputdata["adjTI_RSD_TI"] - inputdata["Ref_TI"]
         )  # caliculating the diff in ti for each timestamp
         inputdata["TI_error_adjTI_RSD_Ref"] = (
             inputdata["TI_diff_adjTI_RSD_Ref"] / inputdata["Ref_TI"]
@@ -431,14 +431,14 @@ def get_stats_inBin(inputdata_m, start, end):
         TI_diff_adjTI_RSD_Ref_Std = inputdata["TI_diff_adjTI_RSD_Ref"].std()
 
         modelResults = _adjuster_stats.get_regression(
-            inputdata["corrTI_RSD_TI"], inputdata["Ref_TI"]
+            inputdata["adjTI_RSD_TI"], inputdata["Ref_TI"]
         )
         rmse = modelResults[5]
         slope = modelResults[0]
         offset = modelResults[1]
         r2 = modelResults[2]
 
-        results["CorrTI_RSD_Ref"] = [
+        results["adjTI_RSD_Ref"] = [
             TI_error_adjTI_RSD_Ref_Avg,
             TI_error_adjTI_RSD_Ref_Std,
             TI_diff_adjTI_RSD_Ref_Avg,
@@ -449,7 +449,7 @@ def get_stats_inBin(inputdata_m, start, end):
             r2,
         ]
     else:
-        results["CorrTI_RSD_Ref"] = [
+        results["adjTI_RSD_Ref"] = [
             "NaN",
             "NaN",
             "NaN",
@@ -590,16 +590,16 @@ def Dist_stats(inputdata_adj, Timestamps, adjustmentName):
         ["Ane_RepTI_Ht2", "RSD_RepTI_Ht2"],
         ["Ane_RepTI_Ht3", "RSD_RepTI_Ht3"],
         ["Ane_RepTI_Ht4", "RSD_RepTI_Ht4"],
-        ["Ref_TI", "corrTI_RSD_TI"],
-        ["Ref_RepTI", "corrRepTI_RSD_RepTI"],
-        ["Ane_TI_Ht1", "corrTI_RSD_TI_Ht1"],
-        ["Ane_RepTI_Ht1", "corrRepTI_RSD_RepTI_Ht1"],
-        ["Ane_TI_Ht2", "corrTI_RSD_TI_Ht2"],
-        ["Ane_RepTI_Ht2", "corrRepTI_RSD_RepTI_Ht2"],
-        ["Ane_TI_Ht3", "corrTI_RSD_TI_Ht3"],
-        ["Ane_RepTI_Ht3", "corrRepTI_RSD_RepTI_Ht3"],
-        ["Ane_TI_Ht4", "corrTI_RSD_TI_Ht4"],
-        ["Ane_RepTI_Ht4", "corrRepTI_RSD_RepTI_Ht4"],
+        ["Ref_TI", "adjTI_RSD_TI"],
+        ["Ref_RepTI", "adjRepTI_RSD_RepTI"],
+        ["Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"],
+        ["Ane_RepTI_Ht1", "adjRepTI_RSD_RepTI_Ht1"],
+        ["Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"],
+        ["Ane_RepTI_Ht2", "adjRepTI_RSD_RepTI_Ht2"],
+        ["Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"],
+        ["Ane_RepTI_Ht3", "adjRepTI_RSD_RepTI_Ht3"],
+        ["Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"],
+        ["Ane_RepTI_Ht4", "adjRepTI_RSD_RepTI_Ht4"],
     ]
 
     b1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
@@ -742,8 +742,8 @@ def get_representative_TI_15mps(inputdata):
         listofcols.append("RSD_TI")
     if "Ane2_TI" in inputdata.columns:
         listofcols.append("Ane2_TI")
-    if "corrTI_RSD_WS" in inputdata.columns:
-        listofcols.append("corrTI_RSD_WS")
+    if "adjTI_RSD_WS" in inputdata.columns:
+        listofcols.append("adjTI_RSD_WS")
     results = inputdata_TI15[listofcols].describe()
     results.loc["Rep_TI", :] = results.loc["mean"] + 1.28 * results.loc["std"]
     results = results.loc[["mean", "std", "Rep_TI"], :].T
