@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
+from TACT.computation.adjustments import Adjustments, empirical_stdAdjustment
+from TACT.computation.post import post_adjustment_stats
 
 
-def perform_G_Sa_adjustment(inputdata, override):
+def perform_G_Sa_adjustment(inputdata, override, RSDtype):
     """simple filtered regression results from phase2 averages with simple regression from this data"""
     results = pd.DataFrame(
         columns=[

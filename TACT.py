@@ -351,40 +351,40 @@ def get_all_regressions(inputdata, title=None):
 #     return inputdata_test, results, m, c
 
 
-def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col, RSD_SD_col, Ref_WS_col, RSD_WS_col):
-    '''
-    set adjustment values
-    '''
-    inputdata_test = inputdata.copy()
-
-    # get col names
-    name_ref = Ref_TI_col.split('_TI')
-    name_rsd = RSD_TI_col.split('_TI')
-    name = RSD_TI_col.split('_TI')
-    adjTI_name = str('adjTI_'+RSD_TI_col)
-
-    if len(inputdata) < 2:
-        results = post_adjustment_stats([None],results, Ref_TI_col, adjTI_name)
-        m = np.NaN
-        c = np.NaN
-    else:
-        # add the new columns, initialized by uncorrected Data
-        tmp = str('adj'+ RSD_SD_col)
-        inputdata_test[tmp] = inputdata_test[RSD_SD_col].copy()
-        inputdata_test[str('adjTI_'+  RSD_TI_col)] = inputdata_test[RSD_TI_col].copy()
-
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), tmp] = ((1.116763*inputdata_test[tmp]) + 0.024685) - (((1.116763*inputdata_test[tmp]) + 0.024685)*0.00029)
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), adjTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
-
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)), tmp] = ((1.064564*inputdata_test[tmp]) + 0.040596) - (((1.064564*inputdata_test[tmp]) + 0.040596)*-0.00161)
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)), adjTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
-
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), tmp] = ((0.97865*inputdata_test[tmp]) + 0.124371) - (((0.97865*inputdata_test[tmp]) + 0.124371)*-0.00093)
-        inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), adjTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
-
-        results = post_adjustment_stats(inputdata_test,results, Ref_TI_col, adjTI_name)
-
-    return inputdata_test,results
+# def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col, RSD_SD_col, Ref_WS_col, RSD_WS_col):
+#     '''
+#     set adjustment values
+#     '''
+#     inputdata_test = inputdata.copy()
+# 
+#     # get col names
+#     name_ref = Ref_TI_col.split('_TI')
+#     name_rsd = RSD_TI_col.split('_TI')
+#     name = RSD_TI_col.split('_TI')
+#     adjTI_name = str('adjTI_'+RSD_TI_col)
+# 
+#     if len(inputdata) < 2:
+#         results = post_adjustment_stats([None],results, Ref_TI_col, adjTI_name)
+#         m = np.NaN
+#         c = np.NaN
+#     else:
+#         # add the new columns, initialized by uncorrected Data
+#         tmp = str('adj'+ RSD_SD_col)
+#         inputdata_test[tmp] = inputdata_test[RSD_SD_col].copy()
+#         inputdata_test[str('adjTI_'+  RSD_TI_col)] = inputdata_test[RSD_TI_col].copy()
+# 
+#         inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), tmp] = ((1.116763*inputdata_test[tmp]) + 0.024685) - (((1.116763*inputdata_test[tmp]) + 0.024685)*0.00029)
+#         inputdata_test.loc[((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), adjTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
+# 
+#         inputdata_test.loc[((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)), tmp] = ((1.064564*inputdata_test[tmp]) + 0.040596) - (((1.064564*inputdata_test[tmp]) + 0.040596)*-0.00161)
+#         inputdata_test.loc[((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)), adjTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
+# 
+#         inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), tmp] = ((0.97865*inputdata_test[tmp]) + 0.124371) - (((0.97865*inputdata_test[tmp]) + 0.124371)*-0.00093)
+#         inputdata_test.loc[((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), adjTI_name] = inputdata_test[tmp]/inputdata_test[RSD_WS_col]
+# 
+#         results = post_adjustment_stats(inputdata_test,results, Ref_TI_col, adjTI_name)
+# 
+#     return inputdata_test,results
 
 
 # def perform_G_C_adjustment(inputdata):
@@ -855,53 +855,53 @@ def empirical_stdAdjustment(inputdata,results,Ref_TI_col, RSD_TI_col, Ref_SD_col
 #     return inputdata_test_result, results, m, c
 
 
-def machine_learning_TI(x_train,y_train,x_test,y_test,mode,TI_test):
-
-    if len(x_train.shape) == 1:
-        y_train = np.array(y_train).reshape(-1,1).ravel()
-        y_test = np.array(y_test).reshape(-1,1).ravel()
-        x_train = np.array(x_train).reshape(-1,1)
-        x_test = np.array(x_test).reshape(-1,1)
-        TI_test = np.array(TI_test).reshape(-1,1)
-    if len(x_train.shape) != 1 and x_train.shape[1] == 1:
-        y_train = np.array(y_train).reshape(-1,1).ravel()
-        y_test = np.array(y_test).reshape(-1,1).ravel()
-        x_train = np.array(x_train).reshape(-1,1)
-        x_test = np.array(x_test).reshape(-1,1)
-        TI_test = np.array(TI_test).reshape(-1,1)
-    else:
-        y_train = np.array(y_train)
-        y_test = np.array(y_test)
-        x_train = np.array(x_train)
-        x_test = np.array(x_test)
-        TI_test = np.array(TI_test)
-
-    if "RF" in mode:
-        from sklearn.ensemble import RandomForestRegressor
-        rfc_new = RandomForestRegressor(random_state=42, n_estimators = 100)
-        #rfc_new = RandomForestRegressor(random_state=42,max_features=2,n_estimators=100)
-        rfc_new = rfc_new.fit(x_train,y_train.ravel())
-        TI_pred = rfc_new.predict(x_test)
-
-    if "SVR" in mode:
-       from sklearn.svm import SVR
-       clf = SVR(C=1.0, epsilon=0.2,kernel='poly',degree=2)
-       clf.fit(x_train, y_train)
-       TI_pred = clf.predict(x_test)
-
-    if "MARS" in mode:
-       from pyearth import Earth
-       MARS_model = Earth()
-       #MARS_model = Earth(max_terms=8,max_degree=2)
-       MARS_model.fit(x_test,y_test)
-       TI_pred[mask2] = MARS_model.predict(x_test)
-       print(MARS_model.summary())
-
-    if "NN" in mode:
-        # import stuff
-        NN_model = None
-
-    return TI_pred
+# def machine_learning_TI(x_train,y_train,x_test,y_test,mode,TI_test):
+# 
+#     if len(x_train.shape) == 1:
+#         y_train = np.array(y_train).reshape(-1,1).ravel()
+#         y_test = np.array(y_test).reshape(-1,1).ravel()
+#         x_train = np.array(x_train).reshape(-1,1)
+#         x_test = np.array(x_test).reshape(-1,1)
+#         TI_test = np.array(TI_test).reshape(-1,1)
+#     if len(x_train.shape) != 1 and x_train.shape[1] == 1:
+#         y_train = np.array(y_train).reshape(-1,1).ravel()
+#         y_test = np.array(y_test).reshape(-1,1).ravel()
+#         x_train = np.array(x_train).reshape(-1,1)
+#         x_test = np.array(x_test).reshape(-1,1)
+#         TI_test = np.array(TI_test).reshape(-1,1)
+#     else:
+#         y_train = np.array(y_train)
+#         y_test = np.array(y_test)
+#         x_train = np.array(x_train)
+#         x_test = np.array(x_test)
+#         TI_test = np.array(TI_test)
+# 
+#     if "RF" in mode:
+#         from sklearn.ensemble import RandomForestRegressor
+#         rfc_new = RandomForestRegressor(random_state=42, n_estimators = 100)
+#         #rfc_new = RandomForestRegressor(random_state=42,max_features=2,n_estimators=100)
+#         rfc_new = rfc_new.fit(x_train,y_train.ravel())
+#         TI_pred = rfc_new.predict(x_test)
+# 
+#     if "SVR" in mode:
+#        from sklearn.svm import SVR
+#        clf = SVR(C=1.0, epsilon=0.2,kernel='poly',degree=2)
+#        clf.fit(x_train, y_train)
+#        TI_pred = clf.predict(x_test)
+# 
+#     if "MARS" in mode:
+#        from pyearth import Earth
+#        MARS_model = Earth()
+#        #MARS_model = Earth(max_terms=8,max_degree=2)
+#        MARS_model.fit(x_test,y_test)
+#        TI_pred[mask2] = MARS_model.predict(x_test)
+#        print(MARS_model.summary())
+# 
+#     if "NN" in mode:
+#         # import stuff
+#         NN_model = None
+# 
+#     return TI_pred
 
 def min_diff(array_orig,array_to_find,tol):
     #Finds indices in array_orig that correspond to values closest to numbers in array_to_find with tolerance tol

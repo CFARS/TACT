@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+from TACT.computation.adjustments import Adjustments, empirical_stdAdjustment
+from TACT.computation.ml import machine_learning_TI
+from TACT.computation.post import post_adjustment_stats
 
 
 def perform_SS_LTERRA_ML_adjustment(inputdata):
