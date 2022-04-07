@@ -2005,31 +2005,6 @@ def get_10min_spectrum(ts,frequency):
     S_A_fast = (E_A_fast)/delta_f
     return S_A_fast,frequency_fft
 
-def get_10min_spectrum_WC_raw(ts,frequency):
-    #Calculate power spectrum for 10-min. period
-
-    #Inputs
-    #ts: Time series of data
-    #frequency: Sampling frequency of data
-
-    #Outputs
-    #S_A_fast: Spectral power
-    #frequency_fft: Frequencies correspond to spectral power values
-
-    import numpy as np
-    N = len(ts)
-    delta_f = float(frequency)/N
-    frequency_fft = np.linspace(0,float(frequency)/2,float(N/2))
-    F_A_fast = np.fft.fft(ts)/N
-    E_A_fast = 2*abs(F_A_fast[0:N/2]**2)
-    S_A_fast = (E_A_fast)/delta_f
-    #Data are only used for frequencies lower than 0.125 Hz. Above 0.125 Hz, the
-    #WINDCUBE spectrum calculated using raw data begins to show an artifact. This
-    #artifact is due to the recording of the u, v, and w components for every beam
-    #position, which results in repeating components.
-    S_A_fast = S_A_fast[frequency_fft <= 0.125]
-    frequency_fft = frequency_fft[frequency_fft <= 0.125]
-    return S_A_fast,frequency_fft
 
 def get_10min_covar(ts1,ts2,frequency):
     #Calculate the covariance of two variables
