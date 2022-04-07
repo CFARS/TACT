@@ -724,13 +724,13 @@ def write_all_resultstofile(
         if stabilityFlag:
             for i in lm_adj_stability:
                 start = className * 8 + 1
-                corrName = str(
+                adj_name = str(
                     "Adjusted RSD Regression Results, stability subset (TKE)"
                     + "_"
                     + "class_"
                     + str(className)
                 )
-                ws.cell(row=rowNumber, column=start, value=corrName)
+                ws.cell(row=rowNumber, column=start, value=adj_name)
                 ws.cell(row=rowNumber, column=start + 1, value="m")
                 ws.cell(row=rowNumber, column=start + 2, value="c")
                 ws.cell(row=rowNumber, column=start + 3, value="r-squared")
@@ -744,13 +744,13 @@ def write_all_resultstofile(
             rowNumber = 13
             for i in lm_adj_stability_alpha_Ane:
                 start = className * 8 + 1
-                corrName = str(
+                adj_name = str(
                     "Adjusted RSD Regression Results, stability subset (cup alpha)"
                     + "_"
                     + "class_"
                     + str(className)
                 )
-                ws.cell(row=rowNumber, column=start, value=corrName)
+                ws.cell(row=rowNumber, column=start, value=adj_name)
                 ws.cell(row=rowNumber, column=start + 1, value="m")
                 ws.cell(row=rowNumber, column=start + 2, value="c")
                 ws.cell(row=rowNumber, column=start + 3, value="r-squared")
@@ -764,13 +764,13 @@ def write_all_resultstofile(
             rowNumber = 25
             for i in lm_adj_stability_alpha_Ane:
                 start = className * 8 + 1
-                corrName = str(
+                adj_name = str(
                     "Adjusted RSD Regression Results, stability subset (RSD alpha)"
                     + "_"
                     + "class_"
                     + str(className)
                 )
-                ws.cell(row=rowNumber, column=start, value=corrName)
+                ws.cell(row=rowNumber, column=start, value=adj_name)
                 ws.cell(row=rowNumber, column=start + 1, value="m")
                 ws.cell(row=rowNumber, column=start + 2, value="c")
                 ws.cell(row=rowNumber, column=start + 3, value="r-squared")
