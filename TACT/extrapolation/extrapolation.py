@@ -13,6 +13,12 @@ from sklearn.metrics import mean_squared_error, r2_score
 import sys
 from .calculations import log_of_ratio, power_law
 from TACT.computation.post_adjustment import post_adjustment_stats
+from TACT.computation.TI_computations import (
+    get_TI_MBE_Diff_j,
+    get_TI_Diff_r,
+    get_TI_bybin,
+    get_TI_byTIrefbin,
+)
 
 
 def get_extrap_col_and_ht(height, num, primary_height, sensor="Ane", var="WS"):

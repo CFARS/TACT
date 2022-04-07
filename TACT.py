@@ -3409,7 +3409,7 @@ def initialize_resultsLists(appendString):
     resultsLists[str('total_StatsList' + '_' + appendString)] = []
     resultsLists[str('belownominal_statsList' + '_' + appendString)] = []
     resultsLists[str('abovenominal_statsList' + '_' + appendString)] = []
-    resultsLists[str('lm_CorrList' + '_' + appendString)] = []
+    resultsLists[str('lm_adjList' + '_' + appendString)] = []
     resultsLists[str('adjustmentTagList' + '_' + appendString)] = []
     resultsLists[str('Distribution_statsList' + '_' + appendString)] = []
     resultsLists[str('sampleTestsLists' + '_' + appendString)] = []
@@ -3546,7 +3546,7 @@ def populate_resultsLists(resultDict, appendString, adjustment_name, lm_adj, inp
         resultDict[str('total_StatsList' + '_' + appendString)].append(None)
         resultDict[str('belownominal_statsList' + '_' + appendString)].append(None)
         resultDict[str('abovenominal_statsList' + '_' + appendString)].append(None)
-        resultDict[str('lm_CorrList' + '_' + appendString)].append(lm_adj)
+        resultDict[str('lm_adjList' + '_' + appendString)].append(lm_adj)
         resultDict[str('adjustmentTagList' + '_' + appendString)].append(method)
         resultDict[str('Distribution_statsList' + '_' + appendString)].append(None)
         resultDict[str('sampleTestsLists' + '_' + appendString)].append(None)
@@ -3567,7 +3567,7 @@ def populate_resultsLists(resultDict, appendString, adjustment_name, lm_adj, inp
         resultDict[str('total_StatsList' + '_' + appendString)].append(total_stats)
         resultDict[str('belownominal_statsList' + '_' + appendString)].append(belownominal_stats)
         resultDict[str('abovenominal_statsList' + '_' + appendString)].append(abovenominal_stats)
-        resultDict[str('lm_CorrList' + '_' + appendString)].append(lm_adj)
+        resultDict[str('lm_adjList' + '_' + appendString)].append(lm_adj)
         resultDict[str('adjustmentTagList' + '_' + appendString)].append(method)
     try:
         Distribution_stats, sampleTests = Dist_stats(inputdata_adj, Timestamps,adjustment_name)
@@ -3598,7 +3598,7 @@ def populate_resultsLists_stability(ResultsLists_stability, ResultsLists_class, 
     ResultsLists_stability[str('total_StatsList_stability' + '_' + appendString)].append(ResultsLists_class[str('total_StatsList_class_' + appendString)])
     ResultsLists_stability[str('belownominal_statsList_stability' + '_' + appendString)].append(ResultsLists_class[str('belownominal_statsList_class_' + appendString)])
     ResultsLists_stability[str('abovenominal_statsList_stability' + '_' + appendString)].append(ResultsLists_class[str('abovenominal_statsList_class_' + appendString)])
-    ResultsLists_stability[str('lm_CorrList_stability' + '_' + appendString)].append(ResultsLists_class[str('lm_CorrList_class_' + appendString)])
+    ResultsLists_stability[str('lm_adjList_stability' + '_' + appendString)].append(ResultsLists_class[str('lm_adjList_class_' + appendString)])
     ResultsLists_stability[str('adjustmentTagList_stability' + '_' + appendString)].append(ResultsLists_class[str('adjustmentTagList_class_' + appendString)])
     ResultsLists_stability[str('Distribution_statsList_stability' + '_' + appendString)].append(ResultsLists_class[str('Distribution_statsList_class_' + appendString)])
     ResultsLists_stability[str('sampleTestsLists_stability' + '_' + appendString)].append(ResultsLists_class[str('sampleTestsLists_class_' + appendString)])
@@ -5172,7 +5172,7 @@ if __name__ == '__main__':
         total_StatsList_stability = np.nan
         belownominal_statsList_stability = np.nan
         abovenominal_statsList_stability = np.nan
-        lm_CorrList_stability = np.nan
+        lm_adjList_stability = np.nan
         adjustmentTagList_stability = np.nan
         Distibution_statsList_stability = np.nan
         sampleTestsLists_stability = np.nan
