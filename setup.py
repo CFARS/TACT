@@ -9,7 +9,7 @@ with open('requirements.txt', 'r') as rf:
 
 setup(
     name='TACT',
-    version='0.1.3',
+    version='0.1.4',
     description='CFARS Site Suitability TACT Tool',
     long_description=long_description,
     long_description_content_type='text/markdown',
