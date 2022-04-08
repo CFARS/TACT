@@ -51,7 +51,9 @@ def perform_match_input(inputdata):
         full["RSD_WS"] = inputdata_test["RSD_WS"]
         full = full.dropna()
         if len(full) < 10:
-            results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats(
+                [None], results, "Ref_TI", "adjTI_RSD_TI"
+            )
             m = np.NaN
             c = np.NaN
         else:
@@ -220,7 +222,9 @@ def perform_match(inputdata):
         full["RSD_TI"] = inputdata_test["RSD_TI"]
         full = full.dropna()
         if len(full) < 10:
-            results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats(
+                [None], results, "Ref_TI", "adjTI_RSD_TI"
+            )
             m = np.NaN
             c = np.NaN
         else:

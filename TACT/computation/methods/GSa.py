@@ -67,7 +67,9 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
         full["RSD_TI"] = inputdata_test["RSD_TI"]
         full = full.dropna()
         if len(full) < 2:
-            results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats(
+                [None], results, "Ref_TI", "adjTI_RSD_TI"
+            )
             m = np.NaN
             c = np.NaN
         else:

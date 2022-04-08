@@ -512,6 +512,8 @@ def empirical_stdAdjustment(
             inputdata_test[tmp] / inputdata_test[RSD_WS_col]
         )
 
-        results = adj.post_adjustment_stats(inputdata_test, results, Ref_TI_col, adjTI_name)
+        results = adj.post_adjustment_stats(
+            inputdata_test, results, Ref_TI_col, adjTI_name
+        )
 
     return inputdata_test, results
