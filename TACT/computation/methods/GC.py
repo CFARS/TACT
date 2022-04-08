@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from TACT.computation.adjustments import Adjustments, empirical_stdAdjustment
-from TACT.computation.post import post_adjustment_stats
 
 
 def perform_G_C_adjustment(inputdata):
@@ -21,23 +20,24 @@ def perform_G_C_adjustment(inputdata):
             "rmse",
         ]
     )
+    adj = Adjustments()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+        results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
             )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
             )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
             )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
             )
         m = np.NaN

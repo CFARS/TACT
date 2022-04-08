@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from TACT.computation.adjustments import Adjustments, empirical_stdAdjustment
 from TACT.computation.ml import machine_learning_TI
-from TACT.computation.post import post_adjustment_stats
 
 
 def perform_SS_NN_adjustment(inputdata):
@@ -23,23 +22,24 @@ def perform_SS_NN_adjustment(inputdata):
     )
     inputdata_train = inputdata[inputdata["split"] == True].copy()
     inputdata_test = inputdata[inputdata["split"] == False].copy()
+    adj = Adjustments()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+        results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
             )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
             )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
             )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
             )
         m = np.NaN
@@ -73,7 +73,9 @@ def perform_SS_NN_adjustment(inputdata):
         all_train = all_train.dropna()
         all_test = all_test.dropna()
         if len(all_train) < 5 and len(all_test) < 5:
-            results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats(
+                [None], results, "Ref_TI", "adjTI_RSD_TI"
+            )
             m = np.NaN
             c = np.NaN
         else:
@@ -106,7 +108,7 @@ def perform_SS_NN_adjustment(inputdata):
             all_test["adjTI_RSD_TI"] = TI_pred_RF
             all_test["Ref_TI"] = all_test["y_test"]
             inputdata_test_result = pd.merge(inputdata_test, all_test, how="left")
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 inputdata_test_result, results, "Ref_TI", "adjTI_RSD_TI"
             )
         if (
@@ -133,7 +135,7 @@ def perform_SS_NN_adjustment(inputdata):
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
                 m = np.NaN
@@ -170,7 +172,7 @@ def perform_SS_NN_adjustment(inputdata):
                 inputdata_test_result = pd.merge(
                     inputdata_test_result, all_test, how="left"
                 )
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test_result, results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
         if (
@@ -197,7 +199,7 @@ def perform_SS_NN_adjustment(inputdata):
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
                 m = np.NaN
@@ -234,7 +236,7 @@ def perform_SS_NN_adjustment(inputdata):
                 inputdata_test_result = pd.merge(
                     inputdata_test_result, all_test, how="left"
                 )
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test_result, results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
         if (
@@ -261,7 +263,7 @@ def perform_SS_NN_adjustment(inputdata):
             all_train = all_train.dropna()
             all_test = all_test.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
                 m = np.NaN
@@ -298,7 +300,7 @@ def perform_SS_NN_adjustment(inputdata):
                 inputdata_test_result = pd.merge(
                     inputdata_test_result, all_test, how="left"
                 )
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test_result, results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
         if (
@@ -324,7 +326,7 @@ def perform_SS_NN_adjustment(inputdata):
             all_test["RSD_SD"] = inputdata_test["RSD_SD_Ht4"].copy()
             all_train = all_train.dropna()
             if len(all_train) < 5 and len(all_test) < 5:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
                 m = np.NaN
@@ -361,7 +363,7 @@ def perform_SS_NN_adjustment(inputdata):
                 inputdata_test_result = pd.merge(
                     inputdata_test_result, all_test, how="left"
                 )
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test_result, results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
 

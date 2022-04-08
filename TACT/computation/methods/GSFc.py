@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from TACT.computation.adjustments import Adjustments, empirical_stdAdjustment
-from TACT.computation.post import post_adjustment_stats
 
 
 def perform_G_SFc_adjustment(inputdata):
@@ -24,23 +23,24 @@ def perform_G_SFc_adjustment(inputdata):
     )
     m = 0.7086
     c = 0.0225
+    adj = Adjustments()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+        results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
             )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
             )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
             )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
             )
         inputdata = False
@@ -50,12 +50,14 @@ def perform_G_SFc_adjustment(inputdata):
         full["RSD_TI"] = inputdata["RSD_TI"]
         full = full.dropna()
         if len(full) < 2:
-            results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats(
+                [None], results, "Ref_TI", "adjTI_RSD_TI"
+            )
         else:
             RSD_TI = inputdata["RSD_TI"].copy()
             RSD_TI = (float(m) * RSD_TI) + float(c)
             inputdata["adjTI_RSD_TI"] = RSD_TI
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 inputdata, results, "Ref_TI", "adjTI_RSD_TI"
             )
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
@@ -64,14 +66,14 @@ def perform_G_SFc_adjustment(inputdata):
             full["RSD_TI_Ht1"] = inputdata["RSD_TI_Ht1"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
             else:
                 RSD_TI = inputdata["RSD_TI_Ht1"].copy()
                 RSD_TI = (m * RSD_TI) + c
                 inputdata["adjTI_RSD_TI_Ht1"] = RSD_TI
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata, results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
@@ -80,14 +82,14 @@ def perform_G_SFc_adjustment(inputdata):
             full["RSD_TI_Ht2"] = inputdata["RSD_TI_Ht2"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
             else:
                 RSD_TI = inputdata["RSD_TI_Ht2"].copy()
                 RSD_TI = (m * RSD_TI) + c
                 inputdata["adjTI_RSD_TI_Ht2"] = RSD_TI
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata, results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
@@ -96,14 +98,14 @@ def perform_G_SFc_adjustment(inputdata):
             full["RSD_TI_Ht3"] = inputdata["RSD_TI_Ht3"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
             else:
                 RSD_TI = inputdata["RSD_TI_Ht3"].copy()
                 RSD_TI = (m * RSD_TI) + c
                 inputdata["adjTI_RSD_TI_Ht3"] = RSD_TI
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata, results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
@@ -112,14 +114,14 @@ def perform_G_SFc_adjustment(inputdata):
             full["RSD_TI_Ht4"] = inputdata["RSD_TI_Ht4"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
             else:
                 RSD_TI = inputdata["RSD_TI_Ht4"].copy()
                 RSD_TI = (m * RSD_TI) + c
                 inputdata["adjTI_RSD_TI_Ht4"] = RSD_TI
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata, results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
 

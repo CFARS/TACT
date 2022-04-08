@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from TACT.computation.adjustments import Adjustments, empirical_stdAdjustment
-from TACT.computation.post import post_adjustment_stats
 
 
 def perform_SS_WS_Std_adjustment(inputdata):
@@ -21,26 +20,26 @@ def perform_SS_WS_Std_adjustment(inputdata):
             "rmse",
         ]
     )
-
-    _adjuster_SS_WS_Std = Adjustments()
     inputdata_train = inputdata[inputdata["split"] == True].copy()
     inputdata_test = inputdata[inputdata["split"] == False].copy()
+    adj = Adjustments()
+
     if inputdata.empty or len(inputdata) < 2:
-        results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+        results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
         if "Ane_WS_Ht1" in inputdata.columns and "RSD_WS_Ht1" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
             )
         if "Ane_WS_Ht2" in inputdata.columns and "RSD_WS_Ht2" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
             )
         if "Ane_WS_Ht3" in inputdata.columns and "RSD_WS_Ht3" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
             )
         if "Ane_WS_Ht4" in inputdata.columns and "RSD_WS_Ht4" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
             )
         m = np.NaN
@@ -54,14 +53,16 @@ def perform_SS_WS_Std_adjustment(inputdata):
         full["RSD_Sd"] = inputdata_test["RSD_SD"]
         full = full.dropna()
         if len(full) < 2:
-            results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats(
+                [None], results, "Ref_TI", "adjTI_RSD_TI"
+            )
             m = np.NaN
             c = np.NaN
         else:
-            model = _adjuster_SS_WS_Std.get_regression(
+            model = adj.get_regression(
                 inputdata_train["RSD_WS"], inputdata_train["Ref_WS"]
             )
-            model_std = _adjuster_SS_WS_Std.get_regression(
+            model_std = adj.get_regression(
                 inputdata_train["RSD_SD"], inputdata_train["Ref_SD"]
             )
             m = model[0]
@@ -76,7 +77,7 @@ def perform_SS_WS_Std_adjustment(inputdata):
             inputdata_test["RSD_adjSD"] = RSD_adjSD
             RSD_TI = inputdata_test["RSD_adjSD"] / inputdata_test["RSD_adjWS"]
             inputdata_test["adjTI_RSD_TI"] = RSD_TI
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 inputdata_test, results, "Ref_TI", "adjTI_RSD_TI"
             )
         if (
@@ -92,16 +93,16 @@ def perform_SS_WS_Std_adjustment(inputdata):
             full["RSD_SD"] = inputdata_test["RSD_SD_Ht1"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _adjuster_SS_WS_Std.get_regression(
+                model = adj.get_regression(
                     inputdata_train["RSD_WS_Ht1"], inputdata_train["Ane_WS_Ht1"]
                 )
-                model_std = _adjuster_SS_WS_Std.get_regression(
+                model_std = adj.get_regression(
                     inputdata_train["RSD_SD_Ht1"], inputdata_train["Ane_SD_Ht1"]
                 )
                 RSD_WS = inputdata_test["RSD_WS_Ht1"]
@@ -114,7 +115,7 @@ def perform_SS_WS_Std_adjustment(inputdata):
                     inputdata_test["RSD_adjSD_Ht1"] / inputdata_test["RSD_adjWS_Ht1"]
                 )
                 inputdata_test["adjTI_RSD_TI_Ht1"] = RSD_TI
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
         if (
@@ -129,16 +130,16 @@ def perform_SS_WS_Std_adjustment(inputdata):
             full["RSD_SD"] = inputdata_test["RSD_SD_Ht2"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _adjuster_SS_WS_Std.get_regression(
+                model = adj.get_regression(
                     inputdata_train["RSD_WS_Ht2"], inputdata_train["Ane_WS_Ht2"]
                 )
-                model_std = _adjuster_SS_WS_Std.get_regression(
+                model_std = adj.get_regression(
                     inputdata_train["RSD_SD_Ht2"], inputdata_train["Ane_SD_Ht2"]
                 )
                 RSD_WS = inputdata_test["RSD_WS_Ht2"]
@@ -151,7 +152,7 @@ def perform_SS_WS_Std_adjustment(inputdata):
                     inputdata_test["RSD_adjSD_Ht2"] / inputdata_test["RSD_adjWS_Ht2"]
                 )
                 inputdata_test["adjTI_RSD_TI_Ht2"] = RSD_TI
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
         if (
@@ -166,16 +167,16 @@ def perform_SS_WS_Std_adjustment(inputdata):
             full["RSD_SD"] = inputdata_test["RSD_SD_Ht3"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _adjuster_SS_WS_Std.get_regression(
+                model = adj.get_regression(
                     inputdata_train["RSD_WS_Ht3"], inputdata_train["Ane_WS_Ht3"]
                 )
-                model_std = _adjuster_SS_WS_Std.get_regression(
+                model_std = adj.get_regression(
                     inputdata_train["RSD_SD_Ht3"], inputdata_train["Ane_SD_Ht3"]
                 )
                 RSD_WS = inputdata_test["RSD_WS_Ht3"]
@@ -188,7 +189,7 @@ def perform_SS_WS_Std_adjustment(inputdata):
                     inputdata_test["RSD_adjSD_Ht3"] / inputdata_test["RSD_adjWS_Ht3"]
                 )
                 inputdata_test["adjTI_RSD_TI_Ht3"] = RSD_TI
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
         if (
@@ -203,16 +204,16 @@ def perform_SS_WS_Std_adjustment(inputdata):
             full["RSD_SD"] = inputdata_test["RSD_SD_Ht4"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _adjuster_SS_WS_Std.get_regression(
+                model = adj.get_regression(
                     inputdata_train["RSD_WS_Ht4"], inputdata_train["Ane_WS_Ht4"]
                 )
-                model_std = _adjuster_SS_WS_Std.get_regression(
+                model_std = adj.get_regression(
                     inputdata_train["RSD_SD_Ht4"], inputdata_train["Ane_SD_Ht4"]
                 )
                 RSD_WS = inputdata_test["RSD_WS_Ht4"]
@@ -225,7 +226,7 @@ def perform_SS_WS_Std_adjustment(inputdata):
                     inputdata_test["RSD_adjSD_Ht4"] / inputdata_test["RSD_adjWS_Ht4"]
                 )
                 inputdata_test["adjTI_RSD_TI_Ht4"] = RSD_TI
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
 

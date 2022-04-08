@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from TACT.computation.adjustments import Adjustments, empirical_stdAdjustment
-from TACT.computation.post import post_adjustment_stats
 
 
 def perform_SS_SS_adjustment(inputdata, All_class_data, primary_idx):
@@ -21,7 +20,7 @@ def perform_SS_SS_adjustment(inputdata, All_class_data, primary_idx):
             "rmse",
         ]
     )
-    _adjuster_SS_SS = Adjustments()
+    adj = Adjustments()
 
     className = 1
     items_adjected = []
@@ -49,7 +48,7 @@ def perform_SS_SS_adjustment(inputdata, All_class_data, primary_idx):
                 if len(full) < 2:
                     pass
                 else:
-                    model = _adjuster_SS_SS.get_regression(
+                    model = adj.get_regression(
                         inputdata_train["RSD_TI"], inputdata_train["Ref_TI"]
                     )
                     m = model[0]
@@ -64,7 +63,9 @@ def perform_SS_SS_adjustment(inputdata, All_class_data, primary_idx):
     adjusted_data = items_adjected[0]
     for item in items_adjected[1:]:
         adjusted_data = pd.concat([adjusted_data, item])
-    results = post_adjustment_stats(inputdata_test, results, "Ref_TI", "adjTI_RSD_TI")
+    results = adj.post_adjustment_stats(
+        inputdata_test, results, "Ref_TI", "adjTI_RSD_TI"
+    )
 
     results["adjustment"] = ["SS-SS"] * len(results)
     results = results.drop(columns=["sensor", "height"])

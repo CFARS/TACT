@@ -458,6 +458,7 @@ def empirical_stdAdjustment(
     set adjustment values
     """
     inputdata_test = inputdata.copy()
+    adj = Adjustments()
 
     # get col names
     name_ref = Ref_TI_col.split("_TI")
@@ -466,7 +467,7 @@ def empirical_stdAdjustment(
     adjTI_name = str("adjTI_" + RSD_TI_col)
 
     if len(inputdata) < 2:
-        results = post_adjustment_stats([None], results, Ref_TI_col, adjTI_name)
+        results = adj.post_adjustment_stats([None], results, Ref_TI_col, adjTI_name)
         m = np.NaN
         c = np.NaN
     else:
@@ -511,6 +512,6 @@ def empirical_stdAdjustment(
             inputdata_test[tmp] / inputdata_test[RSD_WS_col]
         )
 
-        results = post_adjustment_stats(inputdata_test, results, Ref_TI_col, adjTI_name)
+        results = adj.post_adjustment_stats(inputdata_test, results, Ref_TI_col, adjTI_name)
 
     return inputdata_test, results

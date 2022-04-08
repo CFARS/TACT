@@ -13,7 +13,6 @@ from sklearn.metrics import mean_squared_error, r2_score
 import sys
 from TACT.extrapolation.calculations import log_of_ratio, power_law
 from TACT.computation.adjustments import Adjustments
-from TACT.computation.post import post_adjustment_stats
 
 
 def get_representative_TI(inputdata):

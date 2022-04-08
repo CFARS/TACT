@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from TACT.computation.adjustments import Adjustments, empirical_stdAdjustment
-from TACT.computation.post import post_adjustment_stats
 
 
 def perform_G_Sa_adjustment(inputdata, override, RSDtype):
@@ -21,7 +20,7 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
     )
     inputdata_train = inputdata[inputdata["split"] == True].copy()
     inputdata_test = inputdata[inputdata["split"] == False].copy()
-    _adjuster_G_Sa = Adjustments()
+    adj = Adjustments()
 
     if override:
         m_ph2 = override[0]
@@ -42,21 +41,21 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
             inputdata = pd.DataFrame()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+        results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
             )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
             )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
             )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
             )
         m = np.NaN
@@ -68,11 +67,11 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
         full["RSD_TI"] = inputdata_test["RSD_TI"]
         full = full.dropna()
         if len(full) < 2:
-            results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
             m = np.NaN
             c = np.NaN
         else:
-            model = _adjuster_G_Sa.get_regression(
+            model = adj.get_regression(
                 inputdata_train["RSD_TI"], inputdata_train["Ref_TI"]
             )
             m = (model[0] + m_ph2) / 2
@@ -83,7 +82,7 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
             inputdata_test["adjRepTI_RSD_RepTI"] = (
                 RSD_TI + 1.28 * inputdata_test["RSD_SD"]
             )
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 inputdata_test, results, "Ref_TI", "adjTI_RSD_TI"
             )
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
@@ -92,13 +91,13 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
             full["RSD_TI"] = inputdata_test["RSD_TI_Ht1"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _adjuster_G_Sa.get_regression(
+                model = adj.get_regression(
                     inputdata_train["RSD_TI"], inputdata_train["Ref_TI"]
                 )
                 m = (model[0] + m_ph2) / 2
@@ -109,7 +108,7 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
                 inputdata_test["adjRepTI_RSD_RepTI_Ht1"] = (
                     RSD_TI + 1.28 * inputdata_test["RSD_SD_Ht1"]
                 )
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
@@ -118,13 +117,13 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
             full["RSD_TI"] = inputdata_test["RSD_TI_Ht2"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _adjuster_G_Sa.get_regression(
+                model = adj.get_regression(
                     inputdata_train["RSD_TI_Ht2"], inputdata_train["Ane_TI_Ht2"]
                 )
                 m = (model[0] + m_ph2) / 2
@@ -135,7 +134,7 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
                 inputdata_test["adjRepTI_RSD_RepTI_Ht2"] = (
                     RSD_TI + 1.28 * inputdata_test["RSD_SD_Ht2"]
                 )
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
@@ -144,13 +143,13 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
             full["RSD_TI"] = inputdata_test["RSD_TI_Ht3"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _adjuster_G_Sa.get_regression(
+                model = adj.get_regression(
                     inputdata_train["RSD_TI_Ht3"], inputdata_train["Ane_TI_Ht3"]
                 )
                 m = (model[0] + m_ph2) / 2
@@ -161,7 +160,7 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
                 inputdata_test["adjRepTI_RSD_RepTI_Ht3"] = (
                     RSD_TI + 1.28 * inputdata_test["RSD_SD_Ht3"]
                 )
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
@@ -170,13 +169,13 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
             full["RSD_TI"] = inputdata_test["RSD_TI_Ht4"]
             full = full.dropna()
             if len(full) < 2:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
                 m = np.NaN
                 c = np.NaN
             else:
-                model = _adjuster_G_Sa.get_regression(
+                model = adj.get_regression(
                     inputdata_train["RSD_TI_Ht4"], inputdata_train["Ane_TI_Ht4"]
                 )
                 m = (model[0] + m_ph2) / 2
@@ -187,7 +186,7 @@ def perform_G_Sa_adjustment(inputdata, override, RSDtype):
                 inputdata_test["adjRepTI_RSD_RepTI_Ht4"] = (
                     RSD_TI + 1.28 * inputdata_test["RSD_SD_Ht4"]
                 )
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
 

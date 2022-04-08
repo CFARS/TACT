@@ -1,5 +1,7 @@
+from tkinter import W
 import numpy as np
 import pandas as pd
+from TACT.computation.adjustments import Adjustments
 
 
 def perform_match_input(inputdata):
@@ -21,23 +23,24 @@ def perform_match_input(inputdata):
     )
     inputdata_train = inputdata[inputdata["split"] == True].copy()
     inputdata_test = inputdata[inputdata["split"] == False].copy()
+    adj = Adjustments()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+        results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
             )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
             )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
             )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
             )
         m = np.NaN
@@ -48,14 +51,14 @@ def perform_match_input(inputdata):
         full["RSD_WS"] = inputdata_test["RSD_WS"]
         full = full.dropna()
         if len(full) < 10:
-            results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
             m = np.NaN
             c = np.NaN
         else:
             WS_output = hist_match(inputdata_train, inputdata_test, "Ref_WS", "RSD_WS")
             SD_output = hist_match(inputdata_train, inputdata_test, "Ref_SD", "RSD_SD")
             inputdata_test["adjTI_RSD_TI"] = SD_output / WS_output
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 inputdata_test, results, "Ref_TI", "adjTI_RSD_TI"
             )
         if (
@@ -69,7 +72,7 @@ def perform_match_input(inputdata):
             full["RSD_WS"] = inputdata_test["RSD_WS_Ht1"]
             full = full.dropna()
             if len(full) < 10:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
                 m = np.NaN
@@ -82,7 +85,7 @@ def perform_match_input(inputdata):
                     inputdata_train, inputdata_test, "Ane_SD_Ht1", "RSD_SD_Ht1"
                 )
                 inputdata_test["adjTI_RSD_TI_Ht1"] = SD_output / WS_output
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
         if (
@@ -96,7 +99,7 @@ def perform_match_input(inputdata):
             full["RSD_WS"] = inputdata_test["RSD_WS_Ht2"]
             full = full.dropna()
             if len(full) < 10:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
                 m = np.NaN
@@ -109,7 +112,7 @@ def perform_match_input(inputdata):
                     inputdata_train, inputdata_test, "Ane_SD_Ht2", "RSD_SD_Ht2"
                 )
                 inputdata_test["adjTI_RSD_TI_Ht2"] = SD_output / WS_output
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
         if (
@@ -123,7 +126,7 @@ def perform_match_input(inputdata):
             full["RSD_WS"] = inputdata_test["RSD_WS_Ht3"]
             full = full.dropna()
             if len(full) < 10:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
                 m = np.NaN
@@ -136,7 +139,7 @@ def perform_match_input(inputdata):
                     inputdata_train, inputdata_test, "Ane_SD_Ht3", "RSD_SD_Ht3"
                 )
                 inputdata_test["adjTI_RSD_TI_Ht3"] = SD_output / WS_output
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
         if (
@@ -150,7 +153,7 @@ def perform_match_input(inputdata):
             full["RSD_WS"] = inputdata_test["RSD_WS_Ht4"]
             full = full.dropna()
             if len(full) < 10:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
                 m = np.NaN
@@ -163,7 +166,7 @@ def perform_match_input(inputdata):
                     inputdata_train, inputdata_test, "Ane_SD_Ht4", "RSD_SD_Ht4"
                 )
                 inputdata_test["adjTI_RSD_TI_Ht4"] = SD_output / WS_output
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
 
@@ -189,23 +192,24 @@ def perform_match(inputdata):
     )
     inputdata_train = inputdata[inputdata["split"] == True].copy()
     inputdata_test = inputdata[inputdata["split"] == False].copy()
+    adj = Adjustments()
 
     if inputdata.empty or len(inputdata) < 2:
-        results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+        results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
             )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
             )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
             )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
             )
         m = np.NaN
@@ -216,13 +220,13 @@ def perform_match(inputdata):
         full["RSD_TI"] = inputdata_test["RSD_TI"]
         full = full.dropna()
         if len(full) < 10:
-            results = post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = adj.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
             m = np.NaN
             c = np.NaN
         else:
             output = hist_match(inputdata_train, inputdata_test, "Ref_TI", "RSD_TI")
             inputdata_test["adjTI_RSD_TI"] = output
-            results = post_adjustment_stats(
+            results = adj.post_adjustment_stats(
                 inputdata_test, results, "Ref_TI", "adjTI_RSD_TI"
             )
         if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
@@ -231,7 +235,7 @@ def perform_match(inputdata):
             full["RSD_TI"] = inputdata_test["RSD_TI_Ht1"]
             full = full.dropna()
             if len(full) < 10:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
                 m = np.NaN
@@ -241,7 +245,7 @@ def perform_match(inputdata):
                     inputdata_train, inputdata_test, "Ane_TI_Ht1", "RSD_TI_Ht1"
                 )
                 inputdata_test["adjTI_RSD_TI_Ht1"] = output
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
                 )
         if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
@@ -250,7 +254,7 @@ def perform_match(inputdata):
             full["RSD_TI"] = inputdata_test["RSD_TI_Ht2"]
             full = full.dropna()
             if len(full) < 10:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
                 m = np.NaN
@@ -260,7 +264,7 @@ def perform_match(inputdata):
                     inputdata_train, inputdata_test, "Ane_TI_Ht2", "RSD_TI_Ht2"
                 )
                 inputdata_test["adjTI_RSD_TI_Ht2"] = output
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
                 )
         if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
@@ -269,7 +273,7 @@ def perform_match(inputdata):
             full["RSD_TI"] = inputdata_test["RSD_TI_Ht3"]
             full = full.dropna()
             if len(full) < 10:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
                 m = np.NaN
@@ -279,7 +283,7 @@ def perform_match(inputdata):
                     inputdata_train, inputdata_test, "Ane_TI_Ht3", "RSD_TI_Ht3"
                 )
                 inputdata_test["adjTI_RSD_TI_Ht3"] = output
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
                 )
         if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
@@ -288,7 +292,7 @@ def perform_match(inputdata):
             full["RSD_TI"] = inputdata_test["RSD_TI_Ht4"]
             full = full.dropna()
             if len(full) < 10:
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
                 m = np.NaN
@@ -298,7 +302,7 @@ def perform_match(inputdata):
                     inputdata_train, inputdata_test, "Ane_TI_Ht4", "RSD_TI_Ht4"
                 )
                 inputdata_test["adjTI_RSD_TI_Ht4"] = output
-                results = post_adjustment_stats(
+                results = adj.post_adjustment_stats(
                     inputdata_test, results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
                 )
 
