@@ -168,7 +168,7 @@ class Data(Config):
             (
                 (df["Header_YourData"] != "RSD_model")
                 & (df["Header_YourData"] != "height_meters")
-                & [re.search("correction", val) is None for val in df.Header_YourData]
+                & [re.search("adjustment", val) is None for val in df.Header_YourData]
             )
         ]
 
@@ -208,9 +208,9 @@ class Data(Config):
         if (set(requiredData).issubset(set(cfarsColList))) == False:
             missing = set(requiredData).difference(set(cfarsColList))
             print(
-                "You are unable to apply all RSD correction methods, skipping RSD corrections due to missing:\n"
+                "You are unable to apply all RSD adjustment methods, skipping RSD adjustments due to missing:\n"
                 + str(missing)
-                + "\n Please fix in order to run correction methods"
+                + "\n Please fix in order to run adjustment methods"
             )
             requiredData = ["Ane2_TI", "Ane2_WS", "Ane2_SD"]
             if (set(requiredData).issubset(set(cfarsColList))) == False:

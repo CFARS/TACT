@@ -24,7 +24,7 @@ def WC_processing_standard(filename,option,height_needed):
     #wd: 10-min. Mean wind direction
     #p: Shear exponent, calculated for every 10 min. of data
     #time_datenum_10min: Timestamp in datetime format
-    #w_rot: Time series of vertical wind speed after tilt correction has been applied
+    #w_rot: Time series of vertical wind speed after tilt adjustment has been applied
     #vr_n_interp,vr_e_interp,vr_s_interp, and vr_w_interp: Time series of radial velocity from north-, east-, south-, 
     #and west-pointing beams, respectively.
 
@@ -195,17 +195,17 @@ def ZephIR_processing_standard(filename,height_needed):
     return u_rot,U,wd,p,time_datenum_10min 
     
 def lidar_processing_noise(ts,frequency,mode_ws,mode_noise):
-    #Function to apply noise correction to time series. Outputs new variance after
-    #noise correction has been applied. 
+    #Function to apply noise adjustment to time series. Outputs new variance after
+    #noise adjustment has been applied. 
 
     #Inputs
     #ts: Time series of data
     #frequency: Sampling frequency of data
     #mode_ws: raw_WC, VAD, or raw_ZephIR 
-    #mode_noise: Type of noise correction to be applied. Options are spike, lenschow_linear, lenschow_subrange, and lenschow_spectrum.
+    #mode_noise: Type of noise adjustment to be applied. Options are spike, lenschow_linear, lenschow_subrange, and lenschow_spectrum.
 
     #Outputs
-    #new_ts_var: New 10-min. variance values after noise correction has been applied
+    #new_ts_var: New 10-min. variance values after noise adjustment has been applied
 
     from lidar_noise_removal_functions import lenschow_technique,spike_filter 
     from lidar_preprocessing_functions import get_10min_var
@@ -237,14 +237,14 @@ def lidar_processing_vol_averaging(u,frequency,mode_ws,mode_vol):
     #u: Time series of streamwise wind speed
     #frequency: Sampling frequency of time series
     #mode_ws: raw_WC, VAD, or raw_ZephIR 
-    #mode_vol: Type of volume averaging correction to be applied. Options are spectral_correction_fit and acf.
+    #mode_vol: Type of volume averaging adjustment to be applied. Options are spectral_adjustment_fit and acf.
 
     #Outputs
     #var_diff: Estimate of loss of streamwise variance due to volume averaging
 
-    from lidar_volume_averaging_functions import spectral_correction
+    from lidar_volume_averaging_functions import spectral_adjustment
 
-    var_diff = spectral_correction(u,frequency,mode_ws,mode_vol)
+    var_diff = spectral_adjustment(u,frequency,mode_ws,mode_vol)
 
     return var_diff
     
@@ -259,13 +259,13 @@ def lidar_processing_var_contam(vr_n,vr_e,vr_s,vr_w,vr_z,wd,U,height_needed,freq
     #height_needed: Measurement height corresponding to velocity data
     #frequency_vert_beam: Sampling frequency of data from vertically pointing beam
     #el_angle: Elevation angle of off-vertical beam positions (in degrees, measured from the ground)
-    #mode: Type of variance contamination correction to be applied. Options are taylor_ws and taylor_var. 
+    #mode: Type of variance contamination adjustment to be applied. Options are taylor_ws and taylor_var. 
 
     #Outputs
     #var_diff: Estimate of increase in streamwise variance due to variance contamination
 
-    from lidar_var_contamination_functions import var_correction
-    var_diff = var_correction(vr_n,vr_e,vr_s,vr_w,vr_z,wd,U,height_needed,frequency_vert_beam,el_angle,mode)
+    from lidar_var_contamination_functions import var_adjustment
+    var_diff = var_adjustment(vr_n,vr_e,vr_s,vr_w,vr_z,wd,U,height_needed,frequency_vert_beam,el_angle,mode)
         
     #Set negative values of var_diff to 0 as they would increase the corrected variance
     #Note: This is not the best procedure and should probably be fixed at some point. 

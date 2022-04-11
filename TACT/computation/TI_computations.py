@@ -13,7 +13,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 import sys
 from TACT.extrapolation.calculations import log_of_ratio, power_law
 from TACT.computation.adjustments import Adjustments
-from TACT.computation.post_adjustment import post_correction_stats
+from TACT.computation.post_adjustment import post_adjustment_stats
 
 
 def get_representative_TI(inputdata):
@@ -199,29 +199,29 @@ def get_TI_MBE_Diff_j(inputdata):
         print("Warning: No RSD TI. Cannot compute error stats for this category")
 
     # get the bin wise stats for DIFFERENCE and ERROR and RMSE between RSD and Ref TI (CORRECTED)
-    if "corrTI_RSD_TI" in inputdata.columns:
-        inputdata["TI_diff_corrTI_RSD_Ref"] = (
-            inputdata["corrTI_RSD_TI"] - inputdata["Ref_TI"]
+    if "adjTI_RSD_TI" in inputdata.columns:
+        inputdata["TI_diff_adjTI_RSD_Ref"] = (
+            inputdata["adjTI_RSD_TI"] - inputdata["Ref_TI"]
         )  # caliculating the diff in ti for each timestamp
-        inputdata["TI_error_corrTI_RSD_Ref"] = (
-            inputdata["TI_diff_corrTI_RSD_Ref"] / inputdata["Ref_TI"]
+        inputdata["TI_error_adjTI_RSD_Ref"] = (
+            inputdata["TI_diff_adjTI_RSD_Ref"] / inputdata["Ref_TI"]
         )  # calculating the error for each timestamp (diff normalized to ref_TI)
-        inputdata["TI_SquaredDiff_corrTI_RSD_Ref"] = (
-            inputdata["TI_diff_corrTI_RSD_Ref"] * inputdata["TI_diff_corrTI_RSD_Ref"]
+        inputdata["TI_SquaredDiff_adjTI_RSD_Ref"] = (
+            inputdata["TI_diff_adjTI_RSD_Ref"] * inputdata["TI_diff_adjTI_RSD_Ref"]
         )  # calculating squared diff each Timestamp
-        TI_MBE_j_corrTI_RSD_Ref, TI_MBE_jp5_corrTI_RSD_Ref = get_stats_per_WSbin(
-            inputdata, "TI_error_corrTI_RSD_Ref"
+        TI_MBE_j_adjTI_RSD_Ref, TI_MBE_jp5_adjTI_RSD_Ref = get_stats_per_WSbin(
+            inputdata, "TI_error_adjTI_RSD_Ref"
         )
-        TI_Diff_j_corrTI_RSD_Ref, TI_Diff_jp5_corrTI_RSD_Ref = get_stats_per_WSbin(
-            inputdata, "TI_diff_corrTI_RSD_Ref"
+        TI_Diff_j_adjTI_RSD_Ref, TI_Diff_jp5_adjTI_RSD_Ref = get_stats_per_WSbin(
+            inputdata, "TI_diff_adjTI_RSD_Ref"
         )
-        TI_RMSE_j_corrTI_RSD_Ref, TI_RMSE_jp5_corrTI_RSD_Ref = get_RMSE_per_WSbin(
-            inputdata, "TI_SquaredDiff_corrTI_RSD_Ref"
+        TI_RMSE_j_adjTI_RSD_Ref, TI_RMSE_jp5_adjTI_RSD_Ref = get_RMSE_per_WSbin(
+            inputdata, "TI_SquaredDiff_adjTI_RSD_Ref"
         )
 
-        TI_MBE_j_.append([TI_MBE_j_corrTI_RSD_Ref, TI_MBE_jp5_corrTI_RSD_Ref])
-        TI_Diff_j_.append([TI_Diff_j_corrTI_RSD_Ref, TI_Diff_jp5_corrTI_RSD_Ref])
-        TI_RMSE_j_.append([TI_RMSE_j_corrTI_RSD_Ref, TI_RMSE_jp5_corrTI_RSD_Ref])
+        TI_MBE_j_.append([TI_MBE_j_adjTI_RSD_Ref, TI_MBE_jp5_adjTI_RSD_Ref])
+        TI_Diff_j_.append([TI_Diff_j_adjTI_RSD_Ref, TI_Diff_jp5_adjTI_RSD_Ref])
+        TI_RMSE_j_.append([TI_RMSE_j_adjTI_RSD_Ref, TI_RMSE_jp5_adjTI_RSD_Ref])
     else:
         print(
             "Warning: No corrected RSD TI. Cannot compute error stats for this category"
@@ -276,14 +276,14 @@ def get_TI_Diff_r(inputdata):
         print("Warning: No RSD TI. Cannot compute error stats for this category")
 
     # get the bin wise stats for DIFFERENCE between RSD and Ref TI (CORRECTED)
-    if "corrTI_RSD_TI" in inputdata.columns:
-        inputdata["TI_error_corrTI_RSD_Ref"] = (
-            inputdata["TI_diff_corrTI_RSD_Ref"] / inputdata["Ref_TI"]
+    if "adjTI_RSD_TI" in inputdata.columns:
+        inputdata["TI_error_adjTI_RSD_Ref"] = (
+            inputdata["TI_diff_adjTI_RSD_Ref"] / inputdata["Ref_TI"]
         )  # calculating the error for each timestamp (diff normalized to ref_TI)
-        TI_Diff_r_corrTI_RSD_Ref = get_stats_per_TIbin(
-            inputdata, "TI_diff_corrTI_RSD_Ref"
+        TI_Diff_r_adjTI_RSD_Ref = get_stats_per_TIbin(
+            inputdata, "TI_diff_adjTI_RSD_Ref"
         )
-        TI_Diff_r_.append([TI_Diff_r_corrTI_RSD_Ref])
+        TI_Diff_r_.append([TI_Diff_r_adjTI_RSD_Ref])
     else:
         print(
             "Warning: No corrected RSD TI. Cannot compute error stats for this category"
@@ -314,12 +314,12 @@ def get_TI_bybin(inputdata):
     results.append([Ref_TI_j, Ref_TI_jp5])
 
     if (
-        "corrTI_RSD_TI" in inputdata.columns
+        "adjTI_RSD_TI" in inputdata.columns
     ):  # this is checking if corrected TI windspeed is present in the input data and using that for getting the results.
-        corrTI_RSD_TI_j, corrTI_RSD_TI_jp5 = get_stats_per_WSbin(
-            inputdata, "corrTI_RSD_TI"
+        adjTI_RSD_TI_j, adjTI_RSD_TI_jp5 = get_stats_per_WSbin(
+            inputdata, "adjTI_RSD_TI"
         )
-        results.append([corrTI_RSD_TI_j, corrTI_RSD_TI_jp5])
+        results.append([adjTI_RSD_TI_j, adjTI_RSD_TI_jp5])
     else:
         results.append(pd.DataFrame(["NaN", "NaN"]))
 
@@ -343,10 +343,10 @@ def get_TI_byTIrefbin(inputdata):
         results.append(["NaN"])
 
     if (
-        "corrTI_RSD_TI" in inputdata.columns
+        "adjTI_RSD_TI" in inputdata.columns
     ):  # this is checking if corrected TI is present
-        corrTI_RSD_TI_r = get_stats_per_TIbin(inputdata, "corrTI_RSD_TI")
-        results.append([corrTI_RSD_TI_r])
+        adjTI_RSD_TI_r = get_stats_per_TIbin(inputdata, "adjTI_RSD_TI")
+        results.append([adjTI_RSD_TI_r])
     else:
         results.append(pd.DataFrame(["NaN"]))
 
@@ -416,40 +416,40 @@ def get_stats_inBin(inputdata_m, start, end):
     )
 
     if (
-        "corrTI_RSD_TI" in inputdata.columns
+        "adjTI_RSD_TI" in inputdata.columns
     ):  # this is checking if corrected TI windspeed is present in the input data and using that for getting the results.
         # Cor RSD vs Reg RSD
-        inputdata["TI_diff_corrTI_RSD_Ref"] = (
-            inputdata["corrTI_RSD_TI"] - inputdata["Ref_TI"]
+        inputdata["TI_diff_adjTI_RSD_Ref"] = (
+            inputdata["adjTI_RSD_TI"] - inputdata["Ref_TI"]
         )  # caliculating the diff in ti for each timestamp
-        inputdata["TI_error_corrTI_RSD_Ref"] = (
-            inputdata["TI_diff_corrTI_RSD_Ref"] / inputdata["Ref_TI"]
+        inputdata["TI_error_adjTI_RSD_Ref"] = (
+            inputdata["TI_diff_adjTI_RSD_Ref"] / inputdata["Ref_TI"]
         )  # calculating the error for each timestamp
-        TI_error_corrTI_RSD_Ref_Avg = inputdata["TI_error_corrTI_RSD_Ref"].mean()
-        TI_error_corrTI_RSD_Ref_Std = inputdata["TI_error_corrTI_RSD_Ref"].std()
-        TI_diff_corrTI_RSD_Ref_Avg = inputdata["TI_diff_corrTI_RSD_Ref"].mean()
-        TI_diff_corrTI_RSD_Ref_Std = inputdata["TI_diff_corrTI_RSD_Ref"].std()
+        TI_error_adjTI_RSD_Ref_Avg = inputdata["TI_error_adjTI_RSD_Ref"].mean()
+        TI_error_adjTI_RSD_Ref_Std = inputdata["TI_error_adjTI_RSD_Ref"].std()
+        TI_diff_adjTI_RSD_Ref_Avg = inputdata["TI_diff_adjTI_RSD_Ref"].mean()
+        TI_diff_adjTI_RSD_Ref_Std = inputdata["TI_diff_adjTI_RSD_Ref"].std()
 
         modelResults = _adjuster_stats.get_regression(
-            inputdata["corrTI_RSD_TI"], inputdata["Ref_TI"]
+            inputdata["adjTI_RSD_TI"], inputdata["Ref_TI"]
         )
         rmse = modelResults[5]
         slope = modelResults[0]
         offset = modelResults[1]
         r2 = modelResults[2]
 
-        results["CorrTI_RSD_Ref"] = [
-            TI_error_corrTI_RSD_Ref_Avg,
-            TI_error_corrTI_RSD_Ref_Std,
-            TI_diff_corrTI_RSD_Ref_Avg,
-            TI_diff_corrTI_RSD_Ref_Std,
+        results["adjTI_RSD_Ref"] = [
+            TI_error_adjTI_RSD_Ref_Avg,
+            TI_error_adjTI_RSD_Ref_Std,
+            TI_diff_adjTI_RSD_Ref_Avg,
+            TI_diff_adjTI_RSD_Ref_Std,
             slope,
             offset,
             rmse,
             r2,
         ]
     else:
-        results["CorrTI_RSD_Ref"] = [
+        results["adjTI_RSD_Ref"] = [
             "NaN",
             "NaN",
             "NaN",
@@ -515,7 +515,7 @@ def get_description_stats(inputdata):
     return totalstats, belownominal, abovenominal
 
 
-def get_distribution_test_results(inputdata_corr, ref_col, test_col, subset=False):
+def get_distribution_test_results(inputdata_adj, ref_col, test_col, subset=False):
     """
     performs statistical tests on results. Kolmogorov-Smirnov test. The K-S statistical test is a nonparametric
     test used to quantify the distance between the empirical distribution functions of two samples. It is
@@ -526,13 +526,13 @@ def get_distribution_test_results(inputdata_corr, ref_col, test_col, subset=Fals
     import numpy as np
     from scipy import stats
 
-    if ref_col in inputdata_corr.columns and test_col in inputdata_corr.columns:
+    if ref_col in inputdata_adj.columns and test_col in inputdata_adj.columns:
         if isinstance(subset, pd.DataFrame):
-            a = np.array(inputdata_corr[ref_col])
+            a = np.array(inputdata_adj[ref_col])
             b = np.array(subset[test_col])
         else:
-            a = np.array(inputdata_corr[ref_col])
-            b = np.array(inputdata_corr[test_col])
+            a = np.array(inputdata_adj[ref_col])
+            b = np.array(inputdata_adj[test_col])
         distribution_test_results = stats.ks_2samp(a, b)
     else:
         distribution_test_results = stats.ks_2samp([np.NaN, np.NaN], [np.NaN, np.NaN])
@@ -544,7 +544,7 @@ class StatResult:
     pass
 
 
-def Dist_stats(inputdata_corr, Timestamps, correctionName):
+def Dist_stats(inputdata_adj, Timestamps, adjustmentName):
     """
     test all relevant chunks of data
     """
@@ -590,23 +590,23 @@ def Dist_stats(inputdata_corr, Timestamps, correctionName):
         ["Ane_RepTI_Ht2", "RSD_RepTI_Ht2"],
         ["Ane_RepTI_Ht3", "RSD_RepTI_Ht3"],
         ["Ane_RepTI_Ht4", "RSD_RepTI_Ht4"],
-        ["Ref_TI", "corrTI_RSD_TI"],
-        ["Ref_RepTI", "corrRepTI_RSD_RepTI"],
-        ["Ane_TI_Ht1", "corrTI_RSD_TI_Ht1"],
-        ["Ane_RepTI_Ht1", "corrRepTI_RSD_RepTI_Ht1"],
-        ["Ane_TI_Ht2", "corrTI_RSD_TI_Ht2"],
-        ["Ane_RepTI_Ht2", "corrRepTI_RSD_RepTI_Ht2"],
-        ["Ane_TI_Ht3", "corrTI_RSD_TI_Ht3"],
-        ["Ane_RepTI_Ht3", "corrRepTI_RSD_RepTI_Ht3"],
-        ["Ane_TI_Ht4", "corrTI_RSD_TI_Ht4"],
-        ["Ane_RepTI_Ht4", "corrRepTI_RSD_RepTI_Ht4"],
+        ["Ref_TI", "adjTI_RSD_TI"],
+        ["Ref_RepTI", "adjRepTI_RSD_RepTI"],
+        ["Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"],
+        ["Ane_RepTI_Ht1", "adjRepTI_RSD_RepTI_Ht1"],
+        ["Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"],
+        ["Ane_RepTI_Ht2", "adjRepTI_RSD_RepTI_Ht2"],
+        ["Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"],
+        ["Ane_RepTI_Ht3", "adjRepTI_RSD_RepTI_Ht3"],
+        ["Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"],
+        ["Ane_RepTI_Ht4", "adjRepTI_RSD_RepTI_Ht4"],
     ]
 
     b1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
     Nsamples_90days = 12960
-    inputdata_corr = inputdata_corr.reset_index()
-    t_length = len(inputdata_corr) - Nsamples_90days
+    inputdata_adj = inputdata_adj.reset_index()
+    t_length = len(inputdata_adj) - Nsamples_90days
 
     for p in pairs:
         ref = p[0]
@@ -614,12 +614,12 @@ def Dist_stats(inputdata_corr, Timestamps, correctionName):
         if ref == "Ref_WS" or ref == "Ref_SD" or ref == "Ref_TI":
             idx.append("0:end")
             T.append("all_data")
-            chunk = inputdata_corr
+            chunk = inputdata_adj
             results = get_distribution_test_results(
-                inputdata_corr, ref, test, subset=chunk
+                inputdata_adj, ref, test, subset=chunk
             )
             p_value_T.append(results.pvalue)
-            if len(inputdata_corr) > Nsamples_90days:
+            if len(inputdata_adj) > Nsamples_90days:
                 for i in range(0, t_length, 60):  # shift by 60
                     nn = str(str(i) + "_" + str(12960 + i))
                     tt = (
@@ -629,9 +629,9 @@ def Dist_stats(inputdata_corr, Timestamps, correctionName):
                     )
                     idx.append(nn)
                     T.append(tt)
-                    chunk = inputdata_corr[i : 12960 + i]
+                    chunk = inputdata_adj[i : 12960 + i]
                     results = get_distribution_test_results(
-                        inputdata_corr, ref, test, subset=chunk
+                        inputdata_adj, ref, test, subset=chunk
                     )
                     p_value_T.append(results.pvalue)
             sampleWindow_test_results_new["idx"] = idx
@@ -654,13 +654,13 @@ def Dist_stats(inputdata_corr, Timestamps, correctionName):
         T = []
         p_value_T = []
 
-        if ref in inputdata_corr.columns and test in inputdata_corr.columns:
-            results = get_distribution_test_results(inputdata_corr, ref, test)
+        if ref in inputdata_adj.columns and test in inputdata_adj.columns:
+            results = get_distribution_test_results(inputdata_adj, ref, test)
             names.append(str(p[0] + "_VS_" + p[1]))
             KStest_stat.append(results.statistic)
             p_value.append(results.pvalue)
             for bin in b1:
-                binsubset = inputdata_corr[inputdata_corr["bins"] == bin]
+                binsubset = inputdata_adj[inputdata_adj["bins"] == bin]
                 if len(binsubset) == 0:
                     names.append(str(p[0] + "_VS_" + p[1]))
                     KStest_stat.append(None)
@@ -674,12 +674,12 @@ def Dist_stats(inputdata_corr, Timestamps, correctionName):
             names.append(str(p[0] + "_VS_" + p[1]))
             KStest_stat.append(None)
             p_value.append(None)
-    distribution_test_results[str("Test Name" + "_" + correctionName)] = names
+    distribution_test_results[str("Test Name" + "_" + adjustmentName)] = names
     distribution_test_results[
-        str("KS test statistics" + "_" + "all_data" + "_" + correctionName)
+        str("KS test statistics" + "_" + "all_data" + "_" + adjustmentName)
     ] = KStest_stat
     distribution_test_results[
-        str("p_value" + "_" + "all_data" + "_" + correctionName)
+        str("p_value" + "_" + "all_data" + "_" + adjustmentName)
     ] = p_value
 
     if len(sampleWindow_test_results) > 1:
@@ -742,8 +742,8 @@ def get_representative_TI_15mps(inputdata):
         listofcols.append("RSD_TI")
     if "Ane2_TI" in inputdata.columns:
         listofcols.append("Ane2_TI")
-    if "corrTI_RSD_WS" in inputdata.columns:
-        listofcols.append("corrTI_RSD_WS")
+    if "adjTI_RSD_WS" in inputdata.columns:
+        listofcols.append("adjTI_RSD_WS")
     results = inputdata_TI15[listofcols].describe()
     results.loc["Rep_TI", :] = results.loc["mean"] + 1.28 * results.loc["std"]
     results = results.loc[["mean", "std", "Rep_TI"], :].T

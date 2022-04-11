@@ -5,7 +5,7 @@ Created on Thu Oct 15 16:06:11 2015
 @author: jnewman
 """
 
-#Functions for initial processing of WindCube data before TI correction is applied.
+#Functions for initial processing of WindCube data before TI adjustment is applied.
 from functools import reduce
 def import_WC_file(filename):
     encoding_from='iso-8859-1'
@@ -720,7 +720,7 @@ def get_10min_shear_parameter(U,heights,height_needed):
     
 def rotate_ws(u,v,w,frequency):
     #Performs coordinate rotation according to Eqs. 22-29 in Wilczak et al. (2001)
-    #Reference: Wilczak, J. M., S. P. Oncley, and S. A. Stage, 2001: Sonic anemometer tilt correction algorithms. 
+    #Reference: Wilczak, J. M., S. P. Oncley, and S. A. Stage, 2001: Sonic anemometer tilt adjustment algorithms. 
     #Bound.-Layer Meteor., 99, 127–150.
 
     #Inputs
