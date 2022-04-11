@@ -1222,6 +1222,7 @@ def calculate_stability_TKE(inputdata):
                                                len(inputdata[(inputdata[name_stabilityClass] == 3)])/totalCount, len(inputdata[(inputdata[name_stabilityClass] == 4)])/totalCount,
                                                len(inputdata[(inputdata[name_stabilityClass] == 5)])/totalCount]
 
+
     elif 'WindCube' in RSDtype['Selection']:
         # convert to radians
         dir_cols = [s for s in inputdata.columns.to_list() if 'Direction' in s]
