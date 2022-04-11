@@ -73,9 +73,7 @@ class Adjustments:
         if isinstance(inputdata, pd.DataFrame):
             fillEmpty = False
             if ref_col in inputdata.columns and TI_col in inputdata.columns:
-                model_adjTI = self.get_regression(
-                    inputdata[ref_col], inputdata[TI_col]
-                )
+                model_adjTI = self.get_regression(inputdata[ref_col], inputdata[TI_col])
                 name1 = "TI_regression_" + TI_col + "_" + ref_col
                 results.loc[name1, ["m"]] = model_adjTI[0]
                 results.loc[name1, ["c"]] = model_adjTI[1]
@@ -444,3 +442,78 @@ class Adjustments:
         results = results.drop(columns=["sensor", "height"])
 
         return inputdata_test, results, m, c
+
+
+def empirical_stdAdjustment(
+    inputdata,
+    results,
+    Ref_TI_col,
+    RSD_TI_col,
+    Ref_SD_col,
+    RSD_SD_col,
+    Ref_WS_col,
+    RSD_WS_col,
+):
+    """
+    set adjustment values
+    """
+    inputdata_test = inputdata.copy()
+    adj = Adjustments()
+
+    # get col names
+    name_ref = Ref_TI_col.split("_TI")
+    name_rsd = RSD_TI_col.split("_TI")
+    name = RSD_TI_col.split("_TI")
+    adjTI_name = str("adjTI_" + RSD_TI_col)
+
+    if len(inputdata) < 2:
+        results = adj.post_adjustment_stats([None], results, Ref_TI_col, adjTI_name)
+        m = np.NaN
+        c = np.NaN
+    else:
+        # add the new columns, initialized by uncorrected Data
+        tmp = str("adj" + RSD_SD_col)
+        inputdata_test[tmp] = inputdata_test[RSD_SD_col].copy()
+        inputdata_test[str("adjTI_" + RSD_TI_col)] = inputdata_test[RSD_TI_col].copy()
+
+        inputdata_test.loc[
+            ((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)), tmp
+        ] = ((1.116763 * inputdata_test[tmp]) + 0.024685) - (
+            ((1.116763 * inputdata_test[tmp]) + 0.024685) * 0.00029
+        )
+        inputdata_test.loc[
+            ((inputdata[Ref_WS_col] >= 4) & (inputdata_test[Ref_WS_col] < 8)),
+            adjTI_name,
+        ] = (
+            inputdata_test[tmp] / inputdata_test[RSD_WS_col]
+        )
+
+        inputdata_test.loc[
+            ((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)), tmp
+        ] = ((1.064564 * inputdata_test[tmp]) + 0.040596) - (
+            ((1.064564 * inputdata_test[tmp]) + 0.040596) * -0.00161
+        )
+        inputdata_test.loc[
+            ((inputdata[Ref_WS_col] >= 8) & (inputdata_test[Ref_WS_col] < 12)),
+            adjTI_name,
+        ] = (
+            inputdata_test[tmp] / inputdata_test[RSD_WS_col]
+        )
+
+        inputdata_test.loc[
+            ((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)), tmp
+        ] = ((0.97865 * inputdata_test[tmp]) + 0.124371) - (
+            ((0.97865 * inputdata_test[tmp]) + 0.124371) * -0.00093
+        )
+        inputdata_test.loc[
+            ((inputdata[Ref_WS_col] >= 12) & (inputdata_test[Ref_WS_col] < 16)),
+            adjTI_name,
+        ] = (
+            inputdata_test[tmp] / inputdata_test[RSD_WS_col]
+        )
+
+        results = adj.post_adjustment_stats(
+            inputdata_test, results, Ref_TI_col, adjTI_name
+        )
+
+    return inputdata_test, results

@@ -980,7 +980,7 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying Match algorithm: SS-Match')
-        inputdata_adj, lm_adj = perform_Match(inputdata.copy())
+        inputdata_adj, lm_adj = perform_match(inputdata.copy())
         lm_adj['sensor'] = sensor
         lm_adj['height'] = height
         lm_adj['adjustment'] = 'SS-Match'
@@ -995,7 +995,7 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_adj, lm_adj = perform_Match(item[primary_idx].copy())
+                inputdata_adj, lm_adj = perform_match(item[primary_idx].copy())
                 lm_adj['sensor'] = sensor
                 lm_adj['height'] = height
                 lm_adj['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
@@ -1010,7 +1010,7 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                inputdata_adj, lm_adj = perform_Match(item.copy())
+                inputdata_adj, lm_adj = perform_match(item.copy())
                 lm_adj['sensor'] = sensor
                 lm_adj['height'] = height
                 lm_adj['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
@@ -1025,7 +1025,7 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                inputdata_adj, lm_adj = perform_Match(item.copy())
+                inputdata_adj, lm_adj = perform_match(item.copy())
                 lm_adj['sensor'] = sensor
                 lm_adj['height'] = height
                 lm_adj['adjustment'] = str('SS-Match' + '_' + 'class_' + str(className))
@@ -1043,7 +1043,7 @@ for method in adjustmentsMetadata:
         pass
     else:
         print ('Applying input match algorithm: SS-Match2')
-        inputdata_adj, lm_adj = perform_Match_input(inputdata.copy())
+        inputdata_adj, lm_adj = perform_match_input(inputdata.copy())
         lm_adj['sensor'] = sensor
         lm_adj['height'] = height
         lm_adj['adjustment'] = 'SS-Match2'
@@ -1058,7 +1058,7 @@ for method in adjustmentsMetadata:
             ResultsLists_class = initialize_resultsLists('class_')
             className = 1
             for item in All_class_data:
-                inputdata_adj, lm_adj = perform_Match_input(item[primary_idx].copy())
+                inputdata_adj, lm_adj = perform_match_input(item[primary_idx].copy())
                 lm_adj['sensor'] = sensor
                 lm_adj['height'] = height
                 lm_adj['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))
@@ -1073,7 +1073,7 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_RSD = initialize_resultsLists('class_alpha_RSD')
             className = 1
             for item in All_class_data_alpha_RSD:
-                inputdata_adj, lm_adj = perform_Match_input(item.copy())
+                inputdata_adj, lm_adj = perform_match_input(item.copy())
                 lm_adj['sensor'] = sensor
                 lm_adj['height'] = height
                 lm_adj['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))
@@ -1088,7 +1088,7 @@ for method in adjustmentsMetadata:
             ResultsLists_class_alpha_Ane = initialize_resultsLists('class_alpha_Ane')
             className = 1
             for item in All_class_data_alpha_Ane:
-                inputdata_adj, lm_adj = perform_Match_input(item.copy())
+                inputdata_adj, lm_adj = perform_match_input(item.copy())
                 lm_adj['sensor'] = sensor
                 lm_adj['height'] = height
                 lm_adj['adjustment'] = str('SS-Match2' + '_' + 'class_' + str(className))

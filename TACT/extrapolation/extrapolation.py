@@ -2,18 +2,13 @@ try:
     from TACT import logger
 except ImportError:
     pass
-import argparse
-from future.utils import itervalues, iteritems
 import numpy as np
-import os
 import pandas as pd
-import re
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
-import sys
 from .calculations import log_of_ratio, power_law
-from TACT.computation.post_adjustment import post_adjustment_stats
-from TACT.computation.TI_computations import (
+from TACT.computation.adjustments import Adjustments
+from TACT.computation.TI import (
     get_TI_MBE_Diff_j,
     get_TI_Diff_r,
     get_TI_bybin,
@@ -180,6 +175,7 @@ def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, hei
     DataFrame
         input data (dataframe) with additional columns v2 = v1(z2/z1)^alpha
     """
+    adj = Adjustments()
 
     # Calculate shear exponent
     shearTimeseries = get_shear_exponent(inputdata, extrap_metadata, height)
@@ -241,10 +237,10 @@ def perform_TI_extrapolation(inputdata, extrap_metadata, extrapolation_type, hei
         ]
     )
 
-    results = post_adjustment_stats(inputdata, results, "TI_RSD", "TI_ane_extrap")
-    restults = post_adjustment_stats(inputdata, results, "TI_ane_truth", "TI_RSD")
+    results = adj.post_adjustment_stats(inputdata, results, "TI_RSD", "TI_ane_extrap")
+    restults = adj.post_adjustment_stats(inputdata, results, "TI_ane_truth", "TI_RSD")
     if extrapolation_type == "truth":
-        results = post_adjustment_stats(
+        results = adj.post_adjustment_stats(
             inputdata, results, "TI_ane_truth", "TI_ane_extrap"
         )
 
