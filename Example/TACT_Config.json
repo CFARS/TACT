@@ -1,0 +1,23 @@
+{
+	"Met Mast":{
+		"WRA_Data_Model_Filepath":"Filepath",
+		"Timeseries_Data_Filepath":"Filepath",
+		"Ane_1": "Spd_80m_N",
+		"Ane_2": "Spd_80m_S",
+		"Ane_3": "Spd_60m_N",
+		"Ane_4": "Spd_60m_S",
+		"Ane_5": "Spd_40m_N",
+		"Ane_6": "Spd_40m_S"
+	},
+	"RSD":{
+		"WRA_Data_Model_Filepath":"Filepath",
+		"Timeseries_Data_Filepath":"Filepath",
+		"RSD_1": "Spd_80m",
+		"RSD_2": "Spd_70m",
+		"RSD_3": "Spd_60m",
+		"RSD_4": "Spd_50m",
+		"RSD_5": "Spd_40m",
+		"RSD_6": "Spd_30m"
+	},
+	"Output_Folder":""
+}
