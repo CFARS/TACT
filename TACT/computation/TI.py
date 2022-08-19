@@ -11,7 +11,7 @@ import re
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 import sys
-from TACT.extrapolation.calculations import log_of_ratio, power_law
+from TACT.computation.calculations import log_of_ratio, power_law
 from TACT.computation.adjustments import Adjustments
 
 
@@ -748,3 +748,16 @@ def get_representative_TI_15mps(inputdata):
     results = results.loc[["mean", "std", "Rep_TI"], :].T
     results.columns = ["mean_15mps", "std_15mps", "Rep_TI"]
     return results
+
+
+def record_TIadj(adjustment_name, inputdata_adj, Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False):
+
+    if isinstance(inputdata_adj, pd.DataFrame) == False:
+        pass
+    else:
+        adj_cols = [s for s in inputdata_adj.columns.to_list() if 'adj' in s]
+        adj_cols = [s for s in adj_cols if not ('diff' in s or 'Diff' in s or 'error' in s)]
+        for c in adj_cols:
+            TI_10minuteAdjusted[str(c + '_' + method)] = inputdata_adj[c]
+
+    return TI_10minuteAdjusted
