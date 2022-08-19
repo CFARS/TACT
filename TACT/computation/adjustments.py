@@ -11,6 +11,7 @@ import sys
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
+
 # from TACT.computation.methods.GSa import perform_G_Sa_adjustment
 # from TACT.computation.methods.GSFc import perform_G_SFc_adjustment
 # from TACT.computation.methods.SSLTERRAML import perform_SS_LTERRA_ML_adjustment
@@ -77,7 +78,7 @@ class Adjustments:
         return result
 
     def get_modelRegression(self, inputdata, column1, column2, fit_intercept=True):
-        '''
+        """
         Parameters
         ----------
         inputdata : dataframe
@@ -87,12 +88,12 @@ class Adjustments:
             column name for y-variable
         columnNameOut : string
             column name for predicted value
-        
+
         Returns
         -------
-        dict 
+        dict
             output of regression
-        '''
+        """
         x = inputdata[column1].values.astype(float)
         y = inputdata[column2].values.astype(float)
         mask = ~np.isnan(x) & ~np.isnan(y)
@@ -108,12 +109,20 @@ class Adjustments:
         y = y.astype(np.float)
         r = np.corrcoef(x, y)[0, 1]
         r2 = r2_score(y, predict)  # coefficient of determination, explained variance
-        mse = mean_squared_error(y, predict, multioutput='raw_values')[0]
+        mse = mean_squared_error(y, predict, multioutput="raw_values")[0]
         rmse = np.sqrt(mse)
         difference = abs((x - y).mean())
-        resultsDict = {'c': intercept, 'm': slope, 'r': r, 'r2': r2, 'mse': mse, 'rmse': rmse, 'predicted': predict,
-                'difference': difference}
-        result = [slope, intercept , r2 , difference, mse, rmse]
+        resultsDict = {
+            "c": intercept,
+            "m": slope,
+            "r": r,
+            "r2": r2,
+            "mse": mse,
+            "rmse": rmse,
+            "predicted": predict,
+            "difference": difference,
+        }
+        result = [slope, intercept, r2, difference, mse, rmse]
 
         return result
 
@@ -514,7 +523,9 @@ class Adjustments:
         inputdata_test = inputdata[inputdata["split"] == False].copy()
 
         if inputdata.empty or len(inputdata) < 2:
-            results = self.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = self.post_adjustment_stats(
+                [None], results, "Ref_TI", "adjTI_RSD_TI"
+            )
             if "Ane_WS_Ht1" in inputdata.columns and "RSD_WS_Ht1" in inputdata.columns:
                 results = self.post_adjustment_stats(
                     [None], results, "ane_ti_ht1", "adjTI_rsd_ti_ht1"
@@ -583,7 +594,9 @@ class Adjustments:
 
                     RSD_adjWS = (model[0] * RSD_WS) + model[1]
                     inputdata_test["RSD_adjWS_Ht1"] = RSD_adjWS
-                    RSD_TI = inputdata_test["RSD_SD_Ht1"] / inputdata_test["RSD_adjWS_Ht1"]
+                    RSD_TI = (
+                        inputdata_test["RSD_SD_Ht1"] / inputdata_test["RSD_adjWS_Ht1"]
+                    )
                     inputdata_test["adjTI_RSD_TI_Ht1"] = RSD_TI
                     results = self.post_adjustment_stats(
                         inputdata_test, results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
@@ -610,7 +623,9 @@ class Adjustments:
                     RSD_WS = inputdata_test["RSD_WS_Ht2"]
                     RSD_adjWS = (model[0] * RSD_WS) + model[1]
                     inputdata_test["RSD_adjWS_Ht2"] = RSD_adjWS
-                    RSD_TI = inputdata_test["RSD_SD_Ht2"] / inputdata_test["RSD_adjWS_Ht2"]
+                    RSD_TI = (
+                        inputdata_test["RSD_SD_Ht2"] / inputdata_test["RSD_adjWS_Ht2"]
+                    )
                     inputdata_test["adjTI_RSD_TI_Ht2"] = RSD_TI
                     results = self.post_adjustment_stats(
                         inputdata_test, results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
@@ -637,7 +652,9 @@ class Adjustments:
                     RSD_WS = inputdata_test["RSD_WS_Ht3"]
                     RSD_adjWS = (model[0] * RSD_WS) + model[1]
                     inputdata_test["RSD_adjWS_Ht3"] = RSD_adjWS
-                    RSD_TI = inputdata_test["RSD_SD_Ht3"] / inputdata_test["RSD_adjWS_Ht3"]
+                    RSD_TI = (
+                        inputdata_test["RSD_SD_Ht3"] / inputdata_test["RSD_adjWS_Ht3"]
+                    )
                     inputdata_test["adjTI_RSD_TI_Ht3"] = RSD_TI
                     results = self.post_adjustment_stats(
                         inputdata_test, results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
@@ -664,7 +681,9 @@ class Adjustments:
                     RSD_WS = inputdata_test["RSD_WS_Ht4"]
                     RSD_adjWS = (model[0] * RSD_WS) + model[1]
                     inputdata_test["RSD_adjWS_Ht4"] = RSD_adjWS
-                    RSD_TI = inputdata_test["RSD_SD_Ht4"] / inputdata_test["RSD_adjWS_Ht4"]
+                    RSD_TI = (
+                        inputdata_test["RSD_SD_Ht4"] / inputdata_test["RSD_adjWS_Ht4"]
+                    )
                     inputdata_test["adjTI_RSD_TI_Ht4"] = RSD_TI
                     results = self.post_adjustment_stats(
                         inputdata_test, results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
@@ -712,7 +731,9 @@ class Adjustments:
                 inputdata = pd.DataFrame()
 
         if inputdata.empty or len(inputdata) < 2:
-            results = self.post_adjustment_stats([None], results, "Ref_TI", "adjTI_RSD_TI")
+            results = self.post_adjustment_stats(
+                [None], results, "Ref_TI", "adjTI_RSD_TI"
+            )
             if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
                 results = self.post_adjustment_stats(
                     [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
@@ -944,25 +965,27 @@ def empirical_stdAdjustment(
     return inputdata_test, results
 
 
-def train_test_split(trainPercent, inputdata, stepOverride = False):
-    '''
+def train_test_split(trainPercent, inputdata, stepOverride=False):
+    """
     train is 'split' == True
-    '''
+    """
     import copy
     import numpy as np
 
-    _inputdata = pd.DataFrame(columns=inputdata.columns, data=copy.deepcopy(inputdata.values))
+    _inputdata = pd.DataFrame(
+        columns=inputdata.columns, data=copy.deepcopy(inputdata.values)
+    )
 
     if stepOverride:
         msk = [False] * len(inputdata)
-        _inputdata['split'] = msk
-        _inputdata.loc[stepOverride[0]:stepOverride[1], 'split'] =  True
+        _inputdata["split"] = msk
+        _inputdata.loc[stepOverride[0] : stepOverride[1], "split"] = True
 
     else:
-        msk = np.random.rand(len(_inputdata)) < float(trainPercent/100)
+        msk = np.random.rand(len(_inputdata)) < float(trainPercent / 100)
         train = _inputdata[msk]
         test = _inputdata[~msk]
-        _inputdata['split'] = msk
+        _inputdata["split"] = msk
 
     return _inputdata
 
@@ -970,43 +993,67 @@ def train_test_split(trainPercent, inputdata, stepOverride = False):
 def quick_metrics(inputdata, config, results_df, lm_adj_dict, testID):
     """"""
     from TACT.computation.match import perform_match, perform_match_input
-    
+
     _adjuster = Adjustments(raw_data=inputdata)
 
-    inputdata_train = inputdata[inputdata['split'] == True].copy()
-    inputdata_test = inputdata[inputdata['split'] == False].copy()
+    inputdata_train = inputdata[inputdata["split"] == True].copy()
+    inputdata_test = inputdata[inputdata["split"] == False].copy()
 
     # baseline results
-    results_ = get_all_regressions(inputdata_test, title='baselines')
-    results_RSD_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ref_RSD'])].reset_index()
-    results_Ane2_Ref = results_.loc[results_['baselines'].isin(['TI_regression_Ref_Ane2'])].reset_index()
-    results_RSD_Ref_SD = results_.loc[results_['baselines'].isin(['SD_regression_Ref_RSD'])].reset_index()
-    results_Ane2_Ref_SD = results_.loc[results_['baselines'].isin(['SD_regression_Ref_Ane2'])].reset_index()
-    results_RSD_Ref_WS = results_.loc[results_['baselines'].isin(['WS_regression_Ref_RSD'])].reset_index()
-    results_Ane2_Ref_WS = results_.loc[results_['baselines'].isin(['WS_regression_Ref_Ane2'])].reset_index()
-    results_RSD_Ref.loc[0,'testID'] = [testID]
-    results_Ane2_Ref.loc[0,'testID'] = [testID]
-    results_RSD_Ref_SD.loc[0,'testID'] = [testID]
-    results_Ane2_Ref_SD.loc[0,'testID'] = [testID]
-    results_RSD_Ref_WS.loc[0,'testID'] = [testID]
-    results_Ane2_Ref_WS.loc[0,'testID'] = [testID]
-    results_df = pd.concat([results_df,results_RSD_Ref,results_Ane2_Ref,results_RSD_Ref_SD,results_Ane2_Ref_SD,
-                            results_RSD_Ref_WS,results_Ane2_Ref_WS],axis = 0)
+    results_ = get_all_regressions(inputdata_test, title="baselines")
+    results_RSD_Ref = results_.loc[
+        results_["baselines"].isin(["TI_regression_Ref_RSD"])
+    ].reset_index()
+    results_Ane2_Ref = results_.loc[
+        results_["baselines"].isin(["TI_regression_Ref_Ane2"])
+    ].reset_index()
+    results_RSD_Ref_SD = results_.loc[
+        results_["baselines"].isin(["SD_regression_Ref_RSD"])
+    ].reset_index()
+    results_Ane2_Ref_SD = results_.loc[
+        results_["baselines"].isin(["SD_regression_Ref_Ane2"])
+    ].reset_index()
+    results_RSD_Ref_WS = results_.loc[
+        results_["baselines"].isin(["WS_regression_Ref_RSD"])
+    ].reset_index()
+    results_Ane2_Ref_WS = results_.loc[
+        results_["baselines"].isin(["WS_regression_Ref_Ane2"])
+    ].reset_index()
+    results_RSD_Ref.loc[0, "testID"] = [testID]
+    results_Ane2_Ref.loc[0, "testID"] = [testID]
+    results_RSD_Ref_SD.loc[0, "testID"] = [testID]
+    results_Ane2_Ref_SD.loc[0, "testID"] = [testID]
+    results_RSD_Ref_WS.loc[0, "testID"] = [testID]
+    results_Ane2_Ref_WS.loc[0, "testID"] = [testID]
+    results_df = pd.concat(
+        [
+            results_df,
+            results_RSD_Ref,
+            results_Ane2_Ref,
+            results_RSD_Ref_SD,
+            results_Ane2_Ref_SD,
+            results_RSD_Ref_WS,
+            results_Ane2_Ref_WS,
+        ],
+        axis=0,
+    )
 
     # Run a few adjustments with this timing test aswell
     inputdata_adj, lm_adj, m, c = _adjuster.perform_SS_S_adjustment(inputdata.copy())
-    lm_adj_dict[str(str(testID) + ' :SS_S' )] = lm_adj
+    lm_adj_dict[str(str(testID) + " :SS_S")] = lm_adj
     inputdata_adj, lm_adj, m, c = _adjuster.perform_SS_SF_adjustment(inputdata.copy())
-    lm_adj_dict[str(str(testID) + ' :SS_SF' )] = lm_adj
+    lm_adj_dict[str(str(testID) + " :SS_SF")] = lm_adj
     inputdata_adj, lm_adj, m, c = _adjuster.perform_SS_WS_adjustment(inputdata.copy())
-    lm_adj_dict[str(str(testID) + ' :SS_WS-Std' )] = lm_adj
+    lm_adj_dict[str(str(testID) + " :SS_WS-Std")] = lm_adj
     inputdata_adj, lm_adj = perform_match(inputdata.copy())
-    lm_adj_dict[str(str(testID) + ' :Match' )] = lm_adj
+    lm_adj_dict[str(str(testID) + " :Match")] = lm_adj
     inputdata_adj, lm_adj = perform_match_input(inputdata.copy())
-    lm_adj_dict[str(str(testID) + ' :SS_Match_erforminput' )] = lm_adj
+    lm_adj_dict[str(str(testID) + " :SS_Match_erforminput")] = lm_adj
     override = False
-    inputdata_adj, lm_adj, m, c = _adjuster.perform_G_Sa_adjustment(inputdata.copy(), override, config.RSDtype)
-    lm_adj_dict[str(str(testID) + ' :SS_G_SFa' )] = lm_adj
+    inputdata_adj, lm_adj, m, c = _adjuster.perform_G_Sa_adjustment(
+        inputdata.copy(), override, config.RSDtype
+    )
+    lm_adj_dict[str(str(testID) + " :SS_G_SFa")] = lm_adj
 
     return results_df, lm_adj_dict
 

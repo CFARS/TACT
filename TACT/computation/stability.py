@@ -186,8 +186,10 @@ def calculate_stability_TKE(inputdata, config):
     return stabilityClass, stabilityMetric, regimeBreakdown
 
 
-def calculate_stability_alpha(inputdata, config, config_file, RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd):
-    '''
+def calculate_stability_alpha(
+    inputdata, config, config_file, RSD_alphaFlag, Ht_1_rsd, Ht_2_rsd
+):
+    """
     from Wharton and Lundquist 2012
     stability class from shear exponent categories:
     [1]     strongly stable -------- alpha > 0.3
@@ -195,61 +197,119 @@ def calculate_stability_alpha(inputdata, config, config_file, RSD_alphaFlag, Ht_
     [3]        near-neutral -------- 0.1 < TKE < 0.2
     [4]          convective -------- 0.0 < TKE < 0.1
     [5] strongly convective -------- alpha < 0.0
-    '''
+    """
 
     regimeBreakdown_ane = pd.DataFrame()
 
-    #check for 2 anemometer heights (use furthest apart) for cup alpha calculation
-    configHtData = pd.read_excel(config_file, usecols=[3, 4], nrows=17).iloc[[3,12,13,14,15]]
-    primaryHeight = configHtData['Selection'].to_list()[0]
-    all_heights, ane_heights, RSD_heights, ane_cols, RSD_cols = config.check_for_additional_heights(primaryHeight)
-    if len(list(ane_heights))> 1:
+    # check for 2 anemometer heights (use furthest apart) for cup alpha calculation
+    configHtData = pd.read_excel(config_file, usecols=[3, 4], nrows=17).iloc[
+        [3, 12, 13, 14, 15]
+    ]
+    primaryHeight = configHtData["Selection"].to_list()[0]
+    (
+        all_heights,
+        ane_heights,
+        RSD_heights,
+        ane_cols,
+        RSD_cols,
+    ) = config.check_for_additional_heights(primaryHeight)
+    if len(list(ane_heights)) > 1:
         all_keys = list(all_heights.values())
         max_key = list(all_heights.keys())[all_keys.index(max(all_heights.values()))]
         min_key = list(all_heights.keys())[all_keys.index(min(all_heights.values()))]
-        if max_key == 'primary':
-            max_cols = [s for s in inputdata.columns.to_list() if 'Ref' in s and 'WS' in s]
+        if max_key == "primary":
+            max_cols = [
+                s for s in inputdata.columns.to_list() if "Ref" in s and "WS" in s
+            ]
         else:
-            subname = str('Ht' + str(max_key))
-            max_cols = [s for s in inputdata.columns.to_list() if subname in s and 'Ane' in s and 'WS' in s]
-        if min_key == 'primary':
-            min_cols = [s for s in inputdata.columns.to_list() if 'Ref' in s and 'WS' in s]
+            subname = str("Ht" + str(max_key))
+            max_cols = [
+                s
+                for s in inputdata.columns.to_list()
+                if subname in s and "Ane" in s and "WS" in s
+            ]
+        if min_key == "primary":
+            min_cols = [
+                s for s in inputdata.columns.to_list() if "Ref" in s and "WS" in s
+            ]
         else:
-            subname = str('Ht' + str(min_key))
-            min_cols = [s for s in inputdata.columns.to_list() if subname in s and 'Ane' in s and 'WS' in s]
+            subname = str("Ht" + str(min_key))
+            min_cols = [
+                s
+                for s in inputdata.columns.to_list()
+                if subname in s and "Ane" in s and "WS" in s
+            ]
 
         # Calculate shear exponent
         tmp = pd.DataFrame(None)
         baseName = str(max_cols + min_cols)
-        tmp[str(baseName + '_y')] = [val for sublist in log_of_ratio(inputdata[max_cols].values.astype(float),
-                                                                     inputdata[min_cols].values.astype(float)) for val in sublist]
-        tmp[str(baseName + '_alpha')] = tmp[str(baseName + '_y')] / (log_of_ratio(max(all_heights.values()), min(all_heights.values())))
+        tmp[str(baseName + "_y")] = [
+            val
+            for sublist in log_of_ratio(
+                inputdata[max_cols].values.astype(float),
+                inputdata[min_cols].values.astype(float),
+            )
+            for val in sublist
+        ]
+        tmp[str(baseName + "_alpha")] = tmp[str(baseName + "_y")] / (
+            log_of_ratio(max(all_heights.values()), min(all_heights.values()))
+        )
 
-        stabilityMetric_ane = tmp[str(baseName + '_alpha')]
+        stabilityMetric_ane = tmp[str(baseName + "_alpha")]
         Ht_2_ane = max(all_heights.values())
         Ht_1_ane = min(all_heights.values())
 
-        tmp[str(baseName + 'stabilityClass')] = tmp[str(baseName + '_alpha')]
-        tmp.loc[(tmp[str(baseName + '_alpha')] <= 0.4), str(baseName + 'stabilityClass')] = 1
-        tmp.loc[(tmp[str(baseName + '_alpha')] > 0.4) & (tmp[str(baseName + '_alpha')] <= 0.7), str(baseName + 'stabilityClass')] = 2
-        tmp.loc[(tmp[str(baseName + '_alpha')] > 0.7) & (tmp[str(baseName + '_alpha')] <= 1.0), str(baseName + 'stabilityClass')] = 3
-        tmp.loc[(tmp[str(baseName + '_alpha')] > 1.0) & (tmp[str(baseName + '_alpha')] <= 1.4), str(baseName + 'stabilityClass')] = 4
-        tmp.loc[(tmp[str(baseName + '_alpha')] > 1.4), str(baseName + 'stabilityClass')] = 5
+        tmp[str(baseName + "stabilityClass")] = tmp[str(baseName + "_alpha")]
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] <= 0.4), str(baseName + "stabilityClass")
+        ] = 1
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] > 0.4)
+            & (tmp[str(baseName + "_alpha")] <= 0.7),
+            str(baseName + "stabilityClass"),
+        ] = 2
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] > 0.7)
+            & (tmp[str(baseName + "_alpha")] <= 1.0),
+            str(baseName + "stabilityClass"),
+        ] = 3
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] > 1.0)
+            & (tmp[str(baseName + "_alpha")] <= 1.4),
+            str(baseName + "stabilityClass"),
+        ] = 4
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] > 1.4), str(baseName + "stabilityClass")
+        ] = 5
 
         # get count and percent of data in each class
-        numNans = tmp[str(baseName) + '_alpha'].isnull().sum()
+        numNans = tmp[str(baseName) + "_alpha"].isnull().sum()
         totalCount = len(inputdata) - numNans
-        name_class = str('stability_shear' + '_class')
-        name_stabilityClass = str(baseName + 'stabilityClass')
-        regimeBreakdown_ane[name_class] = ['1 (strongly stable)', '2 (stable)', '3 (near-neutral)', '4 (convective)', '5 (strongly convective)']
-        name_count = str('stability_shear_obs' + '_count')
-        regimeBreakdown_ane[name_count] = [len(tmp[(tmp[name_stabilityClass] == 1)]), len(tmp[(tmp[name_stabilityClass] == 2)]),
-                                       len(tmp[(tmp[name_stabilityClass] == 3)]), len(tmp[(tmp[name_stabilityClass] == 4)]),
-                                       len(tmp[(tmp[name_stabilityClass] == 5)])]
-        name_percent = str('stability_shear_obs' + '_percent')
-        regimeBreakdown_ane[name_percent] = [len(tmp[(tmp[name_stabilityClass] == 1)])/totalCount, len(tmp[(tmp[name_stabilityClass] == 2)])/totalCount,
-                                         len(tmp[(tmp[name_stabilityClass] == 3)])/totalCount, len(tmp[(tmp[name_stabilityClass] == 4)])/totalCount,
-                                         len(tmp[(tmp[name_stabilityClass] == 5)])/totalCount]
+        name_class = str("stability_shear" + "_class")
+        name_stabilityClass = str(baseName + "stabilityClass")
+        regimeBreakdown_ane[name_class] = [
+            "1 (strongly stable)",
+            "2 (stable)",
+            "3 (near-neutral)",
+            "4 (convective)",
+            "5 (strongly convective)",
+        ]
+        name_count = str("stability_shear_obs" + "_count")
+        regimeBreakdown_ane[name_count] = [
+            len(tmp[(tmp[name_stabilityClass] == 1)]),
+            len(tmp[(tmp[name_stabilityClass] == 2)]),
+            len(tmp[(tmp[name_stabilityClass] == 3)]),
+            len(tmp[(tmp[name_stabilityClass] == 4)]),
+            len(tmp[(tmp[name_stabilityClass] == 5)]),
+        ]
+        name_percent = str("stability_shear_obs" + "_percent")
+        regimeBreakdown_ane[name_percent] = [
+            len(tmp[(tmp[name_stabilityClass] == 1)]) / totalCount,
+            len(tmp[(tmp[name_stabilityClass] == 2)]) / totalCount,
+            len(tmp[(tmp[name_stabilityClass] == 3)]) / totalCount,
+            len(tmp[(tmp[name_stabilityClass] == 4)]) / totalCount,
+            len(tmp[(tmp[name_stabilityClass] == 5)]) / totalCount,
+        ]
         stabilityClass_ane = tmp[name_stabilityClass]
         cup_alphaFlag = True
     else:
@@ -264,34 +324,69 @@ def calculate_stability_alpha(inputdata, config, config_file, RSD_alphaFlag, Ht_
     if RSD_alphaFlag:
         regimeBreakdown_rsd = pd.DataFrame()
         tmp = pd.DataFrame(None)
-        baseName = str('WS_' + str(Ht_1_rsd) + '_' + 'WS_' + str(Ht_2_rsd))
-        max_col = 'RSD_alpha_lowHeight'
-        min_col = 'RSD_alpha_highHeight'
-        tmp[str(baseName + '_y')] = log_of_ratio(inputdata[max_col].values.astype(float),inputdata[min_col].values.astype(float))
-        tmp[str(baseName + '_alpha')] = tmp[str(baseName + '_y')] / (log_of_ratio(Ht_2_rsd, Ht_1_rsd))
+        baseName = str("WS_" + str(Ht_1_rsd) + "_" + "WS_" + str(Ht_2_rsd))
+        max_col = "RSD_alpha_lowHeight"
+        min_col = "RSD_alpha_highHeight"
+        tmp[str(baseName + "_y")] = log_of_ratio(
+            inputdata[max_col].values.astype(float),
+            inputdata[min_col].values.astype(float),
+        )
+        tmp[str(baseName + "_alpha")] = tmp[str(baseName + "_y")] / (
+            log_of_ratio(Ht_2_rsd, Ht_1_rsd)
+        )
 
-        stabilityMetric_rsd = tmp[str(baseName + '_alpha')]
+        stabilityMetric_rsd = tmp[str(baseName + "_alpha")]
 
-        tmp[str(baseName + 'stabilityClass')] = tmp[str(baseName + '_alpha')]
-        tmp.loc[(tmp[str(baseName + '_alpha')] <= 0.4), str(baseName + 'stabilityClass')] = 1
-        tmp.loc[(tmp[str(baseName + '_alpha')] > 0.4) & (tmp[str(baseName + '_alpha')] <= 0.7), str(baseName + 'stabilityClass')] = 2
-        tmp.loc[(tmp[str(baseName + '_alpha')] > 0.7) & (tmp[str(baseName + '_alpha')] <= 1.0), str(baseName + 'stabilityClass')] = 3
-        tmp.loc[(tmp[str(baseName + '_alpha')] > 1.0) & (tmp[str(baseName + '_alpha')] <= 1.4), str(baseName + 'stabilityClass')] = 4
-        tmp.loc[(tmp[str(baseName + '_alpha')] > 1.4), str(baseName + 'stabilityClass')] = 5
+        tmp[str(baseName + "stabilityClass")] = tmp[str(baseName + "_alpha")]
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] <= 0.4), str(baseName + "stabilityClass")
+        ] = 1
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] > 0.4)
+            & (tmp[str(baseName + "_alpha")] <= 0.7),
+            str(baseName + "stabilityClass"),
+        ] = 2
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] > 0.7)
+            & (tmp[str(baseName + "_alpha")] <= 1.0),
+            str(baseName + "stabilityClass"),
+        ] = 3
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] > 1.0)
+            & (tmp[str(baseName + "_alpha")] <= 1.4),
+            str(baseName + "stabilityClass"),
+        ] = 4
+        tmp.loc[
+            (tmp[str(baseName + "_alpha")] > 1.4), str(baseName + "stabilityClass")
+        ] = 5
 
         # get count and percent of data in each class
-        numNans = tmp[str(baseName) + '_alpha'].isnull().sum()
+        numNans = tmp[str(baseName) + "_alpha"].isnull().sum()
         totalCount = len(inputdata) - numNans
-        name_stabilityClass = str(baseName + 'stabilityClass')
-        regimeBreakdown_rsd[name_class] = ['1 (strongly stable)', '2 (stable)', '3 (near-neutral)', '4 (convective)', '5 (strongly convective)']
-        name_count = str('stability_shear_obs' + '_count')
-        regimeBreakdown_rsd[name_count] = [len(tmp[(tmp[name_stabilityClass] == 1)]), len(tmp[(tmp[name_stabilityClass] == 2)]),
-                                       len(tmp[(tmp[name_stabilityClass] == 3)]), len(tmp[(tmp[name_stabilityClass] == 4)]),
-                                       len(tmp[(tmp[name_stabilityClass] == 5)])]
-        name_percent = str('stability_shear_obs' + '_percent')
-        regimeBreakdown_rsd[name_percent] = [len(tmp[(tmp[name_stabilityClass] == 1)])/totalCount, len(tmp[(tmp[name_stabilityClass] == 2)])/totalCount,
-                                         len(tmp[(tmp[name_stabilityClass] == 3)])/totalCount, len(tmp[(tmp[name_stabilityClass] == 4)])/totalCount,
-                                         len(tmp[(tmp[name_stabilityClass] == 5)])/totalCount]
+        name_stabilityClass = str(baseName + "stabilityClass")
+        regimeBreakdown_rsd[name_class] = [
+            "1 (strongly stable)",
+            "2 (stable)",
+            "3 (near-neutral)",
+            "4 (convective)",
+            "5 (strongly convective)",
+        ]
+        name_count = str("stability_shear_obs" + "_count")
+        regimeBreakdown_rsd[name_count] = [
+            len(tmp[(tmp[name_stabilityClass] == 1)]),
+            len(tmp[(tmp[name_stabilityClass] == 2)]),
+            len(tmp[(tmp[name_stabilityClass] == 3)]),
+            len(tmp[(tmp[name_stabilityClass] == 4)]),
+            len(tmp[(tmp[name_stabilityClass] == 5)]),
+        ]
+        name_percent = str("stability_shear_obs" + "_percent")
+        regimeBreakdown_rsd[name_percent] = [
+            len(tmp[(tmp[name_stabilityClass] == 1)]) / totalCount,
+            len(tmp[(tmp[name_stabilityClass] == 2)]) / totalCount,
+            len(tmp[(tmp[name_stabilityClass] == 3)]) / totalCount,
+            len(tmp[(tmp[name_stabilityClass] == 4)]) / totalCount,
+            len(tmp[(tmp[name_stabilityClass] == 5)]) / totalCount,
+        ]
         stabilityClass_rsd = tmp[name_stabilityClass]
     else:
         stabilityClass_rsd = None
@@ -300,4 +395,14 @@ def calculate_stability_alpha(inputdata, config, config_file, RSD_alphaFlag, Ht_
         Ht_1_rsd = None
         Ht_2_rsd = None
 
-    return cup_alphaFlag,stabilityClass_ane, stabilityMetric_ane, regimeBreakdown_ane, Ht_1_ane, Ht_2_ane, stabilityClass_rsd, stabilityMetric_rsd, regimeBreakdown_rsd
+    return (
+        cup_alphaFlag,
+        stabilityClass_ane,
+        stabilityMetric_ane,
+        regimeBreakdown_ane,
+        Ht_1_ane,
+        Ht_2_ane,
+        stabilityClass_rsd,
+        stabilityMetric_rsd,
+        regimeBreakdown_rsd,
+    )

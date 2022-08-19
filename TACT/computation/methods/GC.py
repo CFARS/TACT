@@ -110,15 +110,17 @@ def perform_G_C_adjustment(inputdata):
     c = np.NaN
 
     return inputdata_test, results, m, c
+
+
 # class Perform_G_C_Adjustment(AdjustmentsParent):
 #     """
 #     Note: comprehensive empirical adjustment from a dozen locations. Focuses on std. deviation
 #     """
 #     def __init__(self, inputdata):
 #         logger.debug("Initialized Perform_G_C_Adjustment class")
-    
+
 #         super().__init__(inputdata)
-    
+
 #     results = pd.DataFrame(
 #         columns=[
 #             "sensor",

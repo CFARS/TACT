@@ -750,14 +750,23 @@ def get_representative_TI_15mps(inputdata):
     return results
 
 
-def record_TIadj(adjustment_name, inputdata_adj, Timestamps, method, TI_10minuteAdjusted, emptyclassFlag=False):
+def record_TIadj(
+    adjustment_name,
+    inputdata_adj,
+    Timestamps,
+    method,
+    TI_10minuteAdjusted,
+    emptyclassFlag=False,
+):
 
     if isinstance(inputdata_adj, pd.DataFrame) == False:
         pass
     else:
-        adj_cols = [s for s in inputdata_adj.columns.to_list() if 'adj' in s]
-        adj_cols = [s for s in adj_cols if not ('diff' in s or 'Diff' in s or 'error' in s)]
+        adj_cols = [s for s in inputdata_adj.columns.to_list() if "adj" in s]
+        adj_cols = [
+            s for s in adj_cols if not ("diff" in s or "Diff" in s or "error" in s)
+        ]
         for c in adj_cols:
-            TI_10minuteAdjusted[str(c + '_' + method)] = inputdata_adj[c]
+            TI_10minuteAdjusted[str(c + "_" + method)] = inputdata_adj[c]
 
     return TI_10minuteAdjusted
