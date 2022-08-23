@@ -98,7 +98,9 @@ if __name__ == "__main__":
         TI_computed = data.inputdata["RSD_SD"] / data.inputdata["RSD_WS"]
         RepTI_computed = TI_computed + 1.28 * data.inputdata["RSD_SD"]
         data.inputdata = data.inputdata.rename(columns={"RSD_TI": "RSD_TI_instrument"})
-        data.inputdata = data.inputdata.rename(columns={"RSD_RepTI": "RSD_RepTI_instrument"})
+        data.inputdata = data.inputdata.rename(
+            columns={"RSD_RepTI": "RSD_RepTI_instrument"}
+        )
         data.inputdata["RSD_TI"] = TI_computed
         data.inputdata["RSD_RepTI"] = RepTI_computed
     elif config.RSDtype["Selection"] == "Triton":
@@ -115,7 +117,7 @@ if __name__ == "__main__":
         stabilityClass_tke,
         stabilityMetric_tke,
         regimeBreakdown_tke,
-    ) = calculate_stability_TKE(data.inputdata, config)
+    ) = calculate_stability_TKE(data, config)
     (
         cup_alphaFlag,
         stabilityClass_ane,
@@ -126,9 +128,7 @@ if __name__ == "__main__":
         stabilityClass_rsd,
         stabilityMetric_rsd,
         regimeBreakdown_rsd,
-    ) = calculate_stability_alpha(
-        data.inputdata, config, config.config_file, data.RSD_alphaFlag, data.Ht_1_rsd, data.Ht_2_rsd
-    )
+    ) = calculate_stability_alpha(data, config)
     # ------------------------
     # Time Sensivity Analysis
     # ------------------------
@@ -238,8 +238,12 @@ if __name__ == "__main__":
     # random 80-20 split
     data.inputdata = train_test_split(80.0, data.inputdata.copy())
 
-    inputdata_train = data.inputdata[data.inputdata["split"] == True].copy().join(data.timestamps)
-    inputdata_test = data.inputdata[data.inputdata["split"] == False].copy().join(data.timestamps)
+    inputdata_train = (
+        data.inputdata[data.inputdata["split"] == True].copy().join(data.timestamps)
+    )
+    inputdata_test = (
+        data.inputdata[data.inputdata["split"] == False].copy().join(data.timestamps)
+    )
 
     timestamp_train = inputdata_train["Timestamp"]
     timestamp_test = inputdata_test["Timestamp"]
@@ -449,8 +453,12 @@ if __name__ == "__main__":
     # get number of observations in each bin
     count_1mps, count_05mps = get_count_per_WSbin(data.inputdata, "RSD_WS")
 
-    inputdata_train = data.inputdata[data.inputdata["split"] == True].copy().join(data.timestamps)
-    inputdata_test = data.inputdata[data.inputdata["split"] == False].copy().join(data.timestamps)
+    inputdata_train = (
+        data.inputdata[data.inputdata["split"] == True].copy().join(data.timestamps)
+    )
+    inputdata_test = (
+        data.inputdata[data.inputdata["split"] == False].copy().join(data.timestamps)
+    )
 
     timestamp_train = inputdata_train["Timestamp"]
     timestamp_test = inputdata_test["Timestamp"]
@@ -527,7 +535,9 @@ if __name__ == "__main__":
     TI_10minuteAdjusted = pd.DataFrame()
 
     # initialize Adjustments object
-    adjuster = Adjustments(data.inputdata.copy(), config.adjustments_metadata, baseResultsLists)
+    adjuster = Adjustments(
+        data.inputdata.copy(), config.adjustments_metadata, baseResultsLists
+    )
 
     for method in config.adjustments_metadata:
 
@@ -955,7 +965,9 @@ if __name__ == "__main__":
         else:
             print("Applying Adjustment Method: SS-WS")
             logger.info("Applying Adjustment Method: SS-WS")
-            inputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(data.inputdata.copy())
+            inputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(
+                data.inputdata.copy()
+            )
             print("SS-WS: y = " + str(m) + " * x + " + str(c))
             lm_adj["sensor"] = config.model
             lm_adj["height"] = config.height
@@ -1091,12 +1103,16 @@ if __name__ == "__main__":
         # Site Specific Comprehensive Adjustment (SS-WS-Std)
         if method != "SS-WS-Std":
             pass
-        elif method == "SS-WS-Std" and config.adjustments_metadata["SS-WS-Std"] == False:
+        elif (
+            method == "SS-WS-Std" and config.adjustments_metadata["SS-WS-Std"] == False
+        ):
             pass
         else:
             print("Applying Adjustment Method: SS-WS-Std")
             logger.info("Applying Adjustment Method: SS-WS-Std")
-            inputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(data.inputdata.copy())
+            inputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(
+                data.inputdata.copy()
+            )
             print("SS-WS-Std: y = " + str(m) + " * x + " + str(c))
             lm_adj["sensor"] = config.model
             lm_adj["height"] = config.height
@@ -1251,7 +1267,8 @@ if __name__ == "__main__":
         if method != "SS-LTERRA-MLa":
             pass
         elif (
-            method == "SS-LTERRA-MLa" and config.adjustments_metadata["SS-LTERRA-MLa"] == False
+            method == "SS-LTERRA-MLa"
+            and config.adjustments_metadata["SS-LTERRA-MLa"] == False
         ):
             pass
         else:
@@ -1399,7 +1416,8 @@ if __name__ == "__main__":
         if method != "SS-LTERRA-MLc":
             pass
         elif (
-            method == "SS-LTERRA-MLc" and config.adjustments_metadata["SS-LTERRA-MLc"] == False
+            method == "SS-LTERRA-MLc"
+            and config.adjustments_metadata["SS-LTERRA-MLc"] == False
         ):
             pass
         else:
@@ -1581,7 +1599,8 @@ if __name__ == "__main__":
         if method != "SS-LTERRA-MLb":
             pass
         elif (
-            method == "SS-LTERRA-MLb" and config.adjustments_metadata["SS-LTERRA-MLb"] == False
+            method == "SS-LTERRA-MLb"
+            and config.adjustments_metadata["SS-LTERRA-MLb"] == False
         ):
             pass
         else:
@@ -1749,14 +1768,18 @@ if __name__ == "__main__":
         # TI Extrapolation (TI-Ext)
         if method != "TI-Extrap":
             pass
-        elif method == "TI-Extrap" and config.adjustments_metadata["TI-Extrap"] == False:
+        elif (
+            method == "TI-Extrap" and config.adjustments_metadata["TI-Extrap"] == False
+        ):
             pass
         else:
             print("Found enough data to perform extrapolation comparison")
             block_print()
             # Get extrapolation height
             height_extrap = float(
-                config.extrap_metadata["height"][config.extrap_metadata["type"] == "extrap"]
+                config.extrap_metadata["height"][
+                    config.extrap_metadata["type"] == "extrap"
+                ]
             )
             # Extrapolate
             inputdata_adj, lm_adj, shearTimeseries = perform_TI_extrapolation(
@@ -1770,7 +1793,11 @@ if __name__ == "__main__":
 
             inputdataEXTRAP = inputdata_adj.copy()
             inputdataEXTRAP, baseResultsLists = extrap_configResult(
-                config.extrapolation_type, inputdataEXTRAP, baseResultsLists, method, lm_adj
+                config.extrapolation_type,
+                inputdataEXTRAP,
+                baseResultsLists,
+                method,
+                lm_adj,
             )
 
             if config.RSDtype["Selection"][0:4] == "Wind":
@@ -2025,7 +2052,9 @@ if __name__ == "__main__":
         # Histogram Matching Input Corrected
         if method != "SS-Match2":
             pass
-        elif method == "SS-Match2" and config.adjustments_metadata["SS-Match2"] == False:
+        elif (
+            method == "SS-Match2" and config.adjustments_metadata["SS-Match2"] == False
+        ):
             pass
         else:
             print("Applying input match algorithm: SS-Match2")
@@ -2454,7 +2483,9 @@ if __name__ == "__main__":
         else:
             print("Applying Adjustment Method: G-Sc")
             logger.info("Applying Adjustment Method: G-Sc")
-            inputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(data.inputdata.copy())
+            inputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(
+                data.inputdata.copy()
+            )
             print("G-SFc: y = " + str(m) + " * x + " + str(c))
             lm_adj["sensor"] = config.model
             lm_adj["height"] = config.height
@@ -2758,7 +2789,10 @@ if __name__ == "__main__":
         # Global Comprehensive (G-Ref-SS-S)
         if method != "G-Ref-SS-S":
             pass
-        elif method == "G-Ref-SS-S" and config.adjustments_metadata["G-Ref-SS-S"] == False:
+        elif (
+            method == "G-Ref-SS-S"
+            and config.adjustments_metadata["G-Ref-SS-S"] == False
+        ):
             pass
         else:
             print("Applying Adjustment Method: G-Ref-SS-S")
@@ -2767,7 +2801,10 @@ if __name__ == "__main__":
         # Global Comprehensive (G-Ref-WS-Std)
         if method != "G-Ref-WS-Std":
             pass
-        elif method == "G-Ref-WS-Std" and config.adjustments_metadata["G-Ref-WS-Std"] == False:
+        elif (
+            method == "G-Ref-WS-Std"
+            and config.adjustments_metadata["G-Ref-WS-Std"] == False
+        ):
             pass
         else:
             print("Applying Adjustment Method: G-Ref-WS-Std")
@@ -2871,7 +2908,9 @@ if __name__ == "__main__":
     # Write 10 minute Adjusted data to a csv file
     config.outpath_dir = os.path.dirname(config.results_file)
     config.outpath_file = os.path.basename(config.results_file)
-    config.outpath_file = str("TI_10minuteAdjusted_" + config.outpath_file.split(".xlsx")[0] + ".csv")
+    config.outpath_file = str(
+        "TI_10minuteAdjusted_" + config.outpath_file.split(".xlsx")[0] + ".csv"
+    )
     out_dir = os.path.join(config.outpath_dir, config.outpath_file)
 
     TI_10minuteAdjusted.to_csv(out_dir)

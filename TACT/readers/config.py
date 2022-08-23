@@ -309,13 +309,25 @@ class Config(object):
     def check_for_additional_heights(self, height):
         """
         Check if columns are specified for other heights, and extract the column names.
-        :param config_file: Input configuration file
-        :param height: Primary comparison height (m)
-        :return all_heights: dictionary of all height labels and values
-        :return ane_heights: dictionary of height labels and values for anemometers
-        :return RSD_heights: dictionary of height labels and values for RSD
-        :return ane_cols: list of column names corresponding to additional anemometer heights
-        :return RSD_cols: list of column names corresponding to additional RSD heights
+
+
+        Parameters
+        ----------
+        height : int
+            Primary comparison height (m)
+
+        Returns
+        -------
+        all_heights : dict
+            dictionary of all height labels and values
+        ane_heights : dict
+            dictionary of height labels and values for anemometers
+        RSD_heights : dict
+            dictionary of height labels and values for RSD
+        ane_cols : list
+            list of column names corresponding to additional anemometer heights
+        RSD_cols : list
+            list of column names corresponding to additional RSD heights
         """
         # Get dictionary of all heights
         all_heights = self.get_all_heights(height)
