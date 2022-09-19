@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
-from .calculations import log_of_ratio, power_law
+from ..computation.calculations import log_of_ratio, power_law
 from TACT.computation.adjustments import Adjustments
 from TACT.computation.TI import (
     get_TI_MBE_Diff_j,
