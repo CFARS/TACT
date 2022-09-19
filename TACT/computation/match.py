@@ -7,6 +7,9 @@ from TACT.computation.adjustments import Adjustments
 def perform_match_input(inputdata):
     """
     correct the TI inputs separately
+    
+    arguments: input dataframe
+    out: adjusted dataframe, lm_adjusted(results table)
     """
     results = pd.DataFrame(
         columns=[
@@ -347,6 +350,7 @@ def hist_match(inputdata_train, inputdata_test, refCol, testCol):
     t_quantiles = np.cumsum(t_counts).astype(np.float64)
     t_quantiles /= t_quantiles[-1]
 
+    # plotting for validation of method
     #    import matplotlib.pyplot as plt
 
     #    plt.plot(s_quantiles, label='source')
@@ -355,7 +359,8 @@ def hist_match(inputdata_train, inputdata_test, refCol, testCol):
     #    plt.show()
     # interpolate linearly to find the pixel values in the template image
     # that correspond most closely to the quantiles in the source image
-    interp_t_values = np.interp(s_quantiles, t_quantiles, t_values)
+
+    interp_t_values = np.interp(s_quantiles.astype(float), t_quantiles.astype(float), t_values.astype(float))
     output = interp_t_values[bin_idx]
 
     # test number 2
@@ -367,8 +372,8 @@ def hist_match(inputdata_train, inputdata_test, refCol, testCol):
     cdf_template = imhist_template.cumsum()  # cumulative distribution function
     cdf_template = n_bins * cdf_template / cdf_template[-1]  # normalize
 
-    im2 = np.interp(source, bins_template[:-1], cdf_source)
-    output = np.interp(im2, cdf_template, bins_template[:-1])
+    im2 = np.interp(source.astype(float), bins_template[:-1].astype(float), cdf_source.astype(float))
+    output = np.interp(im2.astype(float), cdf_template.astype(float), bins_template[:-1].astype(float))
 
     #    plt.plot(cdf_source,label='source')
     #    plt.plot(cdf_template,label='template')
