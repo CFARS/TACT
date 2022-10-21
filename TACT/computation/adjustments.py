@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 
 plt.ioff()  # setting to non-interactive
 import numpy as np
-import sys
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
@@ -155,7 +154,28 @@ class Adjustments:
 
     def perform_SS_S_adjustment(self, inputdata):
         """
+        Adjusts 10-minute averaged TI with a linear slope and offset calibration method 
+        derived from the test data 
+
+        Parameters
+        ----------
+        inputdata : dataframe 
+
+        Returns 
+        -------
+        inputdata_adj : dataframe
+        results : dataframe
+        m :  numeric
+        c : numeric
+
+        Notes
+        -----
         Note: Representative TI computed with original RSD_SD
+
+        References
+        ----------
+        To do: FIND/GET REFERENCE!
+        
         """
         results = pd.DataFrame(
             columns=[
@@ -314,6 +334,31 @@ class Adjustments:
         return inputdata_test, results, m, c
 
     def perform_SS_SF_adjustment(self, inputdata):
+        """
+        Adjusts 10-minute averaged TI data with a linear slope and offset calibration method
+        with a filter applied 
+        derived from the test data 
+
+        Parameters
+        ----------
+        inputdata : dataframe 
+
+        Returns 
+        -------
+        inputdata_adj : dataframe
+        results : dataframe
+        m :  numeric
+        c : numeric
+
+        Notes
+        -----
+        Note: Representative TI computed with original RSD_SD
+
+        References
+        ----------
+        To do: FIND/GET REFERENCE!
+        
+        """
 
         results = pd.DataFrame(
             columns=[
@@ -503,7 +548,27 @@ class Adjustments:
 
     def perform_SS_WS_adjustment(self, inputdata):
         """
-        correct ws before computing TI
+        Adjusts 10-minute averaged wind speed data with a linear slope and offset calibration method 
+        derived from the test data 
+
+        Parameters
+        ----------
+        inputdata : dataframe 
+
+        Returns 
+        -------
+        inputdata_adj : dataframe
+        results : dataframe
+        m :  numeric
+        c : numeric
+
+        Notes
+        -----
+        Note: Representative TI computed with original RSD_SD
+
+        References
+        ----------
+        To do: FIND/GET REFERENCE!
         """
         results = pd.DataFrame(
             columns=[
@@ -695,7 +760,29 @@ class Adjustments:
         return inputdata_test, results, m, c
 
     def perform_G_Sa_adjustment(self, inputdata, override, RSDtype):
-        """simple filtered regression results from phase2 averages with simple regression from this data"""
+        """
+        simple filtered regression results from phase2 averages with simple regression from this data 
+
+        Parameters
+        ----------
+        inputdata : dataframe 
+
+        Returns 
+        -------
+        inputdata_adj : dataframe
+        results : dataframe
+        m :  numeric
+        c : numeric
+
+        Notes
+        -----
+        Note: Representative TI computed with original RSD_SD
+
+        References
+        ----------
+        To do: FIND/GET REFERENCE!
+        
+        """
         results = pd.DataFrame(
             columns=[
                 "sensor",
