@@ -80,12 +80,13 @@ if __name__ == "__main__":
 
     data = Data(config.input_filename, config.config_file)
     data.get_inputdata()
+    print (data.inputdata)
+    sys.exit()
     data.get_refTI_bins()  # >> to data_file.py
     data.check_for_alphaConfig()
 
     a = data.a
     lab_a = data.lab_a
-
     print("%%%%%%%%%%%%%%%%%%%%%%%%% Processing Data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     # -------------------------------
     # special handling for data types
@@ -540,8 +541,9 @@ if __name__ == "__main__":
     )
 
     for method in config.adjustments_metadata:
+        # Checking whether or not to execute each adjustement method available 
+        # based on data configuration checks
 
-        # ************************************ #
         # Site Specific Simple Adjustment (SS-S)
         if method != "SS-S":
             pass
@@ -550,7 +552,7 @@ if __name__ == "__main__":
         else:
             print("Applying Adjustment Method: SS-S")
             logger.info("Applying Adjustment Method: SS-S")
-            inputdata_adj, lm_adj, m, c = adjuster.perform_SS_S_adjustment(
+            inputdata_adj, results, m, c = adjuster.perform_SS_S_adjustment(
                 data.inputdata.copy()
             )
             print("SS-S: y = " + str(m) + " * x + " + str(c))
