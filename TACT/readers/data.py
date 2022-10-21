@@ -12,7 +12,8 @@ import numpy as np
 
 
 class Data(Config):
-    """Class to hold data, derivative features, and metadata for TACT analysis
+    """
+    Class to hold data, derivative features, and metadata for TACT analysis
     of a single site. Inherits from Config class
 
     Attributes

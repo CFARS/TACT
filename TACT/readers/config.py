@@ -12,7 +12,8 @@ import sys
 
 class Config(object):
 
-    """Class to hold all Configuration and metadata associated with TACT
+    """
+    Class to hold all Configuration and metadata associated with TACT
     analysis for a single site.
 
     Attributes
