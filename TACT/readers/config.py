@@ -5,6 +5,7 @@ except ImportError:
 import argparse
 from future.utils import itervalues, iteritems
 import os
+from pathlib import Path
 import pandas as pd
 import re
 import sys
@@ -75,10 +76,11 @@ class Config(object):
         self.time_test_flag = time_test_flag
         self.global_model = global_model
 
-        self.outpath_dir = os.path.dirname(results_file)
+        self.outpath_dir = Path(results_file).parent
         self.outpath_file = os.path.basename(results_file)
 
         if not input_filename or not config_file or not results_file:
+            logger.debug("not all files specified, running arg parser")
             self.get_input_files()
 
         self.model, self.height = self.get_phaseiii_metadata()
@@ -150,7 +152,7 @@ class Config(object):
         self.time_test_flag = args.timetestFlag
         self.global_model = args.global_model_to_test
 
-        self.outpath_dir = os.path.dirname(self.results_file)
+        self.outpath_dir = Path(self.results_file).parent
         self.outpath_file = os.path.basename(self.results_file)
 
     def get_site_metadata(self):
@@ -359,7 +361,7 @@ class Config(object):
         ane_cols = [col for col in all_cols if "Ane" in col]
 
         # Get the height numbers of any Additional Comparison Heights
-        regexp = re.compile("[a-zA-Z_]+(?P<ht>\d+)")
+        regexp = re.compile(r"[a-zA-Z_]+(?P<ht>\d+)")
         ane_hts = [regexp.match(c) for c in ane_cols]
         ane_hts = [c.groupdict()["ht"] for c in ane_hts if c is not None]
         ane_hts = [int(h) for h in set(ane_hts)]
@@ -503,13 +505,24 @@ def get_extrap_metadata(ane_heights, RSD_heights, extrapolation_type="simple"):
     # Combine into DataFrame
     extrap_metadata = pd.DataFrame({"height": ane_hts_input, "num": ane_hts_input_num})
     extrap_metadata["type"] = "input"
-    extrap_metadata = extrap_metadata.append(
-        pd.DataFrame(
-            [[extrap_height, extrap_height_num, "extrap"]],
-            columns=extrap_metadata.columns,
-        ),
-        ignore_index=True,
+    extrap_metadata = pd.concat(
+        [
+            extrap_metadata,
+            pd.DataFrame(
+                [[extrap_height, extrap_height_num, "extrap"]],
+                columns=extrap_metadata.columns
+            )
+        ],
+        ignore_index=True, axis=0, join="outer"
+
     )
+#    extrap_metadata = extrap_metadata.append(
+#        pd.DataFrame(
+#            [[extrap_height, extrap_height_num, "extrap"]],
+#            columns=extrap_metadata.columns,
+#        ),
+#        ignore_index=True,
+#    )
     extrap_metadata = extrap_metadata.loc[:, ["type", "height", "num"]]
 
     return extrap_metadata
