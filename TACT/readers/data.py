@@ -15,6 +15,12 @@ class Data(Config):
     """Class to hold data, derivative features, and metadata for TACT analysis
     of a single site. Inherits from Config class
 
+    Parameters
+    ----------
+    config : object
+        (optional) TACT.Config object
+
+
     Attributes
     ----------
     inputdata : DataFrame
@@ -34,6 +40,23 @@ class Data(Config):
         Upper height to compute wind shear from RSD
 
     """
+    def __init__(
+        self,
+        input_filename="",
+        config_file="",
+        results_file="",
+        outpath_dir="",
+        config="",
+    ):
+        if not isinstance(config, Config):
+            logger.debug("Creating new config object")
+            super().__init__(input_filename, config_file, results_file, outpath_dir)
+        else:
+            logger.info(f"using Config object from parameters")
+            self.input_filename = config.input_filename
+            self.config_file = config.config_file
+            self.results_file = config.results_file
+            self.outpath_dir = config.outpath_dir
 
     def get_inputdata(self):
         """Ingests and formats data from inputdata and config data
@@ -80,7 +103,7 @@ class Data(Config):
         delCols = [x for x in self.inputdata.columns.to_list() if x not in keepCols]
         self.inputdata.drop(columns=delCols, inplace=True)
 
-        if self.inputdata.empty == True:
+        if self.inputdata.empty:
             print(
                 "Error no data to analyze. Inputdata dataframe is empty. Check input data."
             )

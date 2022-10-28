@@ -7,7 +7,7 @@ openpyxl>=3.0.3
 xlrd >= 1.0.0
 numpy>=1.19.2
 pandas>=1.0.3
-# pyearth
+pytest
 requests>=2.23.0
 scikit_learn>=0.24.1
 scipy>=1.4.1

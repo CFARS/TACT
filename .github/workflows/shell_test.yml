@@ -1,4 +1,4 @@
-name: Run Tests
+name: Run Shell Test
 on:
   workflow_dispatch:
   push:
