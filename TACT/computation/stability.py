@@ -4,12 +4,95 @@ except ImportError:
     pass
 
 from TACT.computation.calculations import log_of_ratio
+from TACT.computation.adjustments import get_all_regressions
 
 import math
 import numpy as np
 import pandas as pd
 import sys
 
+def get_baseline_stability_results(RSD_h, All_class_data, naming_str): 
+
+    reg_results_class1 = []
+    reg_results_class2 = []
+    reg_results_class3 = []
+    reg_results_class4 = []
+    reg_results_class5 = []
+ 
+    for h in RSD_h:
+            idx = RSD_h.index(h)
+            df = All_class_data[0]
+            df = df[idx]
+            reg_results_class1.append(
+                get_all_regressions(df, title=str(naming_str + h + "class1"))
+            )
+            df = All_class_data[1]
+            df = df[idx]
+            reg_results_class2.append(
+                get_all_regressions(df, title=str(naming_str + h + "class2"))
+            )
+            df = All_class_data[2]
+            df = df[idx]
+            reg_results_class3.append(
+                get_all_regressions(df, title=str(naming_str + h + "class3"))
+            )
+            df = All_class_data[3]
+            df = df[idx]
+            reg_results_class4.append(
+                get_all_regressions(df, title=str(naming_str + h + "class4"))
+            )
+            df = All_class_data[4]
+            df = df[idx]
+            reg_results_class5.append(
+                get_all_regressions(df, title=str(naming_str + h + "class5"))
+            )
+
+    return reg_results_class1, reg_results_class2, reg_results_class3, reg_results_class4, reg_results_class5
+
+def get_stability_df_list(data, stabilityClass_df): 
+    """
+    returns a list of lists. 5 outer lists (representing stability class). Wihtin each outer list, there is a list of dataframes
+    with one dateframe for each height
+    should update this to a better structure
+    """
+
+    inputdata_class1 = []
+    inputdata_class2 = []
+    inputdata_class3 = []
+    inputdata_class4 = []
+    inputdata_class5 = []
+    RSD_h = []
+
+    Alldata_inputdata = data
+    if isinstance(stabilityClass_df, pd.DataFrame):
+        cols = stabilityClass_df.columns.to_list()
+    else:
+        cols = [stabilityClass_df.name]
+        Alldata_inputdata[cols[0]] = stabilityClass_df.values
+    for h in cols:
+        RSD_h.append(h)
+        inputdata_class1.append(Alldata_inputdata[Alldata_inputdata[h] == 1])
+        inputdata_class2.append(Alldata_inputdata[Alldata_inputdata[h] == 2])
+        inputdata_class3.append(Alldata_inputdata[Alldata_inputdata[h] == 3])
+        inputdata_class4.append(Alldata_inputdata[Alldata_inputdata[h] == 4])
+        inputdata_class5.append(Alldata_inputdata[Alldata_inputdata[h] == 5])
+
+    All_class_data = [
+        inputdata_class1,
+        inputdata_class2,
+        inputdata_class3,
+        inputdata_class4,
+        inputdata_class5,
+    ]
+    All_class_data_clean = [
+        inputdata_class1,
+        inputdata_class2,
+        inputdata_class3,
+        inputdata_class4,
+        inputdata_class5,
+    ]
+
+    return RSD_h, All_class_data, All_class_data_clean 
 
 def calculate_stability_TKE(data, config):
     """
@@ -28,7 +111,7 @@ def calculate_stability_TKE(data, config):
 
     Returns
     -------
-    tuple
+    tuple of pandas dataframes that represent the TKE class of each obervation by height
         stabilityClass, stabilityMetric, regimeBreakdown
     """
     regimeBreakdown = pd.DataFrame()

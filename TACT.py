@@ -29,6 +29,8 @@ from TACT.computation.match import perform_match, perform_match_input
 from TACT.computation.stability import (
     calculate_stability_TKE,
     calculate_stability_alpha,
+    get_stability_df_list,
+    get_baseline_stability_results,
 )
 from TACT.computation.TI import (
     get_count_per_WSbin,
@@ -108,23 +110,6 @@ if __name__ == "__main__":
     # Get all regressions available
     reg_results = get_all_regressions(data.inputdata, title="Full comparison")
 
-    (
-        stabilityClass_tke,
-        stabilityMetric_tke,
-        regimeBreakdown_tke,
-    ) = calculate_stability_TKE(data, config)
-    (
-        cup_alphaFlag,
-        stabilityClass_ane,
-        stabilityMetric_ane,
-        regimeBreakdown_ane,
-        Ht_1_ane,
-        Ht_2_ane,
-        stabilityClass_rsd,
-        stabilityMetric_rsd,
-        regimeBreakdown_rsd,
-    ) = calculate_stability_alpha(data, config)
-
     # ------------------------
     # Time Sensivity Analysis
     # ------------------------
@@ -160,201 +145,44 @@ if __name__ == "__main__":
     # -----------------------------
     # stability class subset lists
     # -----------------------------
-    # get reg_results by stability class: list of df's for each height
-    reg_results_class1 = []
-    reg_results_class2 = []
-    reg_results_class3 = []
-    reg_results_class4 = []
-    reg_results_class5 = []
+    # get stability class breakdown by TKE and also by alpha
+    (
+        stabilityClass_tke,
+        stabilityMetric_tke,
+        regimeBreakdown_tke,
+    ) = calculate_stability_TKE(data, config)
+    (
+        cup_alphaFlag,
+        stabilityClass_ane,
+        stabilityMetric_ane,
+        regimeBreakdown_ane,
+        Ht_1_ane,
+        Ht_2_ane,
+        stabilityClass_rsd,
+        stabilityMetric_rsd,
+        regimeBreakdown_rsd,
+    ) = calculate_stability_alpha(data, config)
 
-    reg_results_class1_alpha = {}
-    reg_results_class2_alpha = {}
-    reg_results_class3_alpha = {}
-    reg_results_class4_alpha = {}
-    reg_results_class5_alpha = {}
-
+    # if we are looking at ZX or windcube data 
     if (
         config.RSDtype["Selection"][0:4] == "Wind"
         or "ZX" in config.RSDtype["Selection"]
     ):
-
-        inputdata_class1 = []
-        inputdata_class2 = []
-        inputdata_class3 = []
-        inputdata_class4 = []
-        inputdata_class5 = []
-        RSD_h = []
-
-        Alldata_inputdata = data.inputdata.copy()
-        for h in stabilityClass_tke.columns.to_list():
-            RSD_h.append(h)
-            inputdata_class1.append(Alldata_inputdata[Alldata_inputdata[h] == 1])
-            inputdata_class2.append(Alldata_inputdata[Alldata_inputdata[h] == 2])
-            inputdata_class3.append(Alldata_inputdata[Alldata_inputdata[h] == 3])
-            inputdata_class4.append(Alldata_inputdata[Alldata_inputdata[h] == 4])
-            inputdata_class5.append(Alldata_inputdata[Alldata_inputdata[h] == 5])
-
-        All_class_data = [
-            inputdata_class1,
-            inputdata_class2,
-            inputdata_class3,
-            inputdata_class4,
-            inputdata_class5,
-        ]
-        All_class_data_clean = [
-            inputdata_class1,
-            inputdata_class2,
-            inputdata_class3,
-            inputdata_class4,
-            inputdata_class5,
-        ]
-
-        for h in RSD_h:
-            idx = RSD_h.index(h)
-            df = inputdata_class1[idx]
-            reg_results_class1.append(
-                get_all_regressions(df, title=str("TKE_stability_" + h + "class1"))
-            )
-            df = inputdata_class2[idx]
-            reg_results_class2.append(
-                get_all_regressions(df, title=str("TKE_stability_" + h + "class2"))
-            )
-            df = inputdata_class3[idx]
-            reg_results_class3.append(
-                get_all_regressions(df, title=str("TKE_stability_" + h + "class3"))
-            )
-            df = inputdata_class4[idx]
-            reg_results_class4.append(
-                get_all_regressions(df, title=str("TKE_stability_" + h + "class4"))
-            )
-            df = inputdata_class5[idx]
-            reg_results_class5.append(
-                get_all_regressions(df, title=str("TKE_stability_" + h + "class5"))
-            )
+        RSD_h, All_class_data, All_class_data_clean = get_stability_df_list(data.inputdata.copy(), stabilityClass_tke)
+        reg_results_class1, reg_results_class2, reg_results_class3, reg_results_class4, reg_results_class5 = get_baseline_stability_results(RSD_h, All_class_data, naming_str = 'TKE_stability_')
 
     if data.RSD_alphaFlag:
-        del (
-            inputdata_class1,
-            inputdata_class2,
-            inputdata_class3,
-            inputdata_class4,
-            inputdata_class5,
-        )
-
-        Alldata_inputdata = data.inputdata.copy()
-        colName = stabilityClass_rsd.name
-        Alldata_inputdata[colName] = stabilityClass_rsd.values
-
-        inputdata_class1 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_rsd.name] == 1.0
-        ]
-        inputdata_class2 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_rsd.name] == 2.0
-        ]
-        inputdata_class3 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_rsd.name] == 3.0
-        ]
-        inputdata_class4 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_rsd.name] == 4.0
-        ]
-        inputdata_class5 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_rsd.name] == 5.0
-        ]
-
-        All_class_data_alpha_RSD = [
-            inputdata_class1,
-            inputdata_class2,
-            inputdata_class3,
-            inputdata_class4,
-            inputdata_class5,
-        ]
-        All_class_data_alpha_RSD_clean = [
-            inputdata_class1.copy(),
-            inputdata_class2.copy(),
-            inputdata_class3.copy(),
-            inputdata_class4.copy(),
-            inputdata_class5.copy(),
-        ]
-
-        reg_results_class1_alpha["RSD"] = get_all_regressions(
-            inputdata_class1, title=str("alpha_stability_RSD" + "class1")
-        )
-        reg_results_class2_alpha["RSD"] = get_all_regressions(
-            inputdata_class2, title=str("alpha_stability_RSD" + "class2")
-        )
-        reg_results_class3_alpha["RSD"] = get_all_regressions(
-            inputdata_class3, title=str("alpha_stability_RSD" + "class3")
-        )
-        reg_results_class4_alpha["RSD"] = get_all_regressions(
-            inputdata_class4, title=str("alpha_stability_RSD" + "class4")
-        )
-        reg_results_class5_alpha["RSD"] = get_all_regressions(
-            inputdata_class5, title=str("alpha_stability_RSD" + "class5")
-        )
+        RSD_h, All_class_data_alpha, All_class_data_alpha_clean = get_stability_df_list(data.inputdata.copy(), stabilityClass_rsd)
+        reg_results_class1_alpha, reg_results_class2_alpha, reg_results_class3_alpha, reg_results_class4_alpha, reg_results_class5_alpha = get_baseline_stability_results(RSD_h, All_class_data_alpha, naming_str = 'alpha_stability_RSD_')
 
     if cup_alphaFlag:
-        del (
-            inputdata_class1,
-            inputdata_class2,
-            inputdata_class3,
-            inputdata_class4,
-            inputdata_class5,
-        )
-
-        Alldata_inputdata = data.inputdata.copy()
-        colName = stabilityClass_ane.name
-        Alldata_inputdata[colName] = stabilityClass_ane.values
-
-        inputdata_class1 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_ane.name] == 1.0
-        ]
-        inputdata_class2 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_ane.name] == 2.0
-        ]
-        inputdata_class3 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_ane.name] == 3.0
-        ]
-        inputdata_class4 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_ane.name] == 4.0
-        ]
-        inputdata_class5 = Alldata_inputdata[
-            Alldata_inputdata[stabilityClass_ane.name] == 5.0
-        ]
-
-        All_class_data_alpha_Ane = [
-            inputdata_class1,
-            inputdata_class2,
-            inputdata_class3,
-            inputdata_class4,
-            inputdata_class5,
-        ]
-        All_class_data_alpha_Ane_clean = [
-            inputdata_class1.copy(),
-            inputdata_class2.copy(),
-            inputdata_class3.copy(),
-            inputdata_class4.copy(),
-            inputdata_class5.copy(),
-        ]
-
-        reg_results_class1_alpha["Ane"] = get_all_regressions(
-            inputdata_class1, title=str("alpha_stability_Ane" + "class1")
-        )
-        reg_results_class2_alpha["Ane"] = get_all_regressions(
-            inputdata_class2, title=str("alpha_stability_Ane" + "class2")
-        )
-        reg_results_class3_alpha["Ane"] = get_all_regressions(
-            inputdata_class3, title=str("alpha_stability_Ane" + "class3")
-        )
-        reg_results_class4_alpha["Ane"] = get_all_regressions(
-            inputdata_class4, title=str("alpha_stability_Ane" + "class4")
-        )
-        reg_results_class5_alpha["Ane"] = get_all_regressions(
-            inputdata_class5, title=str("alpha_stability_Ane" + "class5")
-        )
+        RSD_h, All_class_data_alpha_ane, All_class_data_alpha_ane_clean = get_stability_df_list(data.inputdata.copy(), stabilityClass_ane)
+        reg_results_class1_alpha_ane, reg_results_class2_alpha_ane, reg_results_class3_alpha_ane, reg_results_class4_alpha_ane, reg_results_class5_alpha_ane = get_baseline_stability_results(RSD_h, All_class_data_alpha_ane, naming_str = 'alpha_stability_ane_')
 
     # ------------------------
     # TI Adjustments
     # ------------------------
+    sys.exit()
     from TACT.computation.adjustments import Adjustments
 
     baseResultsLists = initialize_resultsLists("")
