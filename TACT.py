@@ -35,8 +35,8 @@ from TACT.computation.TI import (
     record_TIadj,
 )
 from TACT.computation.training_duration import test_train_split_convergence
-#from TACT.computation.training_duration import test_train_split_add_days
-from TACT.computation.training_duration import test_train_split_sliding_window
+from TACT.computation.training_duration import test_train_split_add_days
+from TACT.computation.training_duration import test_train_split_window
 from TACT.extrapolation.extrapolation import (
     perform_TI_extrapolation,
     extrap_configResult,
@@ -127,103 +127,12 @@ if __name__ == "__main__":
 
     # ------------------------
     # Time Sensivity Analysis
-    # this section needs it's own module, and grooming/work
     # ------------------------
-    # TimeTestA = pd.DataFrame()
-    # TimeTestB = pd.DataFrame()
-    # TimeTestC = pd.DataFrame()
-
-    # To Do: add training_duration.py and put this section there
-    #--------------------------------------------------------------
-    sys.exit()
+    # perform some analysis on results sensitivity to training data 
     if config.time_test_flag == True:
-        # A) increase % of test train split -- check for convergence --- basic metrics recorded baseline but also for every adjustments
-        splitList = np.linspace(0.0, 100.0, num=20, endpoint=False)
-        print("Testing model generation time period sensitivity...% of data")
-        time_test_A_adjustment_df = {}
-        TimeTestA_baseline_df = pd.DataFrame()
-
-        for s in splitList[1:]:
-
-            sys.stdout.write("\r")
-            sys.stdout.write(f"{str(s).rjust(10, ' ')} %      ")
-
-            inputdata_test = train_test_split(s, data.inputdata.copy())
-            TimeTestA_baseline_df, time_test_A_adjustment_df = quick_metrics(
-                inputdata_test,
-                config,
-                TimeTestA_baseline_df,
-                time_test_A_adjustment_df,
-                str(100 - s),
-            )
-
-        sys.stdout.flush()
-        print()
-
-        # B) incrementally Add days to training set sequentially -- check for convergence
-        numberofObsinOneDay = 144
-        numberofDaysInTest = int(round(len(data.inputdata) / numberofObsinOneDay))
-        print("Testing model generation time period sensitivity...days to train model")
-        print("Number of days in the study " + str(numberofDaysInTest))
-        time_test_B_adjustment_df = {}
-        TimeTestB_baseline_df = pd.DataFrame()
-
-        for i in range(0, numberofDaysInTest):
-
-            sys.stdout.write("\r")
-            sys.stdout.write(
-                f"{str(i).rjust(10, ' ')} of {str(numberofDaysInTest)} days   "
-            )
-
-            windowEnd = (i + 1) * (numberofObsinOneDay)
-            inputdata_test = train_test_split(
-                i, data.inputdata.copy(), stepOverride=[0, windowEnd]
-            )
-            TimeTestB_baseline_df, time_test_B_adjustment_df = quick_metrics(
-                inputdata_test,
-                config,
-                TimeTestB_baseline_df,
-                time_test_B_adjustment_df,
-                str(numberofDaysInTest - i),
-            )
-
-        sys.stdout.flush()
-        print()
-
-        # C) If experiment is greater than 3 months, slide a 6 week window (1 week step)
-        if len(data.inputdata) > (
-            numberofObsinOneDay * 90
-        ):  # check to see if experiment is greater than 3 months
-            print(
-                "Testing model generation time period sensitivity...6 week window pick"
-            )
-            windowStart = 0
-            windowEnd = numberofObsinOneDay * 42
-            time_test_C_adjustment_df = {}
-            TimeTestC_baseline_df = pd.DataFrame()
-
-            while windowEnd < len(data.inputdata):
-                print(
-                    str(
-                        "After observation #"
-                        + str(windowStart)
-                        + " "
-                        + "Before observation #"
-                        + str(windowEnd)
-                    )
-                )
-                windowStart += numberofObsinOneDay * 7
-                windowEnd = windowStart + (numberofObsinOneDay * 42)
-                inputdata_test = train_test_split(
-                    i, data.inputdata.copy(), stepOverride=[windowStart, windowEnd]
-                )
-                TimeTestC_baseline_df, time_test_C_adjustment_df = quick_metrics(
-                    inputdata_test,
-                    config,
-                    TimeTestC_baseline_df,
-                    time_test_C_adjustment_df,
-                    str("After_" + str(windowStart) + "_" + "Before_" + str(windowEnd)),
-                )
+        TimeTestA_baseline_df, time_test_A_adjustment_df = test_train_split_convergence(data.inputdata.copy(), config)
+        TimeTestB_baseline_df, time_test_B_adjustment_df = test_train_split_add_days(data.inputdata.copy(), config)
+        TimeTestC_baseline_df, time_test_C_adjustment_df = test_train_split_window(data.inputdata.copy(), config)
     else:
         TimeTestA_baseline_df = pd.DataFrame()
         TimeTestB_baseline_df = pd.DataFrame()
