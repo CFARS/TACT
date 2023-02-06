@@ -24,7 +24,14 @@ from sklearn.metrics import mean_squared_error
 class Adjustments:
 
     """
-    document parameters
+    class to hold adjusted data and results
+
+    Attributes
+    ----------
+    raw_data: 
+    adjusted_data: 
+    results_stats: 
+
     """
 
     def __init__(self, raw_data="", adjustments_list="", baseResultsLists=""):
@@ -166,7 +173,9 @@ class Adjustments:
         inputdata_adj : dataframe
         results : dataframe
         m :  numeric
+            slope
         c : numeric
+            intercept
 
         Notes
         -----
@@ -1146,8 +1155,24 @@ def quick_metrics(inputdata, config, results_df, lm_adj_dict, testID):
 
 
 def get_all_regressions(inputdata, title=None):
-    # get the ws regression results for all the col required pairs. Title is the name of subset of data being evaluated
-    # Note the order in input to regression function. x is reference.
+    """Create dataframe of all regression statistics for all instrument height comparisons
+    
+    Parameters:
+    -----------
+    reader : pandas dataframe
+        all data to analyze for regression statistics
+    title : string
+        string to label the results dataframe
+    
+    Returns:
+    --------
+    daily_sr : pandas dataframe
+        regression statistics output for each compared instrument/height
+
+    References:
+    -----------
+
+    """
 
     pairList = [
         ["Ref_WS", "RSD_WS"],

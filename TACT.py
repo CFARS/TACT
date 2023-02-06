@@ -1,13 +1,8 @@
 """
-This is the main script to analyze projects without an NDA in place.
+TACT (Turbulence Intensity Adjustment Comparison Tool) is a project supported by CFARS, 
+(The Consortium for the Advancement of Remote Sensing). 
+This script can be used with remote sensing data to adjust turbulence observations.
 Authors: Nikhil Kondabala, Alexandra Arntsen, Andrew Black, Barrett Goudeau, Nigel Swytink-Binnema, Nicolas Jolin
-Updated: 7/01/2021
-
-Example command line execution:
-
-python TACT.py -in /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/518Tower_Windcube_Filtered_subset.csv -config /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/configuration_518Tower_Windcube_Filtered_subset_ex.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMASTER/CFARSPhase3/test/out.xlsx --timetestFlag
-
-python phase3_implementation_noNDA.py -in /Users/aearntsen/cfarsMaster/cfarsMASTER/CFARSPhase3/test/NRG_canyonCFARS_data.csv -config /Users/aearntsen/cfarsMaster/CFARSPhase3/test/Configuration_template_phase3_NRG_ZX.xlsx -rtd /Volumes/New\ P/DataScience/CFARS/WISE_Phase3_Implementation/RTD_chunk -res /Users/aearntsen/cfarsMaster/CFARSPhase3/test/out.xlsx --timetestFlag
 
 """
 try:
@@ -39,6 +34,9 @@ from TACT.computation.TI import (
     get_count_per_WSbin,
     record_TIadj,
 )
+from TACT.computation.training_duration import test_train_split_convergence
+#from TACT.computation.training_duration import test_train_split_add_days
+from TACT.computation.training_duration import test_train_split_sliding_window
 from TACT.extrapolation.extrapolation import (
     perform_TI_extrapolation,
     extrap_configResult,
@@ -60,7 +58,6 @@ import sys
 
 
 if __name__ == "__main__":
-    # Python 2 caveat: Only working for Python 3 currently
     if sys.version_info[0] < 3:
         raise Exception(
             "Tool will not run at this time. You must be using Python 3, as running on Python 2 will encounter errors."
@@ -77,11 +74,8 @@ if __name__ == "__main__":
     config.get_adjustments_metadata()
 
     """data object assignments"""
-
     data = Data(config.input_filename, config.config_file)
     data.get_inputdata()
-    print (data.inputdata)
-    sys.exit()
     data.get_refTI_bins()  # >> to data_file.py
     data.check_for_alphaConfig()
 
@@ -130,13 +124,18 @@ if __name__ == "__main__":
         stabilityMetric_rsd,
         regimeBreakdown_rsd,
     ) = calculate_stability_alpha(data, config)
+
     # ------------------------
     # Time Sensivity Analysis
+    # this section needs it's own module, and grooming/work
     # ------------------------
     # TimeTestA = pd.DataFrame()
     # TimeTestB = pd.DataFrame()
     # TimeTestC = pd.DataFrame()
 
+    # To Do: add training_duration.py and put this section there
+    #--------------------------------------------------------------
+    sys.exit()
     if config.time_test_flag == True:
         # A) increase % of test train split -- check for convergence --- basic metrics recorded baseline but also for every adjustments
         splitList = np.linspace(0.0, 100.0, num=20, endpoint=False)
