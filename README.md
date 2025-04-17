@@ -16,7 +16,7 @@ python TACT.py -in PATH_TO_DATA.csv -config PATH_TO_CONFIG.xlsx -res PATH_TO_RES
 
 Updated 3/25/2025 by CJP
 
-To run existing legacy TACT implementation, execute from /legacy:
+To run existing legacy TACT implementation, execute from `/legacy`:
 `python3 TACT.py -in Example/example_project.csv -config Example/configuration_example_project.xlsx -res Example/out_example_project.xlsx --timetestFlag`
 
-To run the revised TACT implementation, execute `python3 main.py` from within /tact
+To run the revised TACT implementation, execute `python3 main.py` from within `/tact`

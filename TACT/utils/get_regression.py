@@ -3,7 +3,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 import numpy as np
 
-def get_regression(self, x, y):
+def get_regression(x, y):
         """
         Compute linear regression of data -> need to deprecate this function for get_modelRegression..
         """

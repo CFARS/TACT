@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from tact.methods.BaselineResults import BaselineResults
+from trash.BaselineResults import BaselineResults
 
 test_name = 'baseline'
 

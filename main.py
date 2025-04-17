@@ -10,33 +10,31 @@ def main():
     # Load data
     data = pd.read_csv('tact/example/data/tact-test-data.csv')
     
+    method = 'ss-sf'
+    # method = 'baseline'
+    
     # Define parameters for baseline adjustment
     parameters = {
         'config_path': 'tact/example/config.json',
         'split': True
     }
-
-    # Perform baseline adjustment
+    
     results = tact.adjust(
         data=data,
-        method='baseline',
+        method=method,
         parameters=parameters
     )
-    
-    # results = tact.adjust(
-    #     data=data,
-    #     method='ss-sf',
-    #     parameters=parameters
-    # )
 
     # Access results
     adjusted_data = results['adjusted_data']
-    metrics = results['metrics']
+    reg_results = results['reg_results']
+    
+    print(adjusted_data)
 
     # Save results
-    adjusted_data.to_csv('adjusted_results.csv')
-    print("Metrics:", metrics)
+    adjusted_data.to_csv(f'tact/example/output/{method}_adjusted_data.csv')
+    reg_results.to_csv(f'tact/example/output/{method}_reg_results.csv')
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  
     main()

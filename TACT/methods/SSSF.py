@@ -101,10 +101,10 @@ class SSSF(AdjustmentMethod):
         self.validate_data(data, parameters["config_path"])
 
         # Get regression results using existing function
-        reg_results = perform_SS_SF_adjustment_ported(
+        (input_data, reg_results, m, c) = perform_SS_SF_adjustment_ported(
             data, parameters)
 
         return {
             "adjusted_data": data,  # Since baseline doesn't actually adjust the data
-            "metrics": reg_results,
+            "reg_results": reg_results,
         }

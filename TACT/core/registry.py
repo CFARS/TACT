@@ -1,5 +1,7 @@
 from typing import Dict, Type, Callable, Optional
-from .base import TIAdjustmentClass, AdjustmentMethod
+# from .base import TIAdjustmentClass, AdjustmentMethod
+from tact.core.base import TIAdjustmentClass, AdjustmentMethod
+
 
 # tact/core/registry.py
 class MethodRegistry:

@@ -42,11 +42,7 @@ class AdjustmentMethod(ABC):
     @abstractmethod
     def required_data_columns(self) -> Dict[str, List]:
         """Returns a dictionary of columns required columns in the data dataframe"""
-
-    # @abstractmethod
-    # def validate_parameters(self, parameters: Dict[str, Any]) -> bool:
-    #     """Validates that all required parameters are present and of correct type"""
-    #     pass
+        pass
 
     def validate_parameters(self, parameters: Dict[str, Any]) -> bool:
         """Verify all required parameters are included"""

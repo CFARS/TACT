@@ -7,6 +7,22 @@ import json
 class BaselineResults(TIAdjustmentClass):
     """Site Specific Simple Adjustment Method using regression"""
     
+    def get_requirements(self) -> Dict[str, Any]:
+        return {
+            "required_columns": [
+                "reference.wind_speed",
+                "rsd.height_1.wind_speed",
+                "anemometer_2.primary.wind_speed",
+                "reference.turbulence_intensity",
+                "rsd.height_1.turbulence_intensity",
+                "anemometer_2.primary.turbulence_intensity",
+                "reference.standard_deviation",
+                "rsd.height_1.standard_deviation",
+                "anemometer_2.primary.standard_deviation"
+            ],
+            "min_samples": 2
+        }
+    
     def _validate_data(self, data: pd.DataFrame, config_path: str) -> None:
         """Validate that required columns are present in the data"""
         with open(config_path, 'r') as f:
@@ -37,18 +53,4 @@ class BaselineResults(TIAdjustmentClass):
         
         return RegressionResults(metrics=reg_results)
     
-    def get_requirements(self) -> Dict[str, Any]:
-        return {
-            "required_columns": [
-                "reference.wind_speed",
-                "rsd.height_1.wind_speed",
-                "anemometer_2.primary.wind_speed",
-                "reference.turbulence_intensity",
-                "rsd.height_1.turbulence_intensity",
-                "anemometer_2.primary.turbulence_intensity",
-                "reference.standard_deviation",
-                "rsd.height_1.standard_deviation",
-                "anemometer_2.primary.standard_deviation"
-            ],
-            "min_samples": 2
-        }
+    
