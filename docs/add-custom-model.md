@@ -1,0 +1,246 @@
+# Adding a Custom Model
+
+You can leverage the TACT infrastructure to create custom adjustment models by extending the base `AdjustmentMethod` class. This guide will show you how to create and register your own model.
+
+## Overview
+
+A valid adjustment method must:
+
+- Define required input parameters
+- Specify required data columns
+- Implement the adjustment logic
+- Register with TACT's registry system
+
+## Creating Your Custom Model Package
+
+The recommended way to create custom models is to keep them in your own project, separate from the TACT installation. Here's a typical project structure:
+
+```
+your_project/
+├── custom_adjustments/
+│   ├── __init__.py
+│   └── my_method.py    # Your custom method
+├── examples/
+│   └── use_custom_method.py
+├── README.md
+└── setup.py           # Optional, if you want to package your models
+```
+
+## Creating a Custom Model
+
+Here's an example of creating a simple custom adjustment model:
+
+```python
+# custom_adjustments/my_method.py
+
+from typing import Dict, Any, List
+import pandas as pd
+from tact.core.base import AdjustmentMethod
+from tact.core.registry import AdjustmentRegistry
+
+@AdjustmentRegistry.register("my-custom-method")
+class CustomAdjustment(AdjustmentMethod):
+    """Custom turbulence intensity adjustment method.
+    
+    This method implements a custom adjustment algorithm for 
+    turbulence intensity measurements.
+    
+    Parameters
+    ----------
+    config_path : str
+        Path to configuration file
+    custom_param : float
+        Custom scaling factor for adjustment
+    """
+    
+    def required_model_parameters(self) -> Dict[str, List]:
+        return {
+            "config_path": str,  # Path to configuration file
+            "custom_param": float  # Your custom parameter
+        }
+    
+    def required_data_columns(self) -> List[str]:
+        return [
+            "reference.wind_speed",
+            "reference.turbulence_intensity",
+            "rsd.height_1.wind_speed",
+            "rsd.height_1.turbulence_intensity"
+        ]
+    
+    def adjust(self, data: pd.DataFrame, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        # Validate inputs
+        self.validate_parameters(parameters)
+        self.validate_data(data, parameters["config_path"])
+        
+        # Your adjustment logic here
+        adjusted_data = data.copy()
+        custom_factor = parameters["custom_param"]
+        
+        # Example adjustment
+        adjusted_data["adjusted_ti"] = data["rsd.height_1.turbulence_intensity"] * custom_factor
+        
+        return {
+            "adjusted_data": adjusted_data,
+            "metrics": {"custom_factor": custom_factor}
+        }
+```
+
+## Using Your Custom Model
+
+To use your custom model, simply import and register it before using TACT:
+
+```python
+# examples/use_custom_method.py
+
+# Import your custom method
+from custom_adjustments.my_method import CustomAdjustment
+
+# Now import and use TACT as normal
+from tact import TACT
+
+# Initialize TACT
+tact = TACT()
+
+# Your custom method is now available
+results = tact.adjust(
+    data=data,
+    method="my-custom-method",
+    parameters={
+        "config_path": "path/to/config.json",
+        "custom_param": 1.2
+    }
+)
+```
+
+The registration system will automatically make your method available to TACT when it's imported. You don't need to modify the TACT package itself.
+
+## Optional: Packaging Your Models
+
+If you want to share your custom models, you can package them:
+
+1. Create a `setup.py`:
+```python
+from setuptools import setup, find_packages
+
+setup(
+    name="tact-custom-methods",
+    version="0.1.0",
+    packages=find_packages(),
+    install_requires=[
+        "tact",  # This will ensure TACT is installed
+    ],
+)
+```
+
+2. Install your package:
+```bash
+pip install -e .
+```
+
+## Implementation Guide
+
+### Class Structure
+Your adjustment method class needs three core methods:
+
+```python
+@AdjustmentRegistry.register("method-name")
+class YourMethod(AdjustmentMethod):
+    def required_model_parameters(self) -> Dict[str, List]:
+        """Define expected configuration parameters"""
+        pass
+
+    def required_data_columns(self) -> List[str]:
+        """Specify required data columns"""
+        pass
+
+    def adjust(self, data: pd.DataFrame, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Implement the adjustment logic"""
+        pass
+```
+
+### Return Format
+The `adjust` method should return a dictionary with:
+```python
+{
+    "adjusted_data": pd.DataFrame,  # Your adjusted dataset
+    "metrics": {                    # Method-specific metrics
+        "metric1": value1,
+        "metric2": value2
+    }
+}
+```
+
+## Best Practices
+
+### Code Quality
+- Follow PEP 8 style guidelines
+- Add comprehensive docstrings (NumPy format)
+- Keep methods focused and single-purpose
+- Use meaningful variable names
+
+### Validation
+```python
+def adjust(self, data: pd.DataFrame, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    # Always validate inputs first
+    self.validate_parameters(parameters)
+    self.validate_data(data, parameters["config_path"])
+    
+    # Add custom validation as needed
+    if data["wind_speed"].min() < 0:
+        raise ValueError("Wind speed cannot be negative")
+```
+
+### Performance
+```python
+# Prefer vectorized operations
+adjusted_data["ti"] = data["ti"].values * scale_factor  # Good
+
+# Avoid loops
+for idx in range(len(data)):  # Bad
+    adjusted_data.loc[idx, "ti"] = data.loc[idx, "ti"] * scale_factor
+```
+
+### Testing
+Create tests in your project's test directory:
+```python
+# tests/test_your_method.py
+def test_your_method():
+    method = YourMethod()
+    result = method.adjust(test_data, test_params)
+    assert "adjusted_data" in result
+    assert result["metrics"]["your_metric"] > 0
+```
+
+## Troubleshooting
+
+### Method Registration
+If your method isn't available:
+```python
+# Check registration
+from tact import TACT
+tact = TACT()
+print(tact.list_available_methods())  # Should include your method
+```
+
+### Data Validation
+Common data issues and solutions:
+```python
+# Missing columns
+required = self.required_data_columns()
+missing = [col for col in required if col not in data.columns]
+if missing:
+    raise ValueError(f"Missing columns: {missing}")
+
+# Invalid data types
+if not pd.api.types.is_numeric_dtype(data["wind_speed"]):
+    raise TypeError("Wind speed must be numeric")
+```
+
+### Performance Issues
+If your method is slow:
+- Use pandas vectorized operations
+- Pre-compute repeated values
+- Consider data preprocessing
+- Profile your code with cProfile
+
+For more examples, see the [SSSF](api/adjustments/sssf.md) and [Baseline](api/adjustments/baseline.md) implementations.

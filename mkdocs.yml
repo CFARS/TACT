@@ -1,0 +1,109 @@
+site_name: TACT Documentation
+site_url: https://github.com/CFARS 
+repo_url: https://github.com/CFARS/TACT
+repo_name: CFARS/TACT
+
+theme:
+  name: material
+  logo: assets/cfars_logo_transparent.png    # Logo in header
+  favicon: assets/cfars_logo_transparent.png          # Favicon (smaller version better for browser tabs)
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top        # Adds a "back to top" button
+    - search.highlight
+    - search.share         # Adds a share link to search results
+    - content.code.copy    # Adds copy button to code blocks
+    - content.action.edit  # Adds an edit button to pages
+    - content.tabs.link    # Synchronize tabs across pages
+    - header.autohide      # Hide header on scroll
+  icon:
+    repo: fontawesome/brands/github  # Sets the repository icon
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default    # Try the material scheme
+      primary: white
+      accent: white
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate    # Try the dracula scheme
+      primary: black
+      accent: black
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+# Repository configuration
+edit_uri: edit/main/docs/  # Points edit button to the docs folder
+repo_type: github         # Specifies GitHub as the repository type
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [tact]
+          options:
+            show_source: true
+            show_root_heading: true
+            heading_level: 1
+            members_order: source
+            docstring_style: numpy
+            show_if_no_docstring: true
+            filters: ["!^_"]
+            
+nav:
+  - Overview: index.md
+  - Quick Start: quickstart.md
+  - Add Custom Model: add-custom-model.md
+  - Reference:
+    - Core:
+      - TACT: api/core/tact.md
+      - Base Classes: api/core/base.md
+      - Registry: api/core/registry.md
+    - Adjustments:
+      - SSSF: api/adjustments/sssf.md
+      - Baseline: api/adjustments/baseline.md
+    - Utils:
+      - Data Processing: api/utils/data_processing.md
+      - Setup: api/utils/setup.md
+      - Statistics: api/utils/statistics.md
+  - Contributing: contributing.md
+
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/CFARS/TACT
+      name: CFARS TACT on GitHub
+  
+  # Additional repository links
+  repo_links:
+    - text: "Issue Tracker"
+      url: "https://github.com/CFARS/TACT/issues"
+    - text: "Pull Requests"
+      url: "https://github.com/CFARS/TACT/pulls"
+  
+  # Repository statistics
+  repo_stats:
+    enable: true
+    stars: true
+    forks: true
+    issues: true
+    license: true
+  
+  status:
+    new: Recently added
+    deprecated: Deprecated
+  
+  version:
+    provider: mike
+    default: latest
+  
+  homepage: https://github.com/CFARS/TACT 
