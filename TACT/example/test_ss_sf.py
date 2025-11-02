@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from tact.methods.SSSF import SSSF
+from tact.adjustments.SSSF import SSSF
 
 test_name = 'test_ss_sf'
 
