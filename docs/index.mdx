@@ -1,0 +1,144 @@
+---
+title: Welcome to TACT
+description: Turbulence Adjustment Comparison Tool for LiDAR and anemometer measurements
+---
+
+**TACT** (Turbulence Adjustment Comparison Tool) is a Python package for correcting remote sensing device (RSD) turbulence intensity measurements to match traditional cup anemometer standards.
+
+TACT corrects RSD measurements through site-specific empirical regression against reference cup anemometer data. By training on concurrent measurement campaigns, TACT produces adjusted turbulence data suitable for:
+- Turbine load calculations using standard design equations
+- DNV RP-0661 compliant site assessments
+- IEC-standard power performance testing
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="getting-started">
+    Get up and running in minutes
+  </Card>
+  <Card title="Installation" icon="download" href="installation-guide">
+    Install TACT as a Python package
+  </Card>
+  <Card title="API Reference" icon="code" href="api/core/tact">
+    Complete API documentation
+  </Card>
+  <Card title="Examples" icon="flask" href="quickstart">
+    See TACT in action
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<AccordionGroup>
+  <Accordion title="Multiple Adjustment Methods" icon="sliders">
+    - **Baseline** - No adjustment (reference comparison)
+    - **SS-SF** - Site-Specific Simple + Filter (recommended)
+    - **SSWS** - Site-Specific Wind Speed
+    - **SSWSStd** - Site-Specific Wind Speed + Standard Deviation
+  </Accordion>
+
+  <Accordion title="Industry Standard Validation" icon="check-circle">
+    Built-in DNV RP-0661 validation with MRBE/RRMSE metrics and acceptance criteria visualization
+  </Accordion>
+
+  <Accordion title="Professional Visualizations" icon="chart-line">
+    Publication-ready plots with DNV acceptance criteria, regression analysis, and comparison charts
+  </Accordion>
+
+  <Accordion title="Extensible Architecture" icon="puzzle-piece">
+    Easy-to-use plugin system for adding custom adjustment methods to fit your specific needs
+  </Accordion>
+</AccordionGroup>
+
+## Quick Example
+
+Get started with just a few lines of code:
+
+<CodeGroup>
+```python Basic Usage
+from tact import TACT
+from tact.utils.load_data import load_data
+from tact.utils.setup_processors import setup_processors
+
+# Load and process data
+data = load_data("your_data.csv")
+bp, tp, sp = setup_processors("config.json")
+data = bp.process(tp.process(data))
+
+# Run adjustment
+tact = TACT()
+results = tact.adjust(
+    data=data,
+    method="ss-sf",  # Recommended method
+    parameters={"split": True, "config_path": "config.json"}
+)
+```
+
+```python With Validation
+from tact import TACT
+from tact.validation import validate_dnv_rp0661
+from tact.visualization import plot_dnv_validation
+
+# Run adjustment
+results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
+
+# Validate against DNV RP-0661
+validation = validate_dnv_rp0661(
+    adjusted_data=results["adjusted_data"],
+    reference_col="ref_ti",
+    adjusted_col="adjTI_RSD_TI",
+    wind_speed_col="ref_ws",
+    bin_col="bins",
+    criteria_type="LV"
+)
+
+print(f"MRBE: {validation['overall']['MRBE_%'].iloc[0]:.2f}%")
+print(f"RRMSE: {validation['overall']['RRMSE_%'].iloc[0]:.2f}%")
+```
+
+```python Method Comparison
+from compare_all_methods import compare_all_methods
+
+# Compare all methods automatically
+comparison = compare_all_methods()
+print(comparison)
+
+# Output shows MRBE/RRMSE for all methods:
+# - Baseline, SS-SF, SSWS, SSWSStd
+```
+</CodeGroup>
+
+## Method Performance Comparison
+
+Example results from one test dataset show performance differences between methods:
+
+| Method | MRBE | RRMSE | Approach |
+|--------|------|-------|----------|
+| **SS-SF** | 37.8% | 111.1% | Direct TI regression with filtering |
+| **SSWSStd** | 37.7% | 121.6% | Dual WS+SD adjustment |
+| **SSWS** | 92.1% | 188.0% | Wind speed adjustment only |
+| **Baseline** | 90.4% | 183.0% | No adjustment |
+
+Performance varies by site and dataset characteristics. SS-SF and SSWSStd showed similar MRBE on this dataset, while methods adjusting only wind speed (SSWS) performed worse due to error propagation through the TI calculation.
+
+![Method Comparison](/images/method_comparison.png)
+
+<Note>
+The optimal method depends on your specific dataset. We recommend comparing all methods on your data using `compare_all_methods.py`.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Install TACT" icon="download" href="installation-guide">
+    Set up TACT in your environment
+  </Card>
+  <Card title="Getting Started" icon="book-open" href="getting-started">
+    Complete walkthrough tutorial
+  </Card>
+  <Card title="Import Your Data" icon="file-import" href="data-import-guide">
+    Learn how to prepare your data
+  </Card>
+</CardGroup>
+
+<Note>
+**Need help?** Check out our [troubleshooting guide](getting-started#troubleshooting) or [contact support](mailto:aea@nrgsystems.com).
+</Note>

@@ -34,7 +34,7 @@
     {
       "group": "Getting Started",
       "pages": [
-        "introduction",
+        "index",
         "features",
         "installation-guide",
         "quickstart"
