@@ -586,7 +586,7 @@ Solution:
 This is often a data quality issue, not a code problem. Check:
 1. RSD and reference are properly time-synchronized
 2. Data has been quality-filtered (CNR, availability, etc.)
-3. RSD is close enough to reference tower (<200m separation)
+3. RSD is close enough to reference tower (less than 200m separation)
 4. Sensors are properly calibrated
 
 ---

@@ -410,8 +410,8 @@ if neg_ws > 0 or neg_sd > 0:
 
 ### ❌ Don't Use SSWSStd When:
 - SS-SF performs better (check comparison results)
-- You have limited data (<500 points)
-- Either WS or SD has poor correlation (R² < 0.8)
+- You have limited data (less than 500 points)
+- Either WS or SD has poor correlation (R² less than 0.8)
 - Error propagation is a concern (low wind speeds common)
 
 ## See Also

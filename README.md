@@ -1,4 +1,6 @@
-# <img src="docs/assets/cfars_logo_transparent.png" alt="CFARS" width="40" height="40"> TACT - Turbulence intensity Adjustment Comparison Tool
+# TACT - Turbulence intensity Adjustment Comparison Tool
+
+<img src="docs/assets/cfars_logo_transparent.png" alt="CFARS" width="60" height="60" />
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-BSD%203--Clause-green.svg)](legacy/LICENSE)

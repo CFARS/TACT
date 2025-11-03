@@ -524,7 +524,7 @@ plt.savefig('correlation_check.png', dpi=150)
 print("Saved correlation_check.png")
 ```
 
-**If correlation is low** (<0.7):
+**If correlation is low** (less than 0.7):
 - Check time synchronization
 - Verify sensor heights match
 - Check sensor calibration

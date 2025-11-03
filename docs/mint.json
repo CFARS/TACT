@@ -1,0 +1,93 @@
+{
+  "name": "TACT",
+  "logo": {
+    "dark": "/assets/cfars_logo_transparent.png",
+    "light": "/assets/cfars_logo_transparent.png"
+  },
+  "favicon": "/assets/cfars_logo_transparent.png",
+  "colors": {
+    "primary": "#0D9373",
+    "light": "#07C983",
+    "dark": "#0D9373",
+    "anchors": {
+      "from": "#0D9373",
+      "to": "#07C983"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/CFARS/TACT"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "https://github.com/CFARS/TACT"
+  },
+  "tabs": [
+    {
+      "name": "API Reference",
+      "url": "api"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "introduction",
+        "installation-guide",
+        "getting-started",
+        "quickstart"
+      ]
+    },
+    {
+      "group": "Guides",
+      "pages": [
+        "data-import-guide",
+        "add-custom-model",
+        "contributing"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        {
+          "group": "Core",
+          "pages": [
+            "api/core/tact",
+            "api/core/base",
+            "api/core/registry"
+          ]
+        },
+        {
+          "group": "Adjustment Methods",
+          "pages": [
+            "api/adjustments/baseline",
+            "api/adjustments/sssf",
+            "api/adjustments/ssws",
+            "api/adjustments/sswsstd"
+          ]
+        },
+        {
+          "group": "Utilities",
+          "pages": [
+            "api/utils/data_processing",
+            "api/utils/statistics",
+            "api/utils/setup"
+          ]
+        }
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/CFARS/TACT"
+  },
+  "search": {
+    "prompt": "Search TACT documentation..."
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  }
+}
