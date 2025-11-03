@@ -1,0 +1,245 @@
+---
+title: Data Import Guide
+description: Prepare and import your data into TACT
+---
+
+## Data Requirements
+
+TACT requires paired measurements from two sensors:
+
+**Reference Sensor** (cup anemometer on tower)
+- Wind speed (m/s)
+- Wind speed standard deviation (m/s)
+- Turbulence intensity (decimal, e.g., 0.15 for 15%)
+
+**RSD Sensor** (Remote Sensing Device - LiDAR)
+- Wind speed (m/s)
+- Wind speed standard deviation (m/s)
+- Turbulence intensity (decimal, e.g., 0.15 for 15%)
+
+**Metadata**
+- Timestamp (any standard datetime format)
+- Optional: Quality flags, availability, CNR, etc.
+
+## CSV Format
+
+TACT expects CSV files with:
+1. Header row with column names
+2. One row per observation (timestamp)
+3. Numeric values for wind data
+4. Consistent units throughout
+
+### Example CSV
+
+```csv
+timestamp,ref_ws,ref_sd,ref_ti,rsd_ws,rsd_sd,rsd_ti
+2024-01-01 00:00:00,8.5,1.2,0.141,8.3,1.3,0.157
+2024-01-01 00:10:00,9.2,1.4,0.152,9.0,1.5,0.167
+2024-01-01 00:20:00,7.8,1.1,0.141,7.6,1.2,0.158
+```
+
+You can use **any column names** - just map them in your configuration file.
+
+### Units
+
+| Measurement | Required Unit | Notes |
+|-------------|---------------|-------|
+| Wind Speed | m/s | Convert from mph, km/h, etc. |
+| Standard Deviation | m/s | Same as wind speed |
+| Turbulence Intensity | Decimal | 0.15, not 15% |
+
+<Warning>
+**Turbulence Intensity Format**: Use decimal format (0.15) not percentage (15%). If your data is in percentage format, divide by 100.
+</Warning>
+
+## Configuration File
+
+Create `config.json` to map your CSV columns to TACT's expected format:
+
+```json
+{
+    "input_data_column_mapping": {
+        "reference": {
+            "wind_speed": "ref_ws",
+            "wind_speed_std": "ref_sd",
+            "turbulence_intensity": "ref_ti"
+        },
+        "rsd": {
+            "primary": {
+                "wind_speed": "rsd_ws",
+                "wind_speed_std": "rsd_sd",
+                "turbulence_intensity": "rsd_ti"
+            }
+        }
+    },
+    "binning_config": {
+        "bin_size": 1.0,
+        "bin_min": 4.0,
+        "bin_max": 20.0
+    }
+}
+```
+
+**Column Mapping**: Map your CSV column names to TACT's expected fields
+
+**Binning Configuration**: Define wind speed bins for analysis
+- `bin_size`: Width of each bin in m/s
+- `bin_min`: Minimum wind speed to analyze
+- `bin_max`: Maximum wind speed to analyze
+
+## Data Preparation
+
+### Quality Filtering
+
+Filter your data before importing to TACT:
+
+```python
+import pandas as pd
+
+data = pd.read_csv("raw_data.csv")
+
+# Remove invalid values
+data = data[(data['ref_ws'] > 0) & (data['rsd_ws'] > 0)]
+data = data[(data['ref_ti'] > 0) & (data['rsd_ti'] > 0)]
+data = data[(data['ref_ti'] < 1) & (data['rsd_ti'] < 1)]
+
+# Remove nulls
+data = data.dropna(subset=['ref_ws', 'ref_sd', 'ref_ti', 'rsd_ws', 'rsd_sd', 'rsd_ti'])
+
+# Optional: Filter by CNR (LiDAR signal quality)
+if 'cnr' in data.columns:
+    data = data[data['cnr'] > -25]
+
+print(f"Retained {len(data)} observations")
+data.to_csv("filtered_data.csv", index=False)
+```
+
+### Calculate TI (if needed)
+
+If you only have wind speed and standard deviation:
+
+```python
+data['ref_ti'] = data['ref_sd'] / data['ref_ws']
+data['rsd_ti'] = data['rsd_sd'] / data['rsd_ws']
+
+# Handle division by zero
+data = data.replace([float('inf'), -float('inf')], float('nan'))
+data = data.dropna(subset=['ref_ti', 'rsd_ti'])
+```
+
+### Time Alignment
+
+Ensure measurements are time-aligned:
+
+```python
+data['timestamp'] = pd.to_datetime(data['timestamp'])
+data['timestamp'] = data['timestamp'].dt.round('10min')
+data = data.drop_duplicates(subset=['timestamp'])
+data = data.sort_values('timestamp')
+```
+
+## Loading Data
+
+### Basic Loading
+
+```python
+from tact.utils.load_data import load_data
+
+data = load_data("your_data.csv")
+print(f"Loaded {len(data)} rows")
+```
+
+### Complete Pipeline
+
+```python
+from tact.utils.load_data import load_data
+from tact.utils.setup_processors import setup_processors
+
+# 1. Load data
+data = load_data("your_data.csv")
+
+# 2. Set up processors
+bp, tp, sp = setup_processors("config.json")
+
+# 3. Process data
+data = bp.process(data)  # Apply binning
+data = tp.process(data)  # Calculate TI metrics
+
+print(f"Ready: {len(data)} observations in {data['bins'].nunique()} wind speed bins")
+```
+
+## Data Validation Script
+
+Use this script to validate your data before running adjustments:
+
+```python
+def validate_data(data, config_path):
+    import json
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    col_map = config['input_data_column_mapping']
+    ref_ws = col_map['reference']['wind_speed']
+    rsd_ws = col_map['rsd']['primary']['wind_speed']
+    ref_ti = col_map['reference']['turbulence_intensity']
+    rsd_ti = col_map['rsd']['primary']['turbulence_intensity']
+
+    print("VALIDATION REPORT")
+    print("="*60)
+
+    # Check columns
+    required = [ref_ws, rsd_ws, ref_ti, rsd_ti]
+    missing = [c for c in required if c not in data.columns]
+    if missing:
+        print(f"Missing columns: {missing}")
+        return False
+    print("All required columns present")
+
+    # Check nulls
+    null_counts = data[required].isnull().sum()
+    if null_counts.any():
+        print(f"Null values detected:\n{null_counts[null_counts > 0]}")
+    else:
+        print("No null values")
+
+    # Check ranges
+    if (data[ref_ws] < 0).any() or (data[rsd_ws] < 0).any():
+        print("Negative wind speeds detected")
+        return False
+    if (data[ref_ti] > 1).any() or (data[rsd_ti] > 1).any():
+        print("TI > 1.0 detected - check if using percentage format")
+    print("Value ranges OK")
+
+    # Check volume
+    n = len(data)
+    if n < 500:
+        print(f"Insufficient data: {n} observations (need >500)")
+        return False
+    print(f"Data volume: {n} observations")
+
+    # Check correlation
+    corr = data[[ref_ws, rsd_ws]].corr().iloc[0,1]
+    print(f"WS correlation: {corr:.3f}")
+
+    print("="*60)
+    print("VALIDATION PASSED")
+    return True
+
+# Run validation
+validate_data(data, "config.json")
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Getting Started" icon="rocket" href="getting-started">
+    Run your first adjustment
+  </Card>
+  <Card title="Configuration" icon="gear" href="configuration">
+    Detailed config options
+  </Card>
+  <Card title="Running Adjustments" icon="play" href="running-adjustments">
+    Complete workflow guide
+  </Card>
+</CardGroup>

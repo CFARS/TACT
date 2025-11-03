@@ -1,5 +1,3 @@
-# Quick Start Guide
-
 This guide will walk you through using TACT to adjust turbulence intensity measurements using the Site-Specific Simple + Filter (SS-SF) method.
 
 ## Installation
@@ -68,6 +66,8 @@ from tact.utils.load_data import load_data
 from tact.utils.setup_processors import setup_processors
 from tact.utils.process_statistics import process_statistics
 from tact.utils.save_results import save_results
+from tact.validation import validate_dnv_rp0661
+from tact.visualization import plot_dnv_validation
 
 def main():
     # Configuration
@@ -78,30 +78,58 @@ def main():
         "method": "ss-sf",                   # Using SS-SF method
         "parameters": {"split": True}         # Split data into training/testing sets
     }
-    
+
     # Initialize TACT
     tact = TACT()
-    
+
     # Load and process data
     data = load_data(config["data_path"])
-    
+
     # Setup data processors
     binning_processor, ti_data_processor, stats_processor = setup_processors(config["config_path"])
-    
+
     # Process data through pipeline
     data = binning_processor.process(data)    # Bin wind speed data
     data = ti_data_processor.process(data)    # Calculate TI metrics
-    
+
     # Perform SS-SF adjustment
     results = tact.adjust(
-        data=data, 
-        method=config["method"], 
+        data=data,
+        method=config["method"],
         parameters={**config["parameters"], "config_path": config["config_path"]}
     )
-    
+
+    # Validate against DNV RP-0661
+    validation = validate_dnv_rp0661(
+        adjusted_data=results["adjusted_data"],
+        reference_col="ref_ti",
+        adjusted_col="adjTI_RSD_TI",
+        wind_speed_col="ref_ws",
+        bin_col="bins",
+        criteria_type="LV"
+    )
+
+    # Print validation results
+    print(f"MRBE: {validation['overall']['MRBE_%'].iloc[0]:.2f}%")
+    print(f"RRMSE: {validation['overall']['RRMSE_%'].iloc[0]:.2f}%")
+    print(f"Passed: {validation['overall']['pass'].iloc[0]}")
+
+    # Generate validation plots
+    plot_dnv_validation(
+        validation_results=validation,
+        adjusted_data=results["adjusted_data"],
+        reference_col="ref_ti",
+        adjusted_col="adjTI_RSD_TI",
+        unadjusted_col="rsd_ti",
+        wind_speed_col="ref_ws",
+        bin_col="bins",
+        method_name="SS-SF",
+        output_dir=f"{config['output_dir']}/plots"
+    )
+
     # Calculate statistics
     means = process_statistics(results["adjusted_data"], stats_processor)
-    
+
     # Save all results
     save_results(
         means=means,
@@ -110,6 +138,8 @@ def main():
         method=config["method"],
         output_dir=config["output_dir"]
     )
+
+    print(f"\nResults saved to {config['output_dir']}/")
 
 if __name__ == "__main__":
     main()
@@ -128,7 +158,12 @@ The SS-SF adjustment method:
    - Performs linear regression between RSD and reference TI
    - Applies the correction to the test data
 
-3. **Results**:
+3. **Validation**:
+   - Compares adjusted TI against reference measurements
+   - Calculates MRBE (Mean Relative Bias Error) and RRMSE (Relative Root Mean Square Error)
+   - Checks against DNV RP-0661 criteria (MRBE ≤ 5%, RRMSE ≤ 15%)
+
+4. **Results**:
    - `adjusted_data`: DataFrame containing:
      - Original RSD and reference TI values
      - Adjusted TI values
@@ -137,9 +172,35 @@ The SS-SF adjustment method:
      - Slope and intercept
      - R² value
      - RMSE (Root Mean Square Error)
+   - Validation plots showing before/after comparison
+
+## Output Files
+
+After running the adjustment, you'll find these files in your output directory:
+
+```
+output/
+├── ss-sf_adjusted_data.csv       # Full dataset with adjusted values
+├── ss-sf_reg_results.csv         # Regression model statistics
+├── ss-sf_all_stats.csv           # Summary statistics
+└── plots/
+    ├── ss-sf_mrbe_by_bin.png    # MRBE per wind speed bin
+    ├── ss-sf_rrmse_by_bin.png   # RRMSE per wind speed bin
+    ├── ss-sf_ti_scatter.png      # Adjusted vs reference scatter plot
+    └── ss-sf_ti_comparison.png   # Before/after comparison by bin
+```
+
+The validation plots show:
+- **Scatter plots**: Adjusted TI vs reference TI with 1:1 line
+- **Error metrics**: MRBE and RRMSE per wind speed bin with DNV acceptance thresholds
+- **Comparison charts**: Reference vs unadjusted vs adjusted TI by wind speed bin
+
+<Note>
+Even if your data doesn't meet DNV criteria initially, the plots are useful for understanding the adjustment performance and identifying where improvements might be needed.
+</Note>
 
 ## Next Steps
 
-- Check out the [API Reference](api/core/tact.md) for detailed documentation
-- Learn about other [adjustment methods](api/adjustments/baseline.md)
-- Explore [statistical utilities](api/utils/statistics.md) for analysis 
+- Check out the [Validation Guide](validation) for interpreting DNV results
+- Learn about other [adjustment methods](api/adjustments/baseline) like SSWSStd and SSWS
+- See [Running Adjustments](running-adjustments) for more detailed workflows 

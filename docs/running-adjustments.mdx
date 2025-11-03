@@ -1,0 +1,426 @@
+---
+title: Running Adjustments
+description: Step-by-step guide to running turbulence intensity adjustments
+---
+
+Learn how to process your data and run turbulence intensity adjustments using TACT.
+
+## Quick Start
+
+<CodeGroup>
+```python Complete Workflow
+from tact import TACT
+from tact.utils.load_data import load_data
+from tact.utils.setup_processors import setup_processors
+
+# 1. Load your data
+data = load_data("your_data.csv")
+
+# 2. Set up processors
+binning_proc, ti_proc, stats_proc = setup_processors("config.json")
+
+# 3. Process data
+data = binning_proc.process(data)
+data = ti_proc.process(data)
+
+# 4. Run adjustment
+tact = TACT()
+results = tact.adjust(
+    data=data,
+    method="ss-sf",  # Recommended method
+    parameters={"split": True, "config_path": "config.json"}
+)
+
+# 5. Access results
+adjusted_data = results["adjusted_data"]
+print(f"Adjusted {len(adjusted_data)} observations")
+```
+
+```python Minimal Example
+from tact import TACT
+from tact.utils.load_data import load_data
+from tact.utils.setup_processors import setup_processors
+
+# One-liner pipeline
+data = load_data("data.csv")
+bp, tp, sp = setup_processors("config.json")
+data = bp.process(tp.process(data))
+
+# Run adjustment
+tact = TACT()
+results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
+```
+</CodeGroup>
+
+## Step-by-Step Workflow
+
+<Steps>
+  <Step title="Load Data">
+    Import your CSV file using TACT's data loader:
+
+    ```python
+    from tact.utils.load_data import load_data
+
+    data = load_data("path/to/your/data.csv")
+    print(f"Loaded {len(data)} rows")
+    print(f"Columns: {data.columns.tolist()}")
+    ```
+
+    **What it does:**
+    - Reads CSV into pandas DataFrame
+    - Validates column existence
+    - Handles timestamps automatically
+  </Step>
+
+  <Step title="Set Up Processors">
+    Create processors using your config file:
+
+    ```python
+    from tact.utils.setup_processors import setup_processors
+
+    binning_proc, ti_proc, stats_proc = setup_processors("config.json")
+    ```
+
+    **Returns three processors:**
+    - `binning_proc`: Bins data by wind speed
+    - `ti_proc`: Calculates turbulence intensity metrics
+    - `stats_proc`: Computes statistical summaries
+  </Step>
+
+  <Step title="Process Data">
+    Apply processors to prepare data:
+
+    ```python
+    # Apply binning
+    data = binning_proc.process(data)
+
+    # Calculate TI metrics
+    data = ti_proc.process(data)
+
+    # Optional: Compute statistics
+    data = stats_proc.process(data)
+    ```
+
+    **Processing order matters!** Always apply in this sequence:
+    1. Binning first
+    2. TI calculation second
+    3. Statistics last (optional)
+  </Step>
+
+  <Step title="Run Adjustment">
+    Choose a method and run the adjustment:
+
+    ```python
+    from tact import TACT
+
+    tact = TACT()
+    results = tact.adjust(
+        data=data,
+        method="ss-sf",  # or "ssws", "sswsstd", "baseline"
+        parameters={
+            "split": True,              # Use train/test split
+            "config_path": "config.json"
+        }
+    )
+    ```
+
+    **Method options:**
+    - `ss-sf`: Recommended for most cases
+    - `sswsstd`: Dual WS+SD adjustment
+    - `ssws`: Wind speed only
+    - `baseline`: No adjustment (reference)
+  </Step>
+
+  <Step title="Access Results">
+    Extract the adjusted data and statistics:
+
+    ```python
+    # Get adjusted dataset
+    adjusted_data = results["adjusted_data"]
+
+    # View regression results (if applicable)
+    if "reg_results" in results:
+        print(results["reg_results"])
+
+    # Check statistics
+    if "all_stats" in results:
+        print(results["all_stats"])
+    ```
+  </Step>
+</Steps>
+
+## Method Selection
+
+<Tabs>
+  <Tab title="SS-SF (Recommended)">
+    **Site-Specific Simple + Filter**
+
+    ```python
+    results = tact.adjust(
+        data=data,
+        method="ss-sf",
+        parameters={"split": True, "config_path": "config.json"}
+    )
+    ```
+
+    **Best for:**
+    - General purpose turbulence adjustment
+    - When you want the best MRBE/RRMSE
+    - Avoiding error propagation
+
+    **Performance:** MRBE 37.8%, RRMSE 111.1%
+  </Tab>
+
+  <Tab title="SSWSStd">
+    **Wind Speed + Standard Deviation**
+
+    ```python
+    results = tact.adjust(
+        data=data,
+        method="sswsstd",
+        parameters={"split": True, "config_path": "config.json"}
+    )
+    ```
+
+    **Best for:**
+    - Complex bias in both WS and SD
+    - When you need independent WS and SD corrections
+    - Large datasets (2000+ points)
+
+    **Performance:** MRBE 37.7%, RRMSE 121.6%
+  </Tab>
+
+  <Tab title="SSWS">
+    **Wind Speed Only**
+
+    ```python
+    results = tact.adjust(
+        data=data,
+        method="ssws",
+        parameters={"split": True, "config_path": "config.json"}
+    )
+    ```
+
+    **Best for:**
+    - Simple wind speed bias correction
+    - When SD measurements are less reliable
+    - Simpler interpretation
+
+    **Performance:** MRBE 92.1%, RRMSE 188.0%
+  </Tab>
+
+  <Tab title="Baseline">
+    **No Adjustment**
+
+    ```python
+    results = tact.adjust(
+        data=data,
+        method="baseline",
+        parameters={"config_path": "config.json"}
+    )
+    ```
+
+    **Best for:**
+    - Benchmarking other methods
+    - Understanding raw measurement differences
+    - Validation purposes
+
+    **Performance:** MRBE 90.4%, RRMSE 183.0%
+  </Tab>
+</Tabs>
+
+## Parameters Guide
+
+<AccordionGroup>
+  <Accordion title="split (Train/Test Split)" icon="scissors">
+    ```python
+    parameters={"split": True, "config_path": "config.json"}
+    ```
+
+    **What it does:**
+    - Splits data into training (70%) and testing (30%) sets
+    - Trains regression on training data
+    - Applies adjustment to test data
+
+    **When to use:**
+    - For SS-SF, SSWS, SSWSStd methods
+    - When you have sufficient data (500+ points)
+    - ❌ Not needed for baseline method
+
+    **When split=False:**
+    - Uses all data for both training and testing
+    - May lead to overfitting
+    - Only recommended for small datasets
+  </Accordion>
+
+  <Accordion title="config_path (Configuration File)" icon="file">
+    ```python
+    parameters={"config_path": "path/to/config.json"}
+    ```
+
+    **Required for:** All methods
+
+    **What it contains:**
+    - Column name mappings
+    - Binning configuration
+    - Method-specific parameters
+
+    **Path options:**
+    - Relative: `"config.json"` (same directory as script)
+    - Absolute: `"/full/path/to/config.json"`
+  </Accordion>
+
+  <Accordion title="Method-Specific Parameters" icon="sliders">
+    Some methods accept additional parameters:
+
+    ```python
+    # Example: Custom parameters (if supported)
+    parameters={
+        "split": True,
+        "config_path": "config.json",
+        "custom_param": value  # Method-specific
+    }
+    ```
+
+    Check each method's API documentation for available parameters.
+  </Accordion>
+</AccordionGroup>
+
+## Output Structure
+
+The `adjust()` method returns a dictionary with these keys:
+
+```python
+{
+    "adjusted_data": pd.DataFrame,  # Main output - adjusted dataset
+    "reg_results": pd.DataFrame,    # Regression statistics (if applicable)
+    "all_stats": pd.DataFrame       # Summary statistics (if applicable)
+}
+```
+
+### Adjusted Data Columns
+
+The returned DataFrame includes original columns plus:
+
+| Column | Description |
+|--------|-------------|
+| `adjTI_RSD_TI` | Adjusted turbulence intensity |
+| `adjRepTI_RSD_RepTI` | Adjusted representative TI |
+| `RSD_adjWS` | Adjusted wind speed (SSWSStd only) |
+| `RSD_adjSD` | Adjusted std deviation (SSWSStd only) |
+
+## Save Results
+
+<CodeGroup>
+```python Save to CSV
+# Save adjusted data
+adjusted_data = results["adjusted_data"]
+adjusted_data.to_csv("adjusted_results.csv", index=False)
+print("Saved to adjusted_results.csv")
+```
+
+```python Save All Results
+# Save everything
+adjusted_data.to_csv("adjusted_data.csv", index=False)
+
+if "reg_results" in results:
+    results["reg_results"].to_csv("regression_stats.csv", index=False)
+
+if "all_stats" in results:
+    results["all_stats"].to_csv("summary_stats.csv", index=False)
+```
+
+```python Export to Excel
+# Multiple sheets in one file
+with pd.ExcelWriter("tact_results.xlsx") as writer:
+    results["adjusted_data"].to_excel(writer, sheet_name="Adjusted Data", index=False)
+    if "reg_results" in results:
+        results["reg_results"].to_excel(writer, sheet_name="Regression", index=False)
+    if "all_stats" in results:
+        results["all_stats"].to_excel(writer, sheet_name="Statistics", index=False)
+```
+</CodeGroup>
+
+## Common Workflows
+
+<Tabs>
+  <Tab title="Single Method">
+    ```python
+    # Run one method and save results
+    from tact import TACT
+    from tact.utils.load_data import load_data
+    from tact.utils.setup_processors import setup_processors
+
+    # Load and process
+    data = load_data("data.csv")
+    bp, tp, sp = setup_processors("config.json")
+    data = bp.process(tp.process(data))
+
+    # Run SS-SF
+    tact = TACT()
+    results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
+
+    # Save
+    results["adjusted_data"].to_csv("ss_sf_results.csv", index=False)
+    ```
+  </Tab>
+
+  <Tab title="Compare Methods">
+    ```python
+    # Run and compare multiple methods
+    methods = ["baseline", "ss-sf", "ssws", "sswsstd"]
+    tact = TACT()
+
+    all_results = {}
+    for method in methods:
+        results = tact.adjust(
+            data=data,
+            method=method,
+            parameters={"split": True, "config_path": "config.json"}
+        )
+        all_results[method] = results
+
+    # Save each method's results
+    for method, results in all_results.items():
+        results["adjusted_data"].to_csv(f"{method}_results.csv", index=False)
+    ```
+  </Tab>
+
+  <Tab title="Batch Processing">
+    ```python
+    # Process multiple datasets
+    import glob
+
+    tact = TACT()
+    data_files = glob.glob("data/*.csv")
+
+    for file_path in data_files:
+        # Load and process
+        data = load_data(file_path)
+        bp, tp, sp = setup_processors("config.json")
+        data = bp.process(tp.process(data))
+
+        # Run adjustment
+        results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
+
+        # Save with descriptive name
+        output_name = file_path.replace("data/", "results/").replace(".csv", "_adjusted.csv")
+        results["adjusted_data"].to_csv(output_name, index=False)
+        print(f"Processed {file_path}")
+    ```
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Validate Results" icon="check-circle" href="validation">
+    Run DNV RP-0661 validation
+  </Card>
+  <Card title="Visualize Data" icon="chart-line" href="features#professional-visualization">
+    Create plots and charts
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="troubleshooting">
+    Fix common issues
+  </Card>
+</CardGroup>

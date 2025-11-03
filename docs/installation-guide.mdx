@@ -1,0 +1,111 @@
+---
+title: Installation
+description: Install TACT and get started in minutes
+---
+
+## Quick Install
+
+```bash
+# Clone repository
+git clone https://github.com/CFARS/TACT.git
+cd TACT
+
+# Create virtual environment
+python3 -m venv env
+source env/bin/activate  # Windows: env\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Verify installation
+python -c "from tact import TACT; print('TACT installed successfully')"
+```
+
+## Installation Options
+
+<Tabs>
+  <Tab title="Standalone Usage">
+    **For running example scripts in the TACT directory**
+
+    ```bash
+    git clone https://github.com/CFARS/TACT.git
+    cd TACT
+    python3 -m venv env
+    source env/bin/activate
+    pip install -r requirements.txt
+    python main.py  # Run example
+    ```
+
+    Use this if you just want to run the provided examples or work within the TACT directory.
+  </Tab>
+
+  <Tab title="Install as Package">
+    **For importing TACT in your own scripts anywhere**
+
+    ```bash
+    git clone https://github.com/CFARS/TACT.git
+    cd TACT
+    python3 -m venv env
+    source env/bin/activate
+    pip install -e .
+    ```
+
+    After installation, you can use TACT from any directory:
+
+    ```python
+    # my_script.py (anywhere on your system)
+    from tact import TACT
+    from tact.validation import validate_dnv_rp0661
+
+    tact = TACT()
+    # ... use TACT
+    ```
+  </Tab>
+</Tabs>
+
+## System Requirements
+
+- Python 3.8 or higher
+- pip (Python package manager)
+- Git
+- 500MB disk space
+
+## Dependencies
+
+TACT requires standard scientific Python packages:
+- numpy
+- pandas
+- scikit-learn
+- scipy
+- matplotlib
+
+These are automatically installed with `pip install -r requirements.txt`.
+
+## Verification
+
+Test your installation:
+
+```bash
+# Activate environment
+source env/bin/activate
+
+# Test import
+python -c "from tact import TACT; print('Success!')"
+
+# Run example
+python main.py
+```
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Getting Started" icon="rocket" href="getting-started">
+    Run your first adjustment
+  </Card>
+  <Card title="Data Import" icon="file-import" href="data-import-guide">
+    Prepare your data
+  </Card>
+  <Card title="Configuration" icon="gear" href="configuration">
+    Set up column mappings
+  </Card>
+</CardGroup>

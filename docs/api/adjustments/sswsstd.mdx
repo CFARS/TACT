@@ -289,75 +289,6 @@ Then combines them:
 TI = Adjusted_SD / Adjusted_WS
 ```
 
-## Best Practices
-
-### Pre-Adjustment Analysis
-
-```python
-import matplotlib.pyplot as plt
-
-# Check correlations
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-
-# WS correlation
-ax1.scatter(data['rsd_ws'], data['ref_ws'], alpha=0.5)
-ax1.plot([0, 20], [0, 20], 'r--', label='1:1 line')
-ax1.set_xlabel('RSD Wind Speed (m/s)')
-ax1.set_ylabel('Reference Wind Speed (m/s)')
-ax1.set_title(f'WS Correlation: {data[["rsd_ws", "ref_ws"]].corr().iloc[0,1]:.3f}')
-ax1.legend()
-
-# SD correlation
-ax2.scatter(data['rsd_sd'], data['ref_sd'], alpha=0.5)
-ax2.plot([0, 3], [0, 3], 'r--', label='1:1 line')
-ax2.set_xlabel('RSD Std Dev (m/s)')
-ax2.set_ylabel('Reference Std Dev (m/s)')
-ax2.set_title(f'SD Correlation: {data[["rsd_sd", "ref_sd"]].corr().iloc[0,1]:.3f}')
-ax2.legend()
-
-plt.tight_layout()
-plt.savefig('correlation_analysis.png')
-```
-
-### Examining Regression Quality
-
-```python
-# After running adjustment
-reg_results = results["reg_results"]
-
-print("Wind Speed Model:")
-print(f"  Slope: {reg_results[reg_results['sensor']=='WS']['m'].values[0]:.3f}")
-print(f"  Intercept: {reg_results[reg_results['sensor']=='WS']['c'].values[0]:.3f}")
-print(f"  R²: {reg_results[reg_results['sensor']=='WS']['rsquared'].values[0]:.3f}")
-
-print("\nStandard Deviation Model:")
-print(f"  Slope: {reg_results[reg_results['sensor']=='SD']['m'].values[0]:.3f}")
-print(f"  Intercept: {reg_results[reg_results['sensor']=='SD']['c'].values[0]:.3f}")
-print(f"  R²: {reg_results[reg_results['sensor']=='SD']['rsquared'].values[0]:.3f}")
-
-# Warning if R² is low
-if any(reg_results['rsquared'] < 0.8):
-    print("\n⚠️  Warning: Low R² detected. Consider alternative methods.")
-```
-
-### Validation and Comparison
-
-```python
-# Compare SSWSStd with other methods
-from compare_all_methods import compare_all_methods
-
-comparison = compare_all_methods()
-
-# Filter to see where SSWSStd ranks
-sswsstd_results = comparison[comparison['Method'] == 'SSWSSTD']
-print(f"SSWSStd MRBE: {sswsstd_results['MRBE_%'].values[0]:.2f}%")
-print(f"SSWSStd RRMSE: {sswsstd_results['RRMSE_%'].values[0]:.2f}%")
-
-# Check if it's the best method for your data
-best_method = comparison.loc[comparison['MRBE_%'].abs().idxmin(), 'Method']
-print(f"\nBest method for this dataset: {best_method}")
-```
-
 ## Troubleshooting
 
 ### High MRBE/RRMSE Despite Good R² Values
@@ -402,7 +333,7 @@ if neg_ws > 0 or neg_sd > 0:
 
 ## When to Use SSWSStd
 
-### ✅ Use SSWSStd When:
+### Use SSWSStd When:
 - Both WS and SD show systematic bias vs reference
 - You have large dataset (>2000 points for training)
 - R² > 0.9 for both WS and SD models

@@ -1,0 +1,399 @@
+---
+title: DNV Validation
+description: Validate your results against DNV RP-0661 industry standards
+---
+
+Validate your turbulence intensity adjustments against industry-standard DNV RP-0661 criteria.
+
+## Quick Validation
+
+```python
+from tact.validation import validate_dnv_rp0661
+
+# After running adjustment
+validation = validate_dnv_rp0661(
+    adjusted_data=results["adjusted_data"],
+    reference_col="ref_ti",
+    adjusted_col="adjTI_RSD_TI",
+    wind_speed_col="ref_ws",
+    bin_col="bins",
+    criteria_type="LV"  # Load Verification
+)
+
+# Check results
+print(f"MRBE: {validation['overall']['MRBE_%'].iloc[0]:.2f}%")
+print(f"RRMSE: {validation['overall']['RRMSE_%'].iloc[0]:.2f}%")
+print(f"Pass: {validation['overall']['pass'].iloc[0]}")
+```
+
+## Understanding DNV Criteria
+
+<Tabs>
+  <Tab title="LV (Load Verification)">
+    **Load Verification Criteria**
+
+    Used for turbine load calculations and site assessments.
+
+    **Acceptance Criteria:**
+    - MRBE (Mean Relative Bias Error) ≤ 5%
+    - RRMSE (Relative Root Mean Square Error) ≤ 15%
+
+    ```python
+    validation = validate_dnv_rp0661(
+        adjusted_data=results["adjusted_data"],
+        reference_col="ref_ti",
+        adjusted_col="adjTI_RSD_TI",
+        wind_speed_col="ref_ws",
+        bin_col="bins",
+        criteria_type="LV"
+    )
+    ```
+
+    **When to use:**
+    - Site assessment studies
+    - Turbulence load calculations
+    - Due diligence evaluations
+  </Tab>
+
+  <Tab title="PC (Power Curve)">
+    **Power Curve Criteria**
+
+    Stricter requirements for power performance testing.
+
+    **Acceptance Criteria:**
+    - More stringent than LV
+    - Per IEC 61400-12-1 standards
+
+    ```python
+    validation = validate_dnv_rp0661(
+        adjusted_data=results["adjusted_data"],
+        reference_col="ref_ti",
+        adjusted_col="adjTI_RSD_TI",
+        wind_speed_col="ref_ws",
+        bin_col="bins",
+        criteria_type="PC"
+    )
+    ```
+
+    **When to use:**
+    - Power performance testing
+    - Energy yield assessments
+    - Warranty verification
+  </Tab>
+</Tabs>
+
+## Validation Workflow
+
+<Steps>
+  <Step title="Run Adjustment">
+    First, complete your turbulence adjustment:
+
+    ```python
+    from tact import TACT
+    from tact.utils.load_data import load_data
+    from tact.utils.setup_processors import setup_processors
+
+    data = load_data("data.csv")
+    bp, tp, sp = setup_processors("config.json")
+    data = bp.process(tp.process(data))
+
+    tact = TACT()
+    results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
+    ```
+  </Step>
+
+  <Step title="Run Validation">
+    Validate the adjusted results:
+
+    ```python
+    from tact.validation import validate_dnv_rp0661
+
+    validation = validate_dnv_rp0661(
+        adjusted_data=results["adjusted_data"],
+        reference_col="ref_ti",
+        adjusted_col="adjTI_RSD_TI",
+        wind_speed_col="ref_ws",
+        bin_col="bins",
+        criteria_type="LV"
+    )
+    ```
+  </Step>
+
+  <Step title="Check Results">
+    Review overall and per-bin validation:
+
+    ```python
+    # Overall metrics
+    print("Overall Validation:")
+    print(validation['overall'])
+
+    # Per-bin details
+    print("\nPer-Bin Validation:")
+    print(validation['by_bin'])
+    ```
+  </Step>
+
+  <Step title="Generate Plots">
+    Create professional validation visualizations:
+
+    ```python
+    from tact.visualization import plot_dnv_validation
+
+    plot_dnv_validation(
+        validation_results=validation,
+        adjusted_data=results["adjusted_data"],
+        reference_col="ref_ti",
+        adjusted_col="adjTI_RSD_TI",
+        unadjusted_col="rsd_ti",
+        wind_speed_col="ref_ws",
+        bin_col="bins",
+        method_name="SS-SF",
+        output_dir="output/plots"
+    )
+    ```
+  </Step>
+</Steps>
+
+## Validation Output
+
+### Overall Metrics
+
+The `validation['overall']` DataFrame contains:
+
+| Metric | Description | Target (LV) |
+|--------|-------------|-------------|
+| `MRBE_%` | Mean Relative Bias Error | ≤ 5% |
+| `RRMSE_%` | Relative Root Mean Square Error | ≤ 15% |
+| `pass` | Whether criteria are met | True |
+| `N` | Number of observations | - |
+
+### Per-Bin Metrics
+
+The `validation['by_bin']` DataFrame shows results for each wind speed bin:
+
+```python
+# Example output
+   bin  N  MRBE_%  RRMSE_%  pass
+0  4-5  120   3.2    12.1   True
+1  5-6  245   4.1    13.5   True
+2  6-7  312   2.8    11.2   True
+...
+```
+
+## Complete Example
+
+<CodeGroup>
+```python Full Pipeline
+from tact import TACT
+from tact.utils.load_data import load_data
+from tact.utils.setup_processors import setup_processors
+from tact.validation import validate_dnv_rp0661
+from tact.visualization import plot_dnv_validation
+
+# 1. Load and process
+data = load_data("data.csv")
+bp, tp, sp = setup_processors("config.json")
+data = bp.process(tp.process(data))
+
+# 2. Run adjustment
+tact = TACT()
+results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
+
+# 3. Validate
+validation = validate_dnv_rp0661(
+    adjusted_data=results["adjusted_data"],
+    reference_col="ref_ti",
+    adjusted_col="adjTI_RSD_TI",
+    wind_speed_col="ref_ws",
+    bin_col="bins",
+    criteria_type="LV"
+)
+
+# 4. Print results
+overall = validation['overall']
+print(f"\n{'='*50}")
+print(f"DNV RP-0661 LV Validation Results")
+print(f"{'='*50}")
+print(f"MRBE:  {overall['MRBE_%'].iloc[0]:6.2f}% (target: ≤5%)")
+print(f"RRMSE: {overall['RRMSE_%'].iloc[0]:6.2f}% (target: ≤15%)")
+print(f"Pass:  {overall['pass'].iloc[0]}")
+print(f"N:     {overall['N'].iloc[0]}")
+print(f"{'='*50}\n")
+
+# 5. Generate plots
+plot_dnv_validation(
+    validation_results=validation,
+    adjusted_data=results["adjusted_data"],
+    reference_col="ref_ti",
+    adjusted_col="adjTI_RSD_TI",
+    unadjusted_col="rsd_ti",
+    wind_speed_col="ref_ws",
+    bin_col="bins",
+    method_name="SS-SF",
+    output_dir="output/plots"
+)
+print("Validation plots saved to output/plots/")
+
+# 6. Save validation results
+validation['overall'].to_csv("validation_overall.csv", index=False)
+validation['by_bin'].to_csv("validation_per_bin.csv", index=False)
+```
+
+```python Compare Methods
+# Validate multiple methods
+methods = ["ss-sf", "ssws", "sswsstd"]
+validation_results = {}
+
+for method in methods:
+    # Run adjustment
+    results = tact.adjust(data, method, {"split": True, "config_path": "config.json"})
+
+    # Validate
+    validation = validate_dnv_rp0661(
+        adjusted_data=results["adjusted_data"],
+        reference_col="ref_ti",
+        adjusted_col="adjTI_RSD_TI",
+        wind_speed_col="ref_ws",
+        bin_col="bins",
+        criteria_type="LV"
+    )
+
+    validation_results[method] = validation
+
+# Compare
+import pandas as pd
+comparison = pd.DataFrame({
+    method: {
+        'MRBE_%': val['overall']['MRBE_%'].iloc[0],
+        'RRMSE_%': val['overall']['RRMSE_%'].iloc[0],
+        'Pass': val['overall']['pass'].iloc[0]
+    }
+    for method, val in validation_results.items()
+}).T
+
+print(comparison.sort_values('MRBE_%'))
+```
+</CodeGroup>
+
+## Visualization
+
+The `plot_dnv_validation` function generates:
+
+<AccordionGroup>
+  <Accordion title="Scatter Plots" icon="chart-scatter">
+    - Before vs after adjustment comparison
+    - 1:1 reference line
+    - Regression fit line
+    - R² correlation coefficient
+  </Accordion>
+
+  <Accordion title="DNV Acceptance Plots" icon="circle-check">
+    - MRBE and RRMSE per wind speed bin
+    - Acceptance criteria threshold lines
+    - Pass/fail indication by color
+  </Accordion>
+
+  <Accordion title="Error Analysis" icon="chart-bar">
+    - Residual plots
+    - Bias distribution
+    - Error by wind speed bin
+  </Accordion>
+</AccordionGroup>
+
+## Interpreting Results
+
+<Tabs>
+  <Tab title="Passing Validation">
+    **Both MRBE and RRMSE meet criteria**
+
+    ```
+    MRBE:  3.21% (target: ≤5%)   ✅
+    RRMSE: 12.45% (target: ≤15%) ✅
+    Pass: True
+    ```
+
+    **What this means:**
+    - Adjustment is successful
+    - Results meet DNV standards
+    - Data suitable for its intended use
+
+    **Next steps:**
+    - Generate final report
+    - Save validated results
+    - Proceed with site assessment
+  </Tab>
+
+  <Tab title="Failing MRBE">
+    **❌ MRBE exceeds 5% threshold**
+
+    ```
+    MRBE:  8.5% (target: ≤5%)    ❌
+    RRMSE: 13.2% (target: ≤15%)  ✅
+    Pass: False
+    ```
+
+    **What this means:**
+    - Systematic bias remains
+    - Adjustment method may not be optimal
+
+    **Troubleshooting:**
+    - Try different adjustment method (e.g., SS-SF instead of SSWS)
+    - Check data quality and synchronization
+    - Review per-bin results for specific problem ranges
+    - Verify configuration column mappings
+  </Tab>
+
+  <Tab title="Failing RRMSE">
+    **❌ RRMSE exceeds 15% threshold**
+
+    ```
+    MRBE:  3.1% (target: ≤5%)    ✅
+    RRMSE: 18.9% (target: ≤15%)  ❌
+    Pass: False
+    ```
+
+    **What this means:**
+    - High scatter/random error
+    - Data may have quality issues
+
+    **Troubleshooting:**
+    - Check data quality filtering
+    - Verify sensor calibration
+    - Review RSD-reference distance (should be less than 200m)
+    - Increase dataset size if possible
+    - Check for measurement synchronization issues
+  </Tab>
+
+  <Tab title="Failing Both">
+    **❌ Both metrics fail**
+
+    ```
+    MRBE:  12.3% (target: ≤5%)   ❌
+    RRMSE: 25.7% (target: ≤15%)  ❌
+    Pass: False
+    ```
+
+    **What this means:**
+    - Significant data or methodology issues
+    - Adjustment not effective
+
+    **Troubleshooting:**
+    1. Verify data quality and completeness
+    2. Check time synchronization between sensors
+    3. Try all available methods (compare results)
+    4. Review raw data correlations
+    5. Consider data collection issues
+  </Tab>
+</Tabs>
+
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Visualization Guide" icon="chart-line" href="features#professional-visualization">
+    Create publication-ready plots
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="troubleshooting">
+    Fix validation failures
+  </Card>
+</CardGroup>

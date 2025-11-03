@@ -1,0 +1,476 @@
+---
+title: Troubleshooting
+description: Common issues and how to fix them
+---
+
+Quick solutions to common problems when using TACT.
+
+## Installation Issues
+
+<AccordionGroup>
+  <Accordion title="ModuleNotFoundError: No module named 'tact'" icon="circle-xmark">
+    **Problem:** Python can't find the TACT module
+
+    **Solutions:**
+
+    <Tabs>
+      <Tab title="Not Installed">
+        ```bash
+        # Install dependencies
+        pip install -r requirements.txt
+
+        # Verify installation
+        python -c "from tact import TACT; print('Success')"
+        ```
+      </Tab>
+
+      <Tab title="Wrong Environment">
+        ```bash
+        # Make sure virtual environment is activated
+        source env/bin/activate  # macOS/Linux
+        env\Scripts\activate     # Windows
+
+        # Verify you're in the right environment
+        which python
+        ```
+      </Tab>
+
+      <Tab title="Package Install">
+        ```bash
+        # Install as package
+        pip install -e .
+
+        # Now you can import from any directory
+        python -c "from tact import TACT"
+        ```
+      </Tab>
+    </Tabs>
+  </Accordion>
+
+  <Accordion title="ImportError: cannot import name..." icon="ban">
+    **Problem:** Specific TACT components won't import
+
+    **Common causes:**
+    - Outdated code version
+    - Missing dependencies
+    - Circular import
+
+    **Solution:**
+    ```bash
+    # Update to latest version
+    git pull origin main
+
+    # Reinstall dependencies
+    pip install -r requirements.txt --upgrade
+
+    # Clear Python cache
+    find . -type d -name __pycache__ -exec rm -rf {} +
+    find . -name "*.pyc" -delete
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Data Loading Issues
+
+<AccordionGroup>
+  <Accordion title="FileNotFoundError: No such file" icon="file-slash">
+    **Problem:** Can't find data file
+
+    **Solutions:**
+
+    ```python
+    # Use absolute path
+    data = load_data("/full/path/to/data.csv")
+
+    # Or check current directory
+    import os
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Files here: {os.listdir('.')}")
+
+    # Navigate to correct directory first
+    os.chdir("/path/to/data/directory")
+    data = load_data("data.csv")
+    ```
+  </Accordion>
+
+  <Accordion title="KeyError: Column not found" icon="table">
+    **Problem:** Column name doesn't exist in CSV
+
+    **Diagnostic:**
+    ```python
+    import pandas as pd
+
+    # Check what columns actually exist
+    data = pd.read_csv("data.csv")
+    print("Columns in CSV:")
+    print(data.columns.tolist())
+
+    # Check config mapping
+    import json
+    with open("config.json") as f:
+        config = json.load(f)
+        print("\nExpected columns from config:")
+        print(config['input_data_column_mapping'])
+    ```
+
+    **Fix:** Update config.json to match actual CSV column names
+  </Accordion>
+
+  <Accordion title="Empty DataFrame after loading"
+    **Problem:** Data loads but has 0 rows
+
+    **Diagnostic:**
+    ```python
+    data = load_data("data.csv")
+    print(f"Rows: {len(data)}")
+    print(f"Columns: {data.columns.tolist()}")
+    print(data.head())
+    ```
+
+    **Common causes:**
+    - CSV is actually empty
+    - Wrong delimiter (comma vs semicolon)
+    - Header-only file
+
+    **Fix:**
+    ```python
+    # Try different delimiter
+    data = pd.read_csv("data.csv", delimiter=";")
+
+    # Check file contents
+    with open("data.csv") as f:
+        print(f.read()[:500])  # First 500 characters
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Configuration Issues
+
+<AccordionGroup>
+  <Accordion title="JSONDecodeError: Invalid JSON" icon="code">
+    **Problem:** Config file has syntax errors
+
+    **Common mistakes:**
+    ```json
+    // ❌ Comments not allowed in JSON
+    {
+        "reference": {
+            "wind_speed": "ref_ws",  // Don't use comments
+        }  // ❌ Trailing comma
+    }
+    ```
+
+    **Fix:**
+    ```json
+    {
+        "reference": {
+            "wind_speed": "ref_ws"
+        }
+    }
+    ```
+
+    **Validator:**
+    - Use https://jsonlint.com to check syntax
+    - Most code editors show JSON errors
+  </Accordion>
+
+  <Accordion title="Missing required configuration keys" icon="key">
+    **Problem:** Config file incomplete
+
+    **Required structure:**
+    ```json
+    {
+        "input_data_column_mapping": {
+            "reference": {
+                "wind_speed": "ref_ws",
+                "wind_speed_std": "ref_sd",
+                "turbulence_intensity": "ref_ti"
+            },
+            "rsd": {
+                "primary": {
+                    "wind_speed": "rsd_ws",
+                    "wind_speed_std": "rsd_sd",
+                    "turbulence_intensity": "rsd_ti"
+                }
+            }
+        },
+        "binning_config": {
+            "bin_size": 1.0,
+            "bin_min": 4.0,
+            "bin_max": 20.0
+        }
+    }
+    ```
+
+    All 6 column mappings + binning config are required!
+  </Accordion>
+</AccordionGroup>
+
+## Adjustment Failures
+
+<AccordionGroup>
+  <Accordion title="ValueError: Not enough data for split" icon="chart-scatter">
+    **Problem:** Insufficient data for train/test split
+
+    **Solutions:**
+
+    <Tabs>
+      <Tab title="Disable Split">
+        ```python
+        # Use all data (not recommended)
+        results = tact.adjust(
+            data=data,
+            method="ss-sf",
+            parameters={
+                "split": False,  # Changed from True
+                "config_path": "config.json"
+            }
+        )
+        ```
+      </Tab>
+
+      <Tab title="Get More Data">
+        **Better solution:** Collect more data
+
+        - Minimum: 500 observations
+        - Recommended: 2000+ observations
+        - Check data quality filters aren't too strict
+      </Tab>
+    </Tabs>
+  </Accordion>
+
+  <Accordion title="LinAlgError: Singular matrix" icon="triangle-exclamation">
+    **Problem:** Regression can't be computed
+
+    **Causes:**
+    - All values identical (no variation)
+    - Perfect correlation
+    - Too few unique values
+
+    **Diagnostic:**
+    ```python
+    # Check data variation
+    print(data['ref_ws'].describe())
+    print(data['rsd_ws'].describe())
+
+    # Check for constants
+    print(f"Unique ref_ws values: {data['ref_ws'].nunique()}")
+    print(f"Unique rsd_ws values: {data['rsd_ws'].nunique()}")
+    ```
+
+    **Fix:** Ensure data has sufficient variation
+  </Accordion>
+
+  <Accordion title="Poor adjustment results (high MRBE/RRMSE)" icon="chart-line-down">
+    **Problem:** Validation fails after adjustment
+
+    **Troubleshooting checklist:**
+
+    1. **Check data quality**
+       ```python
+       # Correlation check
+       print(data[['ref_ti', 'rsd_ti']].corr())
+       # Should be > 0.7
+       ```
+
+    2. **Try different methods**
+       ```python
+       methods = ["ss-sf", "ssws", "sswsstd"]
+       for method in methods:
+           results = tact.adjust(data, method, params)
+           # Compare validation results
+       ```
+
+    3. **Check data synchronization**
+       - Are timestamps aligned?
+       - Same averaging period?
+
+    4. **Verify sensor distance**
+       - RSD should be less than 200m from reference
+
+    5. **Review data filtering**
+       - Too aggressive filtering reduces dataset
+       - Too lenient keeps bad data
+  </Accordion>
+</AccordionGroup>
+
+## Validation Issues
+
+<AccordionGroup>
+  <Accordion title="Validation fails - high MRBE" icon="percent">
+    **MRBE > 5% (systematic bias)**
+
+    **Quick fixes:**
+
+    <Steps>
+      <Step title="Try SS-SF method">
+        SS-SF typically has lowest MRBE
+        ```python
+        results = tact.adjust(data, "ss-sf", params)
+        ```
+      </Step>
+
+      <Step title="Check data quality">
+        ```python
+        # Plot raw comparison
+        import matplotlib.pyplot as plt
+        plt.scatter(data['ref_ti'], data['rsd_ti'])
+        plt.xlabel('Reference TI')
+        plt.ylabel('RSD TI')
+        plt.plot([0, 0.3], [0, 0.3], 'r--')  # 1:1 line
+        plt.show()
+        ```
+      </Step>
+
+      <Step title="Verify configuration">
+        Double-check column mappings are correct
+      </Step>
+    </Steps>
+  </Accordion>
+
+  <Accordion title="Validation fails - high RRMSE" icon="chart-scatter">
+    **RRMSE > 15% (high scatter/random error)**
+
+    **Common causes:**
+    - Poor data quality
+    - Sensor calibration issues
+    - Large RSD-reference separation
+    - Measurement timing mismatch
+
+    **Solutions:**
+    1. Filter data more strictly
+    2. Check sensor calibration dates
+    3. Verify time synchronization
+    4. Increase dataset size
+  </Accordion>
+</AccordionGroup>
+
+## Visualization Issues
+
+<AccordionGroup>
+  <Accordion title="Plots not showing" icon="image-slash">
+    **Problem:** Plots don't display
+
+    **Solutions:**
+
+    ```python
+    # Make sure matplotlib backend is set
+    import matplotlib
+    matplotlib.use('TkAgg')  # or 'Qt5Agg'
+
+    import matplotlib.pyplot as plt
+
+    # After plotting
+    plt.show()  # Don't forget this!
+
+    # Or save to file instead
+    plt.savefig('plot.png', dpi=300, bbox_inches='tight')
+    print("Saved to plot.png")
+    ```
+  </Accordion>
+
+  <Accordion title="Plots look wrong" icon="chart-line">
+    **Problem:** Axes, labels, or data looks incorrect
+
+    **Diagnostic:**
+    ```python
+    # Check what data you're plotting
+    print(f"X data range: {data[x_col].min()} to {data[x_col].max()}")
+    print(f"Y data range: {data[y_col].min()} to {data[y_col].max()}")
+    print(f"N points: {len(data)}")
+
+    # Verify column names
+    print(f"Columns: {data.columns.tolist()}")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Performance Issues
+
+<AccordionGroup>
+  <Accordion title="Very slow processing" icon="hourglass">
+    **Problem:** TACT takes too long to run
+
+    **Optimization tips:**
+
+    ```python
+    # 1. Use train/test split (faster)
+    results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
+
+    # 2. Filter data before processing
+    data = data[data['ref_ws'] >= 4.0]  # Remove low wind speeds
+    data = data[data['ref_ws'] <= 20.0]  # Remove high wind speeds
+
+    # 3. Sample large datasets
+    if len(data) > 50000:
+        data = data.sample(n=10000, random_state=42)
+    ```
+  </Accordion>
+
+  <Accordion title="Out of memory errors" icon="memory">
+    **Problem:** System runs out of RAM
+
+    **Solutions:**
+
+    ```python
+    # Process data in chunks
+    import pandas as pd
+
+    chunk_size = 10000
+    results_list = []
+
+    for chunk in pd.read_csv("large_file.csv", chunksize=chunk_size):
+        # Process each chunk
+        processed = bp.process(tp.process(chunk))
+        results_list.append(processed)
+
+    # Combine
+    all_data = pd.concat(results_list, ignore_index=True)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+<Note>
+**Still stuck?**
+
+1. **Check examples:** Review working examples in `TACT/example/`
+2. **Read error messages:** Python errors usually point to the problem
+3. **Verify versions:** Make sure you have Python 3.8+
+4. **Contact support:** aea@nrgsystems.com
+
+**Include in your support request:**
+- TACT version (`git log -1 --oneline`)
+- Python version (`python --version`)
+- Error message (full traceback)
+- Sample code that reproduces the issue
+</Note>
+
+## Common Error Messages
+
+| Error | Likely Cause | Quick Fix |
+|-------|--------------|-----------|
+| `KeyError: 'ref_ws'` | Column mapping incorrect | Update config.json |
+| `FileNotFoundError` | Wrong file path | Use absolute path |
+| `JSONDecodeError` | Invalid JSON syntax | Validate at jsonlint.com |
+| `ValueError: empty data` | No data after filtering | Check filtering criteria |
+| `LinAlgError` | Insufficient variation | Check data quality |
+| `MemoryError` | Dataset too large | Process in chunks |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="installation-guide">
+    Reinstall or update TACT
+  </Card>
+  <Card title="Configuration" icon="gear" href="configuration">
+    Review configuration setup
+  </Card>
+  <Card title="Data Import" icon="file-import" href="data-import-guide">
+    Learn about data requirements
+  </Card>
+  <Card title="Contact Support" icon="envelope" href="mailto:aea@nrgsystems.com">
+    Get help from the team
+  </Card>
+</CardGroup>

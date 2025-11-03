@@ -1,130 +1,86 @@
-# TACT Documentation
+---
+title: Welcome to TACT
+description: Turbulence Adjustment Comparison Tool for LiDAR and anemometer measurements
+---
 
-**TACT** (Turbulence Adjustment Computation Tool) is a Python package for processing, adjusting, and comparing LiDAR-based turbulence intensity measurements with traditional anemometer-based measurements.
+**TACT** (Turbulence Adjustment Comparison Tool) is a Python package for correcting remote sensing device (RSD) turbulence intensity measurements to match traditional cup anemometer standards.
 
-## 🚀 Getting Started
+TACT corrects RSD measurements through site-specific empirical regression against reference cup anemometer data. By training on concurrent measurement campaigns, TACT produces adjusted turbulence data suitable for:
+- Turbine load calculations using standard design equations
+- DNV RP-0661 compliant site assessments
+- IEC-standard power performance testing
 
-New to TACT? Start here:
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="getting-started">
+    Get up and running in minutes
+  </Card>
+  <Card title="Installation" icon="download" href="installation-guide">
+    Install TACT as a Python package
+  </Card>
+  <Card title="API Reference" icon="code" href="api/core/tact">
+    Complete API documentation
+  </Card>
+  <Card title="Examples" icon="flask" href="quickstart">
+    See TACT in action
+  </Card>
+</CardGroup>
 
-- **[Installation Guide](installation-guide.md)** - Install TACT as a Python package
-- **[Getting Started Guide](getting-started.md)** - Complete walkthrough from installation to first results
-- **[Data Import Guide](data-import-guide.md)** - How to prepare and load your data
-- **[Quick Start](quickstart.md)** - Basic usage examples
+## Key Features
 
-## ✨ Features
+<AccordionGroup>
+  <Accordion title="Multiple Adjustment Methods" icon="sliders">
+    - **Baseline** - No adjustment (reference comparison)
+    - **SS-SF** - Site-Specific Simple + Filter (recommended)
+    - **SSWS** - Site-Specific Wind Speed
+    - **SSWSStd** - Site-Specific Wind Speed + Standard Deviation
+  </Accordion>
 
-- **Standardized Data Processing**: Consistent formatting and validation for LiDAR and anemometer data
-- **Multiple Adjustment Methods**:
-    - Baseline (no adjustment reference)
-    - Site-Specific Simple + Filter (SS-SF) - recommended
-    - Site-Specific Wind Speed (SSWS)
-    - Site-Specific Wind Speed + Std Dev (SSWSStd)
-- **DNV RP-0661 Validation**: Industry-standard validation with MRBE/RRMSE metrics
-- **Professional Visualization**: Publication-ready plots with DNV acceptance criteria
-- **Method Comparison Framework**: Automated benchmarking of all methods
-- **Extensible Architecture**: Easy to add custom adjustment methods
-- **Statistical Analysis Tools**: Comprehensive metrics and regression analysis
+  <Accordion title="Industry Standard Validation" icon="check-circle">
+    Built-in DNV RP-0661 validation with MRBE/RRMSE metrics and acceptance criteria visualization
+  </Accordion>
 
-## 📖 User Guides
+  <Accordion title="Professional Visualizations" icon="chart-line">
+    Publication-ready plots with DNV acceptance criteria, regression analysis, and comparison charts
+  </Accordion>
 
-### Core Workflows
+  <Accordion title="Extensible Architecture" icon="puzzle-piece">
+    Easy-to-use plugin system for adding custom adjustment methods to fit your specific needs
+  </Accordion>
+</AccordionGroup>
 
-- **[Getting Started](getting-started.md)** - Installation, first run, and basic usage
-- **[Data Import Guide](data-import-guide.md)** - Preparing and loading your data
-- **[Adding Custom Models](add-custom-model.md)** - Extending TACT with your own methods
+## Quick Example
 
-### Example Scripts
+Get started with just a few lines of code:
 
-- **[main.py](../main.py)** - Complete pipeline with DNV validation and visualization
-- **[compare_all_methods.py](../compare_all_methods.py)** - Compare all adjustment methods
-- **[Example Test Scripts](../tact/example/)** - Method-specific examples
-
-## 📚 API Documentation
-
-### Core Components
-
-- **[TACT Core](api/core/tact.md)** - Main TACT class and factory
-- **[Base Classes](api/core/base.md)** - Abstract base classes for methods
-- **[Registry System](api/core/registry.md)** - Method registration
-
-### Adjustment Methods
-
-- **[Baseline](api/adjustments/baseline.md)** - No adjustment (reference comparison)
-- **[SS-SF](api/adjustments/sssf.md)** - Site-Specific Simple + Filter (recommended)
-- **[SSWS](api/adjustments/ssws.md)** - Site-Specific Wind Speed
-- **[SSWSStd](api/adjustments/sswsstd.md)** - SS Wind Speed + Standard Deviation
-
-### Validation & Visualization
-
-- **DNV RP-0661 Validation** (`tact/validation/dnv_rp0661.py`) - Industry-standard validation
-- **Visualization Suite** (`tact/visualization/dnv_plots.py`) - Professional plotting
-
-### Utilities
-
-- **[Data Processing](api/utils/data_processing.md)** - Loading and processing data
-- **[Statistics](api/utils/statistics.md)** - Statistical computations
-- **[Setup](api/utils/setup.md)** - Configuration and processors
-
-## 📊 Method Comparison
-
-See **[Method Comparison Results](../METHOD_COMPARISON_RESULTS.md)** for detailed performance analysis of all implemented methods on example data.
-
-**Quick Summary:**
-- **SS-SF**: Best overall performance (MRBE: 37.8%, RRMSE: 111.1%)
-- **SSWSStd**: Second best (MRBE: 37.7%, RRMSE: 121.6%)
-- **SSWS**: Third (MRBE: 92.1%, RRMSE: 188.0%)
-- **Baseline**: Reference (MRBE: 90.4%, RRMSE: 183.0%)
-
-## 🔧 Configuration
-
-TACT uses JSON configuration files to map your data columns and set processing parameters:
-
-```json
-{
-    "input_data_column_mapping": {
-        "reference": {
-            "wind_speed": "ref_ws",
-            "wind_speed_std": "ref_sd",
-            "turbulence_intensity": "ref_ti"
-        },
-        "rsd": {
-            "primary": {
-                "wind_speed": "rsd_ws",
-                "wind_speed_std": "rsd_sd",
-                "turbulence_intensity": "rsd_ti"
-            }
-        }
-    },
-    "binning_config": {
-        "bin_size": 1.0,
-        "bin_min": 4.0,
-        "bin_max": 20.0
-    }
-}
-```
-
-See [Data Import Guide](data-import-guide.md#configuration-mapping) for details.
-
-## 🎯 Quick Examples
-
-### Run Adjustment with Validation
-
-```python
+<CodeGroup>
+```python Basic Usage
 from tact import TACT
 from tact.utils.load_data import load_data
 from tact.utils.setup_processors import setup_processors
-from tact.validation import validate_dnv_rp0661
 
 # Load and process data
-data = load_data("data.csv")
+data = load_data("your_data.csv")
 bp, tp, sp = setup_processors("config.json")
 data = bp.process(tp.process(data))
 
 # Run adjustment
 tact = TACT()
+results = tact.adjust(
+    data=data,
+    method="ss-sf",  # Recommended method
+    parameters={"split": True, "config_path": "config.json"}
+)
+```
+
+```python With Validation
+from tact import TACT
+from tact.validation import validate_dnv_rp0661
+from tact.visualization import plot_dnv_validation
+
+# Run adjustment
 results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
 
-# Validate with DNV RP-0661
+# Validate against DNV RP-0661
 validation = validate_dnv_rp0661(
     adjusted_data=results["adjusted_data"],
     reference_col="ref_ti",
@@ -138,81 +94,51 @@ print(f"MRBE: {validation['overall']['MRBE_%'].iloc[0]:.2f}%")
 print(f"RRMSE: {validation['overall']['RRMSE_%'].iloc[0]:.2f}%")
 ```
 
-### Compare All Methods
-
-```python
+```python Method Comparison
 from compare_all_methods import compare_all_methods
 
-# Runs baseline, ss-sf, ssws, sswsstd
+# Compare all methods automatically
 comparison = compare_all_methods()
 print(comparison)
+
+# Output shows MRBE/RRMSE for all methods:
+# - Baseline, SS-SF, SSWS, SSWSStd
 ```
+</CodeGroup>
 
-### Add Custom Method
+## Method Performance Comparison
 
-```python
-from tact.core.base import AdjustmentMethod
-from tact.core.registry import AdjustmentRegistry
+Example results from one test dataset show performance differences between methods:
 
-@AdjustmentRegistry.register("my-method")
-class MyMethod(AdjustmentMethod):
-    def required_model_parameters(self):
-        return {"config_path": str}
+| Method | MRBE | RRMSE | Approach |
+|--------|------|-------|----------|
+| **SS-SF** | 37.8% | 111.1% | Direct TI regression with filtering |
+| **SSWSStd** | 37.7% | 121.6% | Dual WS+SD adjustment |
+| **SSWS** | 92.1% | 188.0% | Wind speed adjustment only |
+| **Baseline** | 90.4% | 183.0% | No adjustment |
 
-    def required_data_columns(self):
-        return ["reference.wind_speed", ...]
+Performance varies by site and dataset characteristics. SS-SF and SSWSStd showed similar MRBE on this dataset, while methods adjusting only wind speed (SSWS) performed worse due to error propagation through the TI calculation.
 
-    def adjust(self, data, parameters):
-        # Your implementation
-        return {"adjusted_data": adjusted_data}
-```
+![Method Comparison](/images/method_comparison.png)
 
-See [Adding Custom Models](add-custom-model.md) for complete tutorial.
+<Note>
+The optimal method depends on your specific dataset. We recommend comparing all methods on your data using `compare_all_methods.py`.
+</Note>
 
-## 📦 Project Structure
+## Next Steps
 
-```
-TACT/
-├── tact/                      # Main package
-│   ├── adjustments/          # Adjustment method implementations
-│   ├── validation/           # DNV RP-0661 validation
-│   ├── visualization/        # Plotting functions
-│   ├── core/                 # Core infrastructure
-│   ├── utils/                # Utility functions
-│   ├── example/              # Example data and configs
-│   └── tests/                # Test suite
-├── docs/                     # Documentation (you are here!)
-├── legacy/                   # Original monolithic implementation
-├── main.py                   # Example pipeline script
-├── compare_all_methods.py    # Method comparison script
-└── requirements.txt          # Dependencies
-```
+<CardGroup cols={3}>
+  <Card title="Install TACT" icon="download" href="installation-guide">
+    Set up TACT in your environment
+  </Card>
+  <Card title="Getting Started" icon="book-open" href="getting-started">
+    Complete walkthrough tutorial
+  </Card>
+  <Card title="Import Your Data" icon="file-import" href="data-import-guide">
+    Learn how to prepare your data
+  </Card>
+</CardGroup>
 
-## 🤝 Contributing
-
-We welcome contributions! See the [Contributing Guide](contributing.md) for:
-
-- Code style and standards
-- Testing requirements
-- Pull request process
-- Development setup
-
-## 📄 License
-
-This project is licensed under the BSD 3-Clause License - see the [LICENSE](../legacy/LICENSE) file for details.
-
-## 📞 Support
-
-- **Documentation**: You're reading it!
-- **Issues**: [GitHub Issues](https://github.com/CFARS/TACT/issues)
-- **Email**: aea@nrgsystems.com
-
-## 📝 Additional Resources
-
-- **[Status Report](../STATUS.md)** - Current implementation status and comparison with legacy
-- **[Method Comparison Results](../METHOD_COMPARISON_RESULTS.md)** - Detailed performance analysis
-- **[README](../README.md)** - Project overview and quick start
-
----
-
-**Ready to get started?** → [Getting Started Guide](getting-started.md)
+<Note>
+**Need help?** Check out our [troubleshooting guide](getting-started#troubleshooting) or [contact support](mailto:aea@nrgsystems.com).
+</Note>

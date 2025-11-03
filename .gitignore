@@ -4,6 +4,7 @@
 *.vscode/
 *env/
 *venv/
+.claude/
 
 *.~lock*
 *.csv
@@ -31,4 +32,4 @@
 !Example/*csv
 !Example/*xlsx
 !UserGuide.pdf
-!docs/mint.json
+!docs/mint.json.claude

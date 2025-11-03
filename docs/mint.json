@@ -1,8 +1,8 @@
 {
   "name": "TACT",
   "logo": {
-    "dark": "/assets/cfars_logo_transparent.png",
-    "light": "/assets/cfars_logo_transparent.png"
+    "dark": "/assets/cfars_logo_transparent-light-with-text.png",
+    "light": "/assets/cfars_logo_transparent-dark-with-text.png"
   },
   "favicon": "/assets/cfars_logo_transparent.png",
   "colors": {
@@ -35,8 +35,8 @@
       "group": "Getting Started",
       "pages": [
         "introduction",
+        "features",
         "installation-guide",
-        "getting-started",
         "quickstart"
       ]
     },
@@ -44,6 +44,15 @@
       "group": "Guides",
       "pages": [
         "data-import-guide",
+        "configuration",
+        "running-adjustments",
+        "validation",
+        "troubleshooting"
+      ]
+    },
+    {
+      "group": "Advanced",
+      "pages": [
         "add-custom-model",
         "contributing"
       ]

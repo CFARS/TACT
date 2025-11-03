@@ -1,0 +1,256 @@
+---
+title: Configuration
+description: Set up your TACT configuration file to map your data columns
+---
+
+TACT uses JSON configuration files to map your CSV columns to the expected format. This guide shows you how to create and customize your config file.
+
+## Quick Setup
+
+<Steps>
+  <Step title="Create config file">
+    Create a new file called `config.json` in your project directory
+  </Step>
+  <Step title="Copy template">
+    Use the template below and customize the column names to match your data
+  </Step>
+  <Step title="Verify paths">
+    Make sure column names exactly match your CSV headers
+  </Step>
+</Steps>
+
+## Basic Configuration Template
+
+```json config.json
+{
+    "input_data_column_mapping": {
+        "reference": {
+            "wind_speed": "ref_ws",
+            "wind_speed_std": "ref_sd",
+            "turbulence_intensity": "ref_ti"
+        },
+        "rsd": {
+            "primary": {
+                "wind_speed": "rsd_ws",
+                "wind_speed_std": "rsd_sd",
+                "turbulence_intensity": "rsd_ti"
+            }
+        }
+    },
+    "binning_config": {
+        "bin_size": 1.0,
+        "bin_min": 4.0,
+        "bin_max": 20.0
+    }
+}
+```
+
+## Configuration Sections
+
+<AccordionGroup>
+  <Accordion title="Column Mapping" icon="table-columns">
+    ### Reference (Anemometer) Data
+
+    Map your reference sensor column names:
+
+    ```json
+    "reference": {
+        "wind_speed": "your_ref_ws_column",
+        "wind_speed_std": "your_ref_sd_column",
+        "turbulence_intensity": "your_ref_ti_column"
+    }
+    ```
+
+    **Required fields:**
+    - `wind_speed`: Mean wind speed (m/s)
+    - `wind_speed_std`: Standard deviation of wind speed (m/s)
+    - `turbulence_intensity`: Turbulence intensity (decimal, e.g., 0.15 for 15%)
+  </Accordion>
+
+  <Accordion title="RSD (LiDAR) Data" icon="satellite-dish">
+    ### RSD Measurements
+
+    Map your RSD/LiDAR column names:
+
+    ```json
+    "rsd": {
+        "primary": {
+            "wind_speed": "your_rsd_ws_column",
+            "wind_speed_std": "your_rsd_sd_column",
+            "turbulence_intensity": "your_rsd_ti_column"
+        }
+    }
+    ```
+
+    **Note:** Use `"primary"` even if you only have one height. Multi-height support is planned for future releases.
+  </Accordion>
+
+  <Accordion title="Binning Configuration" icon="grip-vertical">
+    ### Wind Speed Bins
+
+    Configure how data is binned by wind speed:
+
+    ```json
+    "binning_config": {
+        "bin_size": 1.0,      // Width of each bin (m/s)
+        "bin_min": 4.0,       // Minimum wind speed (m/s)
+        "bin_max": 20.0       // Maximum wind speed (m/s)
+    }
+    ```
+
+    **Default values:**
+    - `bin_size`: 1.0 m/s (creates bins: 4-5, 5-6, 6-7, etc.)
+    - `bin_min`: 4.0 m/s (typical cut-in speed)
+    - `bin_max`: 20.0 m/s (typical cut-out speed)
+
+    **Adjust for your site:**
+    - Lower `bin_min` for low-wind sites (e.g., 3.0 m/s)
+    - Increase `bin_max` for high-wind sites (e.g., 25.0 m/s)
+    - Use smaller `bin_size` for finer resolution (e.g., 0.5 m/s)
+  </Accordion>
+</AccordionGroup>
+
+## Real-World Examples
+
+<Tabs>
+  <Tab title="Standard IEC Format">
+    ```json
+    {
+        "input_data_column_mapping": {
+            "reference": {
+                "wind_speed": "WS_80m_Avg",
+                "wind_speed_std": "WS_80m_Std",
+                "turbulence_intensity": "TI_80m"
+            },
+            "rsd": {
+                "primary": {
+                    "wind_speed": "LiDAR_WS_80m",
+                    "wind_speed_std": "LiDAR_SD_80m",
+                    "turbulence_intensity": "LiDAR_TI_80m"
+                }
+            }
+        },
+        "binning_config": {
+            "bin_size": 1.0,
+            "bin_min": 4.0,
+            "bin_max": 20.0
+        }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Custom Column Names">
+    ```json
+    {
+        "input_data_column_mapping": {
+            "reference": {
+                "wind_speed": "anemometer_speed",
+                "wind_speed_std": "anemometer_stddev",
+                "turbulence_intensity": "anemometer_turbulence"
+            },
+            "rsd": {
+                "primary": {
+                    "wind_speed": "lidar_velocity",
+                    "wind_speed_std": "lidar_stddev",
+                    "turbulence_intensity": "lidar_TI"
+                }
+            }
+        },
+        "binning_config": {
+            "bin_size": 0.5,
+            "bin_min": 3.0,
+            "bin_max": 25.0
+        }
+    }
+    ```
+  </Tab>
+
+  <Tab title="Offshore Site">
+    ```json
+    {
+        "input_data_column_mapping": {
+            "reference": {
+                "wind_speed": "met_mast_ws_100m",
+                "wind_speed_std": "met_mast_sd_100m",
+                "turbulence_intensity": "met_mast_ti_100m"
+            },
+            "rsd": {
+                "primary": {
+                    "wind_speed": "buoy_lidar_ws",
+                    "wind_speed_std": "buoy_lidar_sd",
+                    "turbulence_intensity": "buoy_lidar_ti"
+                }
+            }
+        },
+        "binning_config": {
+            "bin_size": 1.0,
+            "bin_min": 5.0,
+            "bin_max": 25.0
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Validation
+
+<Note>
+After creating your config file, verify it loads correctly:
+
+```python
+import json
+
+# Test loading
+with open("config.json", "r") as f:
+    config = json.load(f)
+    print("Config loaded successfully")
+    print(f"Reference WS column: {config['input_data_column_mapping']['reference']['wind_speed']}")
+```
+</Note>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Column name mismatch" icon="triangle-exclamation">
+    **Error:** `KeyError: 'ref_ws'`
+
+    **Cause:** Column name in config doesn't match your CSV
+
+    **Fix:**
+    1. Check exact column names in your CSV: `df.columns.tolist()`
+    2. Update config to match exactly (case-sensitive)
+    3. Watch for extra spaces in column names
+  </Accordion>
+
+  <Accordion title="JSON syntax error" icon="code">
+    **Error:** `JSONDecodeError: Expecting ',' delimiter`
+
+    **Cause:** Invalid JSON syntax (missing comma, quote, bracket)
+
+    **Fix:**
+    - Use a JSON validator: https://jsonlint.com
+    - Don't use comments in JSON (remove `//` comments)
+    - Ensure all strings use double quotes `"`
+  </Accordion>
+
+  <Accordion title="Missing required fields" icon="circle-xmark">
+    **Error:** `KeyError: 'wind_speed_std'`
+
+    **Cause:** Config missing required field mapping
+
+    **Fix:** Ensure all 6 required fields are mapped:
+    - Reference: `wind_speed`, `wind_speed_std`, `turbulence_intensity`
+    - RSD: `wind_speed`, `wind_speed_std`, `turbulence_intensity`
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Run Your First Adjustment" icon="play" href="running-adjustments">
+    Use your config to process data
+  </Card>
+  <Card title="Data Import Guide" icon="file-import" href="data-import-guide">
+    Learn more about data requirements
+  </Card>
+</CardGroup>

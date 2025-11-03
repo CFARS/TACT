@@ -1,0 +1,354 @@
+---
+title: Getting Started
+description: Quick guide to get up and running with TACT in minutes
+---
+
+Get TACT installed and run your first turbulence intensity adjustment in just a few steps.
+
+## Prerequisites
+
+<AccordionGroup>
+  <Accordion title="System Requirements" icon="laptop">
+    - Python 3.8 or higher
+    - pip (Python package manager)
+    - Git (for cloning repository)
+    - Virtual environment tool (recommended)
+  </Accordion>
+
+  <Accordion title="What You'll Need" icon="list-check">
+    - CSV file with reference and RSD measurements
+    - At least 500+ paired observations (2000+ recommended)
+    - Wind speed, standard deviation, and TI columns
+    - Data across 4-20 m/s wind speed range
+  </Accordion>
+</AccordionGroup>
+
+## Installation
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone https://github.com/CFARS/TACT.git
+    cd TACT
+    ```
+  </Step>
+
+  <Step title="Create Virtual Environment">
+    **macOS/Linux:**
+    ```bash
+    python3 -m venv env
+    source env/bin/activate
+    ```
+
+    **Windows:**
+    ```bash
+    python -m venv env
+    env\Scripts\activate
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    ```bash
+    pip install -r requirements.txt
+    ```
+  </Step>
+
+  <Step title="Verify Installation">
+    ```bash
+    python -c "from tact import TACT; print('TACT installed successfully')"
+    ```
+  </Step>
+</Steps>
+
+## Quick Start with Example Data
+
+The fastest way to see TACT in action is to run the included example:
+
+```bash
+python main.py
+```
+
+This runs the complete pipeline with example data and generates:
+- Adjusted turbulence intensity dataset
+- DNV RP-0661 validation results
+- Visualization plots
+- Statistical summaries
+
+<Tip>
+**First time using TACT?** Run the example first to understand the workflow before using your own data.
+</Tip>
+
+## Basic Workflow
+
+Here's the core workflow for adjusting your own data:
+
+<CodeGroup>
+```python Complete Example
+from tact import TACT
+from tact.utils.load_data import load_data
+from tact.utils.setup_processors import setup_processors
+
+# 1. Load data
+data = load_data("your_data.csv")
+
+# 2. Set up processors
+bp, tp, sp = setup_processors("config.json")
+
+# 3. Process data
+data = bp.process(tp.process(data))
+
+# 4. Run adjustment
+tact = TACT()
+results = tact.adjust(
+    data=data,
+    method="ss-sf",  # Choose: ss-sf, sswsstd, ssws, or baseline
+    parameters={"split": True, "config_path": "config.json"}
+)
+
+# 5. Get adjusted data
+adjusted_data = results["adjusted_data"]
+print(f"Adjusted {len(adjusted_data)} observations")
+```
+
+```python With Validation
+from tact import TACT
+from tact.validation import validate_dnv_rp0661
+from tact.utils.load_data import load_data
+from tact.utils.setup_processors import setup_processors
+
+# Load and process
+data = load_data("your_data.csv")
+bp, tp, sp = setup_processors("config.json")
+data = bp.process(tp.process(data))
+
+# Run adjustment
+tact = TACT()
+results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json"})
+
+# Validate results
+validation = validate_dnv_rp0661(
+    adjusted_data=results["adjusted_data"],
+    reference_col="ref_ti",
+    adjusted_col="adjTI_RSD_TI",
+    wind_speed_col="ref_ws",
+    bin_col="bins",
+    criteria_type="LV"
+)
+
+print(f"MRBE: {validation['overall']['MRBE_%'].iloc[0]:.2f}%")
+print(f"RRMSE: {validation['overall']['RRMSE_%'].iloc[0]:.2f}%")
+```
+</CodeGroup>
+
+## Using Your Own Data
+
+<Steps>
+  <Step title="Prepare Your Data">
+    Ensure your CSV includes reference and RSD measurements with wind speed, standard deviation, and turbulence intensity columns.
+
+    **Need detailed data requirements?** See the [Data Import Guide](data-import-guide) for column formats, units, and quality requirements.
+  </Step>
+
+  <Step title="Create Configuration File">
+    Map your CSV column names to TACT's expected format:
+
+    ```json
+    {
+      "input_data_column_mapping": {
+        "reference": {
+          "wind_speed": "ref_ws",
+          "wind_speed_std": "ref_sd",
+          "turbulence_intensity": "ref_ti"
+        },
+        "rsd": {
+          "primary": {
+            "wind_speed": "rsd_ws",
+            "wind_speed_std": "rsd_sd",
+            "turbulence_intensity": "rsd_ti"
+          }
+        }
+      },
+      "binning_config": {
+        "bin_size": 1.0,
+        "bin_min": 4.0,
+        "bin_max": 20.0
+      }
+    }
+    ```
+
+    **Need help with configuration?** See the [Configuration Guide](configuration) for detailed setup instructions.
+  </Step>
+
+  <Step title="Run Adjustment">
+    Use the workflow code above with your data and config file paths.
+
+    **Want step-by-step instructions?** See [Running Adjustments](running-adjustments) for complete workflow details.
+  </Step>
+
+  <Step title="Validate Results">
+    Check your results against DNV RP-0661 standards and generate validation plots.
+
+    **Learn about validation:** See the [DNV Validation Guide](validation) for criteria types, interpretation, and troubleshooting.
+  </Step>
+</Steps>
+
+## Visualization
+
+Generate validation plots to visualize adjustment performance:
+
+```python
+from tact.visualization import plot_dnv_validation
+
+plot_dnv_validation(
+    validation_results=validation,
+    adjusted_data=results["adjusted_data"],
+    reference_col="ref_ti",
+    adjusted_col="adjTI_RSD_TI",
+    unadjusted_col="rsd_ti",
+    wind_speed_col="ref_ws",
+    bin_col="bins",
+    method_name="SS-SF",
+    output_dir="output/plots"
+)
+```
+
+This generates four plots showing:
+- **MRBE by wind speed bin** - Systematic bias across wind speeds with DNV acceptance limits
+- **RRMSE by wind speed bin** - Measurement scatter with acceptance thresholds
+- **Scatter plot** - Adjusted vs reference TI with 1:1 line and regression fit
+- **Comparison plot** - Before/after adjustment by wind speed bin
+
+### Example Plots
+
+<div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '20px'}}>
+  <div>
+    <img src="/images/ss-sf_mrbe_by_bin.png" alt="MRBE by Wind Speed Bin" />
+    <p style={{textAlign: 'center', fontSize: '0.9em', marginTop: '8px'}}>MRBE by wind speed bin</p>
+  </div>
+  <div>
+    <img src="/images/ss-sf_rrmse_by_bin.png" alt="RRMSE by Wind Speed Bin" />
+    <p style={{textAlign: 'center', fontSize: '0.9em', marginTop: '8px'}}>RRMSE by wind speed bin</p>
+  </div>
+  <div>
+    <img src="/images/ss-sf_ti_scatter.png" alt="TI Scatter Plot" />
+    <p style={{textAlign: 'center', fontSize: '0.9em', marginTop: '8px'}}>Adjusted vs reference TI scatter</p>
+  </div>
+  <div>
+    <img src="/images/ss-sf_ti_comparison.png" alt="TI Comparison Plot" />
+    <p style={{textAlign: 'center', fontSize: '0.9em', marginTop: '8px'}}>Before/after adjustment comparison</p>
+  </div>
+</div>
+
+## Available Adjustment Methods
+
+<CardGroup cols={2}>
+  <Card title="SS-SF" href="api/adjustments/sssf">
+    Site-Specific Simple + Filter. Direct TI regression with filtering.
+  </Card>
+
+  <Card title="SSWSStd" href="api/adjustments/sswsstd">
+    Site-Specific Wind Speed + Standard Deviation. Dual adjustment approach.
+  </Card>
+
+  <Card title="SSWS" href="api/adjustments/ssws">
+    Site-Specific Wind Speed. Adjusts wind speed only.
+  </Card>
+
+  <Card title="Baseline" href="api/adjustments/baseline">
+    No adjustment. Useful for benchmarking and comparison.
+  </Card>
+
+  <Card title="Custom Method" icon="code" href="add-custom-model">
+    Add your own adjustment algorithm using TACT's extensible framework.
+  </Card>
+</CardGroup>
+
+<Note>
+Performance varies by dataset. Compare all methods on your data using `compare_all_methods.py` to find the best fit.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Configure Your Data" icon="gear" href="configuration">
+    Set up column mappings and binning
+  </Card>
+
+  <Card title="Run Adjustments" icon="play" href="running-adjustments">
+    Detailed workflow and parameters
+  </Card>
+
+  <Card title="Validate Results" icon="check-circle" href="validation">
+    DNV RP-0661 validation
+  </Card>
+
+  <Card title="Import Data" icon="file-import" href="data-import-guide">
+    Data format and requirements
+  </Card>
+
+  <Card title="Troubleshooting" icon="wrench" href="troubleshooting">
+    Fix common issues
+  </Card>
+
+  <Card title="Add Custom Methods" icon="plus" href="add-custom-model">
+    Extend TACT for your needs
+  </Card>
+</CardGroup>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="ModuleNotFoundError: No module named 'tact'" icon="circle-xmark">
+    **Solution:** Activate your virtual environment
+
+    ```bash
+    source env/bin/activate  # macOS/Linux
+    env\Scripts\activate     # Windows
+    ```
+  </Accordion>
+
+  <Accordion title="KeyError: Column not found" icon="table">
+    **Solution:** Check your config file column mappings match your CSV column names
+
+    ```bash
+    # View your CSV columns
+    python -c "import pandas as pd; print(pd.read_csv('data.csv').columns.tolist())"
+    ```
+
+    Then update `config.json` to match.
+  </Accordion>
+
+  <Accordion title="Poor validation results (high MRBE/RRMSE)" icon="chart-line-down">
+    **Common causes:**
+    - Data not time-synchronized between RSD and reference
+    - Missing quality filtering
+    - RSD too far from reference (more than 200m)
+    - Sensor calibration issues
+
+    **See the [Troubleshooting Guide](troubleshooting) for detailed solutions.**
+  </Accordion>
+</AccordionGroup>
+
+## Quick Reference
+
+**Run example:**
+```bash
+python main.py
+```
+
+**Compare all methods:**
+```bash
+python compare_all_methods.py
+```
+
+**Example files:**
+- Data: `tact/example/data/tact-test-data.csv`
+- Config: `tact/example/config.json`
+
+**Recommended method:** `ss-sf`
+
+**DNV acceptance criteria (LV):** MRBE ≤ 5%, RRMSE ≤ 15%
+
+<Note>
+**Need help?** Check the [Troubleshooting Guide](troubleshooting) or contact support at aea@nrgsystems.com
+</Note>

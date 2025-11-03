@@ -1,5 +1,3 @@
-# Adding a Custom Model
-
 You can leverage the TACT infrastructure to create custom adjustment models by extending the base `AdjustmentMethod` class. This guide will show you how to create and register your own model.
 
 ## Overview
@@ -168,47 +166,6 @@ The `adjust` method should return a dictionary with:
         "metric2": value2
     }
 }
-```
-
-## Best Practices
-
-### Code Quality
-- Follow PEP 8 style guidelines
-- Add comprehensive docstrings (NumPy format)
-- Keep methods focused and single-purpose
-- Use meaningful variable names
-
-### Validation
-```python
-def adjust(self, data: pd.DataFrame, parameters: Dict[str, Any]) -> Dict[str, Any]:
-    # Always validate inputs first
-    self.validate_parameters(parameters)
-    self.validate_data(data, parameters["config_path"])
-    
-    # Add custom validation as needed
-    if data["wind_speed"].min() < 0:
-        raise ValueError("Wind speed cannot be negative")
-```
-
-### Performance
-```python
-# Prefer vectorized operations
-adjusted_data["ti"] = data["ti"].values * scale_factor  # Good
-
-# Avoid loops
-for idx in range(len(data)):  # Bad
-    adjusted_data.loc[idx, "ti"] = data.loc[idx, "ti"] * scale_factor
-```
-
-### Testing
-Create tests in your project's test directory:
-```python
-# tests/test_your_method.py
-def test_your_method():
-    method = YourMethod()
-    result = method.adjust(test_data, test_params)
-    assert "adjusted_data" in result
-    assert result["metrics"]["your_metric"] > 0
 ```
 
 ## Troubleshooting
