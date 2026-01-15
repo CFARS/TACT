@@ -751,14 +751,14 @@ def get_representative_TI_15mps(inputdata):
 
 
 def record_TIadj(
-    adjustment_name,
+    method,
     inputdata_adj,
     Timestamps,
-    method,
     TI_10minuteAdjusted,
     emptyclassFlag=False,
 ):
 
+    TI_10minuteAdjusted = {}
     if isinstance(inputdata_adj, pd.DataFrame) == False:
         pass
     else:

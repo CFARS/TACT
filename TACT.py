@@ -12,10 +12,12 @@ except ImportError:
 
 from TACT.computation.adjustments import (
     Adjustments,
-    get_all_regressions,
     train_test_split,
     quick_metrics,
 )
+
+from TACT.computation.calculations import get_all_regressions
+
 from TACT.computation.methods.GC import perform_G_C_adjustment
 from TACT.computation.methods.GSa import perform_G_Sa_adjustment
 from TACT.computation.methods.GSFc import perform_G_SFc_adjustment
@@ -29,8 +31,7 @@ from TACT.computation.match import perform_match, perform_match_input
 from TACT.computation.stability import (
     calculate_stability_TKE,
     calculate_stability_alpha,
-    get_stability_df_list,
-    get_baseline_stability_results,
+    Stabilities
 )
 from TACT.computation.TI import (
     get_count_per_WSbin,
@@ -105,7 +106,7 @@ if __name__ == "__main__":
             "RSD type is triton, not that output uncorrected TI is instrument corrected"
         )
     # ------------------------
-    # Baseline Results
+    # Baseline ResultsF
     # ------------------------
     # Get all regressions available
     reg_results = get_all_regressions(data.inputdata, title="Full comparison")
@@ -143,9 +144,8 @@ if __name__ == "__main__":
     timestamp_test = inputdata_test["Timestamp"]
 
     # -----------------------------
-    # stability class subset lists
+    # Stabilities class initialize
     # -----------------------------
-    # get stability class breakdown by TKE and also by alpha
     (
         stabilityClass_tke,
         stabilityMetric_tke,
@@ -163,62 +163,45 @@ if __name__ == "__main__":
         regimeBreakdown_rsd,
     ) = calculate_stability_alpha(data, config)
 
-    # if we are looking at ZX or windcube data 
-    if (
-        config.RSDtype["Selection"][0:4] == "Wind"
-        or "ZX" in config.RSDtype["Selection"]
-    ):
-        RSD_h, All_class_data, All_class_data_clean = get_stability_df_list(data.inputdata.copy(), stabilityClass_tke)
-        reg_results_class1, reg_results_class2, reg_results_class3, reg_results_class4, reg_results_class5 = get_baseline_stability_results(RSD_h, All_class_data, naming_str = 'TKE_stability_')
-
-    if data.RSD_alphaFlag:
-        RSD_h, All_class_data_alpha, All_class_data_alpha_clean = get_stability_df_list(data.inputdata.copy(), stabilityClass_rsd)
-        reg_results_class1_alpha, reg_results_class2_alpha, reg_results_class3_alpha, reg_results_class4_alpha, reg_results_class5_alpha = get_baseline_stability_results(RSD_h, All_class_data_alpha, naming_str = 'alpha_stability_RSD_')
-
-    if cup_alphaFlag:
-        RSD_h, All_class_data_alpha_ane, All_class_data_alpha_ane_clean = get_stability_df_list(data.inputdata.copy(), stabilityClass_ane)
-        reg_results_class1_alpha_ane, reg_results_class2_alpha_ane, reg_results_class3_alpha_ane, reg_results_class4_alpha_ane, reg_results_class5_alpha_ane = get_baseline_stability_results(RSD_h, All_class_data_alpha_ane, naming_str = 'alpha_stability_ane_')
+    stability_regime = Stabilities(data.inputdata.copy(),config, cup_alphaFlag, 
+                                   data.RSD_alphaFlag, stabilityClass_tke, stabilityMetric_tke,
+                                   regimeBreakdown_tke, stabilityClass_ane, stabilityMetric_ane,
+                                   regimeBreakdown_ane, Ht_1_ane, Ht_2_ane, stabilityClass_rsd,
+                                   stabilityMetric_rsd, regimeBreakdown_rsd)
 
     # ------------------------
-    # TI Adjustments
+    # Initializations
+    # current constructed to enable the output data we are writing to, but all of this initialization should be reconsidered
     # ------------------------
-    sys.exit()
     from TACT.computation.adjustments import Adjustments
-
-    baseResultsLists = initialize_resultsLists("")
 
     # get number of observations in each bin
     count_1mps, count_05mps = get_count_per_WSbin(data.inputdata, "RSD_WS")
 
-    inputdata_train = (
-        data.inputdata[data.inputdata["split"] == True].copy().join(data.timestamps)
-    )
-    inputdata_test = (
-        data.inputdata[data.inputdata["split"] == False].copy().join(data.timestamps)
-    )
-
-    timestamp_train = inputdata_train["Timestamp"]
-    timestamp_test = inputdata_test["Timestamp"]
-
+    # get number of observations in each bin in train and test data
     count_1mps_train, count_05mps_train = get_count_per_WSbin(inputdata_train, "RSD_WS")
     count_1mps_test, count_05mps_test = get_count_per_WSbin(inputdata_test, "RSD_WS")
-
+ 
+    # initialize results lists per stability class, per stability metric
+    #------------------- All below replaced stability_regime class ---------------------
     if (
         config.RSDtype["Selection"][0:4] == "Wind"
         or "ZX" in config.RSDtype["Selection"]
     ):
-        primary_c = [h for h in RSD_h if "Ht" not in h]
-        primary_idx = RSD_h.index(primary_c[0])
+        primary_c = [h for h in stability_regime.RSD_h['tke'] if "Ht" not in h]
+        primary_idx = stability_regime.RSD_h['tke'].index(primary_c[0])
         ResultsLists_stability = initialize_resultsLists("stability_")
     if cup_alphaFlag:
         ResultsLists_stability_alpha_Ane = initialize_resultsLists(
             "stability_alpha_Ane"
         )
+
     if data.RSD_alphaFlag:
         ResultsLists_stability_alpha_RSD = initialize_resultsLists(
             "stability_alpha_RSD"
         )
 
+    # get number of observations in each bin for stability classifications
     name_1mps_tke = []
     name_1mps_alpha_Ane = []
     name_1mps_alpha_RSD = []
@@ -232,7 +215,7 @@ if __name__ == "__main__":
     count_05mps_alpha_Ane = []
     count_05mps_alpha_RSD = []
 
-    for c in range(0, len(All_class_data)):
+    for c in range(0, len(stability_regime.all_class_data['tke'])):
         name_1mps_tke.append(str("count_1mps_class_" + str(c) + "_tke"))
         name_1mps_alpha_Ane.append(str("count_1mps_class_" + str(c) + "_alpha_Ane"))
         name_1mps_alpha_RSD.append(str("count_1mps_class_" + str(c) + "_alpha_RSD"))
@@ -242,7 +225,7 @@ if __name__ == "__main__":
 
         try:
             c_1mps_tke, c_05mps_tke = get_count_per_WSbin(
-                All_class_data[c][primary_idx], "RSD_WS"
+                stability_regime.all_class_data['tke'][c][primary_idx], "RSD_WS"
             )
             count_1mps_tke.append(c_1mps_tke)
             count_05mps_tke.append(c_05mps_tke)
@@ -251,7 +234,7 @@ if __name__ == "__main__":
             count_05mps_tke.append(None)
         try:
             c_1mps_alpha_Ane, c_05mps_alpha_Ane = get_count_per_WSbin(
-                All_class_data_alpha_Ane[c], "RSD_WS"
+                stability_regime.all_class_data['alpha_ane'][c], "RSD_WS"
             )
             count_1mps_alpha_Ane.append(c_1mps_alpha_Ane)
             count_05mps_alpha_Ane.append(c_05mps_alpha_Ane)
@@ -260,26 +243,36 @@ if __name__ == "__main__":
             count_05mps_alpha_Ane.append(None)
         try:
             c_1mps_alpha_RSD, c_05mps_alpha_RSD = get_count_per_WSbin(
-                All_class_data_alpha_RSD[c], "RSD_WS"
+                stability_regime.all_class_data['alpha_rsd'][c], "RSD_WS"
             )
             count_1mps_alpha_RSD.append(c_1mps_alpha_RSD)
             count_05mps_alpha_RSD.append(c_05mps_alpha_RSD)
         except:
             count_1mps_alpha_RSD.append(None)
             count_05mps_alpha_RSD.append(None)
-
-    # intialize 10 minute output
-    TI_10minuteAdjusted = pd.DataFrame()
+    #------------------- All above replaced stability_regime class ---------------------
 
     # initialize Adjustments object
     adjuster = Adjustments(
-        data.inputdata.copy(), config.adjustments_metadata, baseResultsLists
+        data.inputdata.copy(), config.adjustments_metadata
     )
+
+    # ------------------------
+    # TI Adjustments
+    # ------------------------
+    # from TACT.computation.methods.GSa import perform_G_Sa_adjustment
+    # from TACT.computation.methods.GSFc import perform_G_SFc_adjustment
+    # from TACT.computation.methods.SSLTERRAML import perform_SS_LTERRA_ML_adjustment
+    # from TACT.computation.methods.SSLTERRASML import perform_SS_LTERRA_S_ML_adjustment
+    # from TACT.computation.methods.SSNN import perform_SS_NN_adjustment
+    # from TACT.computation.methods.SSSS import perform_SS_SS_adjustment
+    # from TACT.computation.methods.SSWS import perform_SS_WS_adjustment
+    # from TACT.computation.methods.SSWSStd import perform_SS_WS_Std_adjustment
 
     for method in config.adjustments_metadata:
         # Checking whether or not to execute each adjustement method available 
         # based on data configuration checks
-
+        
         # Site Specific Simple Adjustment (SS-S)
         if method != "SS-S":
             pass
@@ -292,6 +285,9 @@ if __name__ == "__main__":
                 data.inputdata.copy()
             )
             print("SS-S: y = " + str(m) + " * x + " + str(c))
+            baseResultsLists, TI_10minuteAdjusted = adjuster.method_record(method, inputdata_adj, baseResultsLists)
+            
+
             lm_adj["sensor"] = config.model
             lm_adj["height"] = config.height
             lm_adj["adjustment"] = "SS-S"
@@ -321,7 +317,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = adjuster.perform_SS_S_adjustment(
                         item[primary_idx].copy()
                     )
@@ -358,7 +354,7 @@ if __name__ == "__main__":
                 )
                 className = 1
                 print(str("class " + str(className)))
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = adjuster.perform_SS_S_adjustment(
                         item.copy()
                     )
@@ -392,7 +388,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = adjuster.perform_SS_S_adjustment(
                         item.copy()
                     )
@@ -421,6 +417,8 @@ if __name__ == "__main__":
 
         # ********************************************** #
         # Site Specific Simple + Filter Adjustment (SS-SF)
+        from TACT.computation.methods.SSSF import perform_SS_SF_adjustment
+ 
         if method != "SS-SF":
             pass
         elif method == "SS-SF" and config.adjustments_metadata["SS-SF"] == False:
@@ -428,38 +426,13 @@ if __name__ == "__main__":
         else:
             print("Applying Adjustment Method: SS-SF")
             logger.info("Applying Adjustment Method: SS-SF")
-            # inputdata_adj, lm_adj, m, c = perform_SS_SF_adjustment(data.inputdata.copy())
-            inputdata_adj, lm_adj, m, c = adjuster.perform_SS_SF_adjustment(
-                data.inputdata.copy()
-            )
-            print("SS-SF: y = " + str(m) + " * x + " + str(c))
-            lm_adj["sensor"] = config.model
-            lm_adj["height"] = config.height
-            lm_adj["adjustment"] = "SS-SF"
-            adjustment_name = "SS_SF"
+            method_results = perform_SS_SF_adjustment(data.inputdata.copy())
+            print("SS-SF: y = " + str(method_results['m']) + " * x + " + str(method_results['c']))
+            adjuster.method_record(data, config, method, method_results['inputdata_adj'])
 
-            baseResultsLists = populate_resultsLists(
-                baseResultsLists,
-                "",
-                adjustment_name,
-                lm_adj,
-                inputdata_adj,
-                data.timestamps,
-                method,
-            )
-            TI_10minuteAdjusted = record_TIadj(
-                adjustment_name,
-                inputdata_adj,
-                data.timestamps,
-                method,
-                TI_10minuteAdjusted,
-                emptyclassFlag=False,
-            )
+            
 
-            if (
-                config.RSDtype["Selection"][0:4] == "Wind"
-                or "ZX" in config.RSDtype["Selection"]
-            ):
+            if stability_regime.classification_methods['tke']==True:
                 print("Applying Adjustment Method: SS-SF by stability class (TKE)")
                 logger.info(
                     "Applying Adjustment Method: SS-SF by stability class (TKE)"
@@ -467,8 +440,8 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
-                    inputdata_adj, lm_adj, m, c = adjuster.perform_SS_SF_adjustment(
+                for item in stability_regime.all_class_data['tke']:
+                    inputdata_adj, lm_adj, m, c = perform_SS_SF_adjustment(
                         item[primary_idx].copy()
                     )
                     print("SS-SF: y = " + str(m) + " * x + " + str(c))
@@ -503,8 +476,8 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
-                    inputdata_adj, lm_adj, m, c = adjuster.perform_SS_SF_adjustment(
+                for item in stability_regime.all_class_data['alpha_rsd']:
+                    inputdata_adj, lm_adj, m, c = perform_SS_SF_adjustment(
                         item.copy()
                     )
                     print("SS-SF: y = " + str(m) + "* x +" + str(c))
@@ -541,7 +514,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = adjuster.perform_SS_SF_adjustment(
                         item.copy()
                     )
@@ -583,7 +556,7 @@ if __name__ == "__main__":
             print("Applying Adjustment Method: SS-SS")
             logger.info("Applying Adjustment Method: SS-SS")
             inputdata_adj, lm_adj, m, c = perform_SS_SS_adjustment(
-                data.inputdata.copy(), All_class_data, primary_idx
+                data.inputdata.copy(), stability_regime.all_class_data['tke'], primary_idx
             )
             print("SS-SS: y = " + str(m) + " * x + " + str(c))
             lm_adj["sensor"] = config.model
@@ -618,7 +591,7 @@ if __name__ == "__main__":
                 )
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     print("SS-SS: y = " + str(m) + " * x + " + str(c))
                     adjustment_name = str("SS_SS" + "_TKE_" + str(className))
                     ResultsLists_class = populate_resultsLists(
@@ -645,7 +618,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     print("SS-SS: y = " + str(m) + "* x +" + str(c))
                     adjustment_name = str("SS_SS" + "_alphaRSD_" + str(className))
                     ResultsLists_class_alpha_RSD = populate_resultsLists(
@@ -674,7 +647,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     print("SS-SS: y = " + str(m) + "* x +" + str(c))
                     emptyclassFlag = False
                     adjustment_name = str("SS_SS" + "_alphaCup_" + str(className))
@@ -741,7 +714,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(
                         item[primary_idx].copy()
                     )
@@ -776,7 +749,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(item.copy())
                     print("SS-WS: y = " + str(m) + "* x +" + str(c))
                     lm_adj["sensor"] = config.model
@@ -811,7 +784,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = perform_SS_WS_adjustment(item.copy())
                     print("SS-WS: y = " + str(m) + "* x +" + str(c))
                     lm_adj["sensor"] = config.model
@@ -886,7 +859,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(
                         item[primary_idx].copy()
                     )
@@ -921,7 +894,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(
                         item.copy()
                     )
@@ -958,7 +931,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = perform_SS_WS_Std_adjustment(
                         item.copy()
                     )
@@ -1048,7 +1021,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_ML_adjustment(
                         item[primary_idx].copy()
                     )
@@ -1082,7 +1055,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_ML_adjustment(
                         item.copy()
                     )
@@ -1120,7 +1093,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_ML_adjustment(
                         item.copy()
                     )
@@ -1219,7 +1192,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(
                         item[primary_idx].copy(),
                         all_trainX_cols,
@@ -1257,7 +1230,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(
                         item.copy(),
                         all_trainX_cols,
@@ -1299,7 +1272,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(
                         item.copy(),
                         all_trainX_cols,
@@ -1389,7 +1362,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(
                         item[primary_idx].copy(),
                         all_trainX_cols,
@@ -1427,7 +1400,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(
                         item.copy(),
                         all_trainX_cols,
@@ -1469,7 +1442,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = perform_SS_LTERRA_S_ML_adjustment(
                         item.copy(),
                         all_trainX_cols,
@@ -1542,7 +1515,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, shearTimeseries = perform_TI_extrapolation(
                         item[primary_idx].copy(),
                         config.extrap_metadata,
@@ -1572,7 +1545,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, shearTimeseries = perform_TI_extrapolation(
                         item.copy(),
                         config.extrap_metadata,
@@ -1603,7 +1576,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, shearTimeseries = perform_TI_extrapolation(
                         item.copy(),
                         config.extrap_metadata,
@@ -1694,7 +1667,7 @@ if __name__ == "__main__":
                 )
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj = perform_match(item[primary_idx].copy())
                     lm_adj["sensor"] = config.model
                     lm_adj["height"] = config.height
@@ -1727,7 +1700,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj = perform_match(item.copy())
                     lm_adj["sensor"] = config.model
                     lm_adj["height"] = config.height
@@ -1762,7 +1735,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj = perform_match(item.copy())
                     lm_adj["sensor"] = config.model
                     lm_adj["height"] = config.height
@@ -1828,7 +1801,7 @@ if __name__ == "__main__":
                 )
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj = perform_match_input(
                         item[primary_idx].copy()
                     )
@@ -1863,7 +1836,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj = perform_match_input(item.copy())
                     lm_adj["sensor"] = config.model
                     lm_adj["height"] = config.height
@@ -1898,7 +1871,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj = perform_match_input(item.copy())
                     lm_adj["sensor"] = config.model
                     lm_adj["height"] = config.height
@@ -1967,7 +1940,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(
                         item[primary_idx].copy(), override, config.RSDtype
                     )
@@ -2003,7 +1976,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(
                         item.copy(), override, config.RSDtype
                     )
@@ -2037,7 +2010,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(
                         item.copy(), override, config.RSDtype
                     )
@@ -2111,7 +2084,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(
                         item[primary_idx].copy(), override, config.RSDtype
                     )
@@ -2147,7 +2120,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(
                         item.copy(), override, config.RSDtype
                     )
@@ -2183,7 +2156,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = perform_G_Sa_adjustment(
                         item.copy(), override, config.RSDtype
                     )
@@ -2255,7 +2228,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     inputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(
                         item[primary_idx].copy()
                     )
@@ -2291,7 +2264,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     inputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(item.copy())
                     print("G-SFc: y = " + str(m) + "* x +" + str(c))
                     lm_adj["sensor"] = config.model
@@ -2327,7 +2300,7 @@ if __name__ == "__main__":
                     "class_alpha_Ane"
                 )
                 className = 1
-                for item in All_class_data_alpha_Ane:
+                for item in stability_regime.all_class_data['alpha_ane']:
                     inputdata_adj, lm_adj, m, c = perform_G_SFc_adjustment(item.copy())
                     print("G-SFc: y = " + str(m) + "* x +" + str(c))
                     lm_adj["sensor"] = config.model
@@ -2393,7 +2366,7 @@ if __name__ == "__main__":
                 # stability subset output for primary height (all classes)
                 ResultsLists_class = initialize_resultsLists("class_")
                 className = 1
-                for item in All_class_data:
+                for item in stability_regime.all_class_data['tke']:
                     print(str("class " + str(className)))
                     inputdata_adj, lm_adj, m, c = perform_G_C_adjustment(
                         item[primary_idx].copy()
@@ -2427,7 +2400,7 @@ if __name__ == "__main__":
                     "class_alpha_RSD"
                 )
                 className = 1
-                for item in All_class_data_alpha_RSD:
+                for item in stability_regime.all_class_data['alpha_rsd']:
                     print(str("class " + str(className)))
                     inputdata_adj, lm_adj, m, c = perform_G_C_adjustment(item.copy())
                     lm_adj["sensor"] = config.model
@@ -2618,11 +2591,11 @@ if __name__ == "__main__":
         ResultsLists_stability_alpha_Ane = ResultsList_stability
 
     if config.RSDtype["Selection"][0:4] != "Wind":
-        reg_results_class1 = np.nan
-        reg_results_class2 = np.nan
-        reg_results_class3 = np.nan
-        reg_results_class4 = np.nan
-        reg_results_class5 = np.nan
+        stability_regime.baseline_stability_results['tke']['class_1'] = np.nan
+        stability_regime.baseline_stability_results['tke']['class_2'] = np.nan
+        stability_regime.baseline_stability_results['tke']['class_3'] = np.nan
+        stability_regime.baseline_stability_results['tke']['class_4'] = np.nan
+        stability_regime.baseline_stability_results['tke']['class_5'] = np.nan
         TI_MBEList_stability = np.nan
         TI_DiffList_stability = np.nan
         TI_DiffRefBinsList_stability = np.nan
@@ -2686,16 +2659,16 @@ if __name__ == "__main__":
         Ht_1_ane,
         Ht_2_ane,
         config.extrap_metadata,
-        reg_results_class1,
-        reg_results_class2,
-        reg_results_class3,
-        reg_results_class4,
-        reg_results_class5,
-        reg_results_class1_alpha,
-        reg_results_class2_alpha,
-        reg_results_class3_alpha,
-        reg_results_class4_alpha,
-        reg_results_class5_alpha,
+        stability_regime.baseline_stability_results['tke']['class_1'],
+        stability_regime.baseline_stability_results['tke']['class_2'],
+        stability_regime.baseline_stability_results['tke']['class_3'],
+        stability_regime.baseline_stability_results['tke']['class_4'],
+        stability_regime.baseline_stability_results['tke']['class_5'],
+        stability_regime.baseline_stability_results['alpha_ane']['class_1'],
+        stability_regime.baseline_stability_results['alpha_ane']['class_2'],
+        stability_regime.baseline_stability_results['alpha_ane']['class_3'],
+        stability_regime.baseline_stability_results['alpha_ane']['class_4'],
+        stability_regime.baseline_stability_results['alpha_ane']['class_5'],
         data.Ht_1_rsd,
         data.Ht_2_rsd,
         ResultsLists_stability,

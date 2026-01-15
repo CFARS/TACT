@@ -3,96 +3,225 @@ try:
 except ImportError:
     pass
 
-from TACT.computation.calculations import log_of_ratio
-from TACT.computation.adjustments import get_all_regressions
+from TACT.computation.calculations import log_of_ratio, get_all_regressions
 
 import math
 import numpy as np
 import pandas as pd
 import sys
 
-def get_baseline_stability_results(RSD_h, All_class_data, naming_str): 
+class Stabilities:
 
-    reg_results_class1 = []
-    reg_results_class2 = []
-    reg_results_class3 = []
-    reg_results_class4 = []
-    reg_results_class5 = []
- 
-    for h in RSD_h:
-            idx = RSD_h.index(h)
-            df = All_class_data[0]
-            df = df[idx]
-            reg_results_class1.append(
-                get_all_regressions(df, title=str(naming_str + h + "class1"))
-            )
-            df = All_class_data[1]
-            df = df[idx]
-            reg_results_class2.append(
-                get_all_regressions(df, title=str(naming_str + h + "class2"))
-            )
-            df = All_class_data[2]
-            df = df[idx]
-            reg_results_class3.append(
-                get_all_regressions(df, title=str(naming_str + h + "class3"))
-            )
-            df = All_class_data[3]
-            df = df[idx]
-            reg_results_class4.append(
-                get_all_regressions(df, title=str(naming_str + h + "class4"))
-            )
-            df = All_class_data[4]
-            df = df[idx]
-            reg_results_class5.append(
-                get_all_regressions(df, title=str(naming_str + h + "class5"))
-            )
-
-    return reg_results_class1, reg_results_class2, reg_results_class3, reg_results_class4, reg_results_class5
-
-def get_stability_df_list(data, stabilityClass_df): 
     """
-    returns a list of lists. 5 outer lists (representing stability class). Wihtin each outer list, there is a list of dataframes
-    with one dateframe for each height
-    should update this to a better structure
+    class to hold data by stability class and by methodology of stability classification
+
+    Attributes
+    ----------
+    methodologies and whether or not we can use them on this data: dictionary
+    TKE stability: dictionary of classes 1-5
+    tower alpha stability: dictionary of classes 1-5
+    rsd alpha stability: dictionary of classes 1-5
     """
 
-    inputdata_class1 = []
-    inputdata_class2 = []
-    inputdata_class3 = []
-    inputdata_class4 = []
-    inputdata_class5 = []
-    RSD_h = []
+    def __init__(self, raw_data, config, cup_alphaFlag, rsd_alphaFlag,stabilityClass_tke, stabilityMetric_tke,
+                regimeBreakdown_tke, stabilityClass_ane, stabilityMetric_ane,regimeBreakdown_ane, 
+                Ht_1_ane, Ht_2_ane, stabilityClass_rsd, stabilityMetric_rsd, regimeBreakdown_rsd):
+        logger.debug("Creating stabilities class")
+        self.stability_classes = [1,2,3,4,5]
+        self.data = raw_data
+        self.config = config
+        self.cup_alphaFlag = cup_alphaFlag
+        self.rsd_alphaFlag = rsd_alphaFlag
+        self.stabilityClass_tke = stabilityClass_tke
+        self.stabilityMetric_tke = stabilityMetric_tke                         
+        self.regimeBreakdown_tke = regimeBreakdown_tke
+        self.stabilityClass_ane = stabilityClass_ane
+        self.stabilityMetric_ane = stabilityMetric_ane
+        self.regimeBreakdown_ane = regimeBreakdown_ane
+        self.Ht_1_ane = Ht_1_ane
+        self.Ht_2_ane = Ht_2_ane
+        self.stabilityClass_rsd = stabilityClass_rsd
+        self.stabilityMetric_rsd = stabilityMetric_rsd 
+        self.regimeBreakdown_rsd = regimeBreakdown_rsd
+        self.classification_methods = self._get_classification_methods() 
+        self.RSD_h = self.get_RSD_h()
+        self.all_class_data = self.get_all_class_data()
+        self.all_class_data_clean = self.get_all_class_data()
+        self.baseline_stability_results = self.get_baseline_stability_results()
+        self.stability_results = self._initialize_stability_results()
+    
+    def _initialize_stability_results(self):
 
-    Alldata_inputdata = data
-    if isinstance(stabilityClass_df, pd.DataFrame):
-        cols = stabilityClass_df.columns.to_list()
-    else:
-        cols = [stabilityClass_df.name]
-        Alldata_inputdata[cols[0]] = stabilityClass_df.values
-    for h in cols:
-        RSD_h.append(h)
-        inputdata_class1.append(Alldata_inputdata[Alldata_inputdata[h] == 1])
-        inputdata_class2.append(Alldata_inputdata[Alldata_inputdata[h] == 2])
-        inputdata_class3.append(Alldata_inputdata[Alldata_inputdata[h] == 3])
-        inputdata_class4.append(Alldata_inputdata[Alldata_inputdata[h] == 4])
-        inputdata_class5.append(Alldata_inputdata[Alldata_inputdata[h] == 5])
+        stability_results = {}
+       
+        if self.classification_methods['tke'] ==True:
+            primary_c = [h for h in stability_regime.RSD_h['tke'] if "Ht" not in h]
+            primary_idx = stability_regime.RSD_h['tke'].index(primary_c[0])
+            ResultsLists_stability = initialize_resultsLists("stability_")
 
-    All_class_data = [
-        inputdata_class1,
-        inputdata_class2,
-        inputdata_class3,
-        inputdata_class4,
-        inputdata_class5,
-    ]
-    All_class_data_clean = [
-        inputdata_class1,
-        inputdata_class2,
-        inputdata_class3,
-        inputdata_class4,
-        inputdata_class5,
-    ]
+        if self.classification_methods['alpha_ane'] ==True:
+            ResultsLists_stability_alpha_Ane = initialize_resultsLists(
+            "stability_alpha_Ane"
+        )
 
-    return RSD_h, All_class_data, All_class_data_clean 
+        if self.classification_methods['alpha_ane'] ==True:
+            ResultsLists_stability_alpha_RSD = initialize_resultsLists(
+            "stability_alpha_RSD"
+        )
+
+        return stability_results
+        
+    def get_baseline_stability_results(self): 
+        '''
+        generates a dictionary of classification methods 
+        each method contains a dictionary of classes
+        each class contains a dictionary of heights
+
+        original returns a list length number of heights for each class
+    
+        '''
+        baseline_stability_results = {}
+       
+        if self.classification_methods['tke'] ==True:
+            if isinstance(self.stabilityClass_tke, pd.DataFrame):
+                cols = self.stabilityClass_tke.columns.to_list()
+            else:
+                cols = [self.stabilityClass_tke.name]
+                self.data[cols[0]] = self.stabilityClass_tke.values
+            baseline_stability_results['tke']={}
+            for c in self.stability_classes:
+                baseline_stability_results['tke'][str('class_' + str(c))]={}
+                df = self.all_class_data['tke'][str('class_' + str(c))]
+                for h in cols:
+                    baseline_stability_results['tke'][str('class_' + str(c))][h]= get_all_regressions(df[h], title=str('TKE_stability' + h + str(c)))
+        if self.classification_methods['alpha_ane'] ==True:
+            if isinstance(self.stabilityClass_ane, pd.DataFrame):
+                cols = self.stabilityClass_ane.columns.to_list()
+            else:
+                cols = [self.stabilityClass_ane.name]
+                self.data[cols[0]] = self.stabilityClass_ane.values
+            baseline_stability_results['alpha_ane']={}
+            for c in self.stability_classes:
+                df = self.all_class_data['alpha_ane'][str('class_' + str(c))]
+                baseline_stability_results['alpha_ane'][str('class_' + str(c))]={}
+                for h in cols:
+                    baseline_stability_results['alpha_ane'][str('class_' + str(c))][h]= get_all_regressions(df[h], title=str('alpha_ane_stability' + h + str(c)))
+        if self.classification_methods['alpha_rsd'] ==True:
+            if isinstance(self.stabilityClass_rsd, pd.DataFrame):
+                cols = self.stabilityClass_rsd.columns.to_list()
+            else:
+                cols = [self.stabilityClass_rsd.name]
+                self.data[cols[0]] = self.stabilityClass_rsd.values
+            baseline_stability_results['alpha_rsd']={}
+            for c in self.stability_classes:
+                df = self.all_class_data['alpha_rsd'][str('class_' + str(c))]
+                baseline_stability_results['alpha_rsd'][str('class_' + str(c))]={}
+                for h in cols:
+                    baseline_stability_results['alpha_rsd'][str('class_' + str(c))][h]= get_all_regressions(df[h], title=str('alpha_rsd_stability' + h + str(c)))
+                                                                                                      
+        return baseline_stability_results
+        
+    def get_all_class_data(self):
+        '''
+        dictionary of classification method 
+        for each method, there is a dictionary of classes 1-5 
+        in the class dictionary there is a dictionary of data by heights
+
+        before it was a list of length 5 (1 for each class)
+        each item was a list representing heights
+        '''
+    
+        all_class_data = {}
+        
+        if self.classification_methods['tke'] ==True:
+            if isinstance(self.stabilityClass_tke, pd.DataFrame):
+                cols = self.stabilityClass_tke.columns.to_list()
+            else:
+                cols = [self.stabilityClass_tke.name]
+                self.data[cols[0]] = self.stabilityClass_tke.values
+            all_class_data['tke'] = {}
+            for c in self.stability_classes:
+                all_class_data['tke'][str('class_' + str(c))]={}
+                for h in cols:
+                    all_class_data['tke'][str('class_' + str(c))][h]= self.data[self.data[h] == c]
+        if self.classification_methods['alpha_ane'] ==True:
+            if isinstance(self.stabilityClass_ane, pd.DataFrame):
+                cols = self.stabilityClass_ane.columns.to_list()
+            else:
+                cols = [self.stabilityClass_ane.name]
+                self.data[cols[0]] = self.stabilityClass_ane.values
+            all_class_data['alpha_ane']={}
+            for c in self.stability_classes:
+                all_class_data['alpha_ane'][str('class_' + str(c))]={}
+                for h in cols:
+                    all_class_data['alpha_ane'][str('class_' + str(c))][h]= self.data[self.data[h] == c]
+        if self.classification_methods['alpha_rsd'] ==True:
+            if isinstance(self.stabilityClass_rsd, pd.DataFrame):
+                cols = self.stabilityClass_rsd.columns.to_list()
+            else:
+                cols = [self.stabilityClass_rsd.name]
+                self.data[cols[0]] = self.stabilityClass_rsd.values
+            all_class_data['alpha_rsd']={}
+            for c in self.stability_classes:
+                all_class_data['alpha_rsd'][str('class_' + str(c))]={}
+                for h in cols:
+                    all_class_data['alpha_rsd'][str('class_' + str(c))][h]= self.data[self.data[h] == c]
+
+        return all_class_data
+    
+    def get_RSD_h(self):
+
+        RSD_h = {}
+
+        if self.classification_methods['tke'] ==True:
+            RSD_h['tke'] = []
+            if isinstance(self.stabilityClass_tke, pd.DataFrame):
+                cols = self.stabilityClass_tke.columns.to_list()
+            else:
+                cols = [self.stabilityClass_tke.name]
+                self.data[cols[0]] = self.stabilityClass_tke.values
+            for h in cols:
+                RSD_h['tke'].append(h)
+        if self.classification_methods['alpha_ane'] ==True:
+            RSD_h['alpha_ane'] = []
+            if isinstance(self.stabilityClass_ane, pd.DataFrame):
+                cols = self.stabilityClass_ane.columns.to_list()
+            else:
+                cols = [self.stabilityClass_ane.name]
+                self.data[cols[0]] = self.stabilityClass_ane.values
+            for h in cols:
+                RSD_h['alpha_ane'].append(h)
+        if self.classification_methods['alpha_rsd'] ==True:
+            RSD_h['alpha_rsd'] = []
+            if isinstance(self.stabilityClass_rsd, pd.DataFrame):
+                cols = self.stabilityClass_rsd.columns.to_list()
+            else:
+                cols = [self.stabilityClass_rsd.name]
+                self.data[cols[0]] = self.stabilityClass_rsd.values
+            for h in cols:
+                RSD_h['alpha_rsd'].append(h)
+
+        return RSD_h
+
+    def _get_classification_methods(self): 
+        out = {'tke': np.nan, 'alpha_ane':np.nan, 'alpha_rsd':np.nan}
+        if (
+                self.config.RSDtype["Selection"][0:4] == "Wind"
+                or "ZX" in self.config.RSDtype["Selection"]
+            ):
+                out['tke']=True
+        else: 
+            out['tke']=False
+        if self.rsd_alphaFlag:
+            out['alpha_rsd']=True
+        else: 
+            out['alpha_rsd']=False
+        if self.cup_alphaFlag:
+            out['alpha_ane']=True
+        else: 
+            out['alpha_ane']=False
+
+        return out
 
 def calculate_stability_TKE(data, config):
     """
@@ -323,6 +452,7 @@ def calculate_stability_alpha(data, config):
         ane_cols,
         RSD_cols,
     ) = config.check_for_additional_heights(primaryHeight)
+
     if len(list(ane_heights)) > 1:
         all_keys = list(all_heights.values())
         max_key = list(all_heights.keys())[all_keys.index(max(all_heights.values()))]
@@ -349,10 +479,10 @@ def calculate_stability_alpha(data, config):
                 for s in data.inputdata.columns.to_list()
                 if subname in s and "Ane" in s and "WS" in s
             ]
-
+    
         # Calculate shear exponent
         tmp = pd.DataFrame(None)
-        baseName = str(max_cols + min_cols)
+        baseName = str(max_cols[0] + min_cols[0])
         tmp[str(baseName + "_y")] = [
             val
             for sublist in log_of_ratio(
@@ -371,7 +501,7 @@ def calculate_stability_alpha(data, config):
 
         tmp[str(baseName + "stabilityClass")] = tmp[str(baseName + "_alpha")]
         tmp.loc[
-            (tmp[str(baseName + "_alpha")] <= 0.4), str(baseName + "stabilityClass")
+            (tmp[str(baseName + "_alpha")] <= 0.4), str(baseName + "_stabilityClass")
         ] = 1
         tmp.loc[
             (tmp[str(baseName + "_alpha")] > 0.4)

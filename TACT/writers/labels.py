@@ -40,7 +40,6 @@ def initialize_resultsLists(appendString):
 
 
 def populate_resultsLists(
-    resultDict,
     appendString,
     adjustment_name,
     lm_adj,
@@ -49,7 +48,7 @@ def populate_resultsLists(
     method,
     emptyclassFlag=False,
 ):
-    """"""
+    resultDict = {}
 
     if isinstance(inputdata_adj, pd.DataFrame) == False:
         emptyclassFlag = True
@@ -79,66 +78,56 @@ def populate_resultsLists(
             emptyclassFlag = True
 
     if emptyclassFlag == True:
-        resultDict[str("TI_MBEList" + "_" + appendString)].append(None)
-        resultDict[str("TI_DiffList" + "_" + appendString)].append(None)
-        resultDict[str("TI_DiffRefBinsList" + "_" + appendString)].append(None)
-        resultDict[str("TI_RMSEList" + "_" + appendString)].append(None)
-        resultDict[str("RepTI_MBEList" + "_" + appendString)].append(None)
-        resultDict[str("RepTI_DiffList" + "_" + appendString)].append(None)
-        resultDict[str("RepTI_DiffRefBinsList" + "_" + appendString)].append(None)
-        resultDict[str("RepTI_RMSEList" + "_" + appendString)].append(None)
-        resultDict[str("rep_TI_results_1mps_List" + "_" + appendString)].append(None)
-        resultDict[str("rep_TI_results_05mps_List" + "_" + appendString)].append(None)
-        resultDict[str("TIBinList" + "_" + appendString)].append(None)
-        resultDict[str("TIRefBinList" + "_" + appendString)].append(None)
-        resultDict[str("total_StatsList" + "_" + appendString)].append(None)
-        resultDict[str("belownominal_statsList" + "_" + appendString)].append(None)
-        resultDict[str("abovenominal_statsList" + "_" + appendString)].append(None)
-        resultDict[str("lm_adjList" + "_" + appendString)].append(lm_adj)
-        resultDict[str("adjustmentTagList" + "_" + appendString)].append(method)
-        resultDict[str("Distribution_statsList" + "_" + appendString)].append(None)
-        resultDict[str("sampleTestsLists" + "_" + appendString)].append(None)
+        resultDict[str("TI_MBEList" + "_" + appendString)]=(None)
+        resultDict[str("TI_DiffList" + "_" + appendString)]=(None)
+        resultDict[str("TI_DiffRefBinsList" + "_" + appendString)]=(None)
+        resultDict[str("TI_RMSEList" + "_" + appendString)]=(None)
+        resultDict[str("RepTI_MBEList" + "_" + appendString)]=(None)
+        resultDict[str("RepTI_DiffList" + "_" + appendString)]=(None)
+        resultDict[str("RepTI_DiffRefBinsList" + "_" + appendString)]=(None)
+        resultDict[str("RepTI_RMSEList" + "_" + appendString)]=(None)
+        resultDict[str("rep_TI_results_1mps_List" + "_" + appendString)]=(None)
+        resultDict[str("rep_TI_results_05mps_List" + "_" + appendString)]=(None)
+        resultDict[str("TIBinList" + "_" + appendString)]=(None)
+        resultDict[str("TIRefBinList" + "_" + appendString)]=(None)
+        resultDict[str("total_StatsList" + "_" + appendString)]=(None)
+        resultDict[str("belownominal_statsList" + "_" + appendString)]=(None)
+        resultDict[str("abovenominal_statsList" + "_" + appendString)]=(None)
+        resultDict[str("lm_adjList" + "_" + appendString)]=(lm_adj)
+        resultDict[str("adjustmentTagList" + "_" + appendString)]=(method)
+        resultDict[str("Distribution_statsList" + "_" + appendString)]=(None)
+        resultDict[str("sampleTestsLists" + "_" + appendString)]=(None)
 
     else:
-        resultDict[str("TI_MBEList" + "_" + appendString)].append(TI_MBE_j_)
-        resultDict[str("TI_DiffList" + "_" + appendString)].append(TI_Diff_j_)
-        resultDict[str("TI_DiffRefBinsList" + "_" + appendString)].append(TI_Diff_r_)
-        resultDict[str("TI_RMSEList" + "_" + appendString)].append(TI_RMSE_j_)
-        resultDict[str("RepTI_MBEList" + "_" + appendString)].append(RepTI_MBE_j_)
-        resultDict[str("RepTI_DiffList" + "_" + appendString)].append(RepTI_Diff_j_)
-        resultDict[str("RepTI_DiffRefBinsList" + "_" + appendString)].append(
-            RepTI_Diff_r_
-        )
-        resultDict[str("RepTI_RMSEList" + "_" + appendString)].append(RepTI_RMSE_j_)
-        resultDict[str("rep_TI_results_1mps_List" + "_" + appendString)].append(
-            rep_TI_results_1mps
-        )
-        resultDict[str("rep_TI_results_05mps_List" + "_" + appendString)].append(
-            rep_TI_results_05mps
-        )
-        resultDict[str("TIBinList" + "_" + appendString)].append(TIbybin)
-        resultDict[str("TIRefBinList" + "_" + appendString)].append(TIbyRefbin)
-        resultDict[str("total_StatsList" + "_" + appendString)].append(total_stats)
-        resultDict[str("belownominal_statsList" + "_" + appendString)].append(
-            belownominal_stats
-        )
-        resultDict[str("abovenominal_statsList" + "_" + appendString)].append(
-            abovenominal_stats
-        )
-        resultDict[str("lm_adjList" + "_" + appendString)].append(lm_adj)
-        resultDict[str("adjustmentTagList" + "_" + appendString)].append(method)
+        resultDict[str("TI_MBEList" + "_" + appendString)]=(TI_MBE_j_)
+        resultDict[str("TI_DiffList" + "_" + appendString)]=(TI_Diff_j_)
+        resultDict[str("TI_DiffRefBinsList" + "_" + appendString)]=(TI_Diff_r_)
+        resultDict[str("TI_RMSEList" + "_" + appendString)]=(TI_RMSE_j_)
+        resultDict[str("RepTI_MBEList" + "_" + appendString)]=(RepTI_MBE_j_)
+        resultDict[str("RepTI_DiffList" + "_" + appendString)]=(RepTI_Diff_j_)
+        resultDict[str("RepTI_DiffRefBinsList" + "_" + appendString)]=(RepTI_Diff_r_)
+        resultDict[str("RepTI_RMSEList" + "_" + appendString)]=(RepTI_RMSE_j_)
+        resultDict[str("rep_TI_results_1mps_List" + "_" + appendString)]=(rep_TI_results_1mps)
+        resultDict[str("rep_TI_results_05mps_List" + "_" + appendString)]=(rep_TI_results_05mps)
+        resultDict[str("TIBinList" + "_" + appendString)]=(TIbybin)
+        resultDict[str("TIRefBinList" + "_" + appendString)]=(TIbyRefbin)
+        resultDict[str("total_StatsList" + "_" + appendString)]=(total_stats)
+        resultDict[str("belownominal_statsList" + "_" + appendString)]=(belownominal_stats)
+        resultDict[str("abovenominal_statsList" + "_" + appendString)]=(abovenominal_stats)
+        resultDict[str("lm_adjList" + "_" + appendString)]=(lm_adj)
+        resultDict[str("adjustmentTagList" + "_" + appendString)]=(method)
     try:
         Distribution_stats, sampleTests = Dist_stats(
             inputdata_adj, Timestamps, adjustment_name
         )
-        resultDict[str("Distribution_statsList" + "_" + appendString)].append(
+        resultDict[str("Distribution_statsList" + "_" + appendString)]=(
             Distribution_stats
         )
-        resultDict[str("sampleTestsLists" + "_" + appendString)].append(sampleTests)
+        resultDict[str("sampleTestsLists" + "_" + appendString)]=(sampleTests)
 
     except:
-        resultDict[str("Distribution_statsList" + "_" + appendString)].append(None)
-        resultDict[str("sampleTestsLists" + "_" + appendString)].append(None)
+        resultDict[str("Distribution_statsList" + "_" + appendString)]=(None)
+        resultDict[str("sampleTestsLists" + "_" + appendString)]=(None)
 
     return resultDict
 

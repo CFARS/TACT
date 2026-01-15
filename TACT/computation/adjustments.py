@@ -11,15 +11,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 
-# from TACT.computation.methods.GSa import perform_G_Sa_adjustment
-# from TACT.computation.methods.GSFc import perform_G_SFc_adjustment
-# from TACT.computation.methods.SSLTERRAML import perform_SS_LTERRA_ML_adjustment
-# from TACT.computation.methods.SSLTERRASML import perform_SS_LTERRA_S_ML_adjustment
-# from TACT.computation.methods.SSNN import perform_SS_NN_adjustment
-# from TACT.computation.methods.SSSS import perform_SS_SS_adjustment
-# from TACT.computation.methods.SSWS import perform_SS_WS_adjustment
-# from TACT.computation.methods.SSWSStd import perform_SS_WS_Std_adjustment
-
+from TACT.computation.calculations import get_regression
 
 class Adjustments:
 
@@ -28,60 +20,46 @@ class Adjustments:
 
     Attributes
     ----------
-    raw_data: 
-    adjusted_data: 
-    results_stats: 
-
+    raw_data: pandas dataframe
+    adjusted_data: dictionary of adjusted data based on list of methods
+    results_stats: dictionary of results based on list of methods
     """
 
-    def __init__(self, raw_data="", adjustments_list="", baseResultsLists=""):
+    def __init__(self, raw_data="", adjusted_data_list=""):
         logger.debug("Generating Adjustments object")
         self.raw_data = raw_data
-        self.adjusted_data = pd.DataFrame()
-        self.results_stats = (
-            []
-        )  # make this a dictionary of results with adjustment_list items as keys
+        self.adjusted_data = {}
+        for i in adjusted_data_list.keys(): 
+            self.adjusted_data[i] = None
+        self.results_stats = {}
+        for i in adjusted_data_list.keys(): 
+            self.results_stats[i] = None
 
-    def get_regression(self, x, y):
-        """
-        Compute linear regression of data -> need to deprecate this function for get_modelRegression..
-        """
-        df = pd.DataFrame()
-        df["x"] = x
-        df["y"] = y
-        df = df.dropna()
+    def method_record(self, data, config, method, inputdata_adj): 
+        from TACT.writers.labels import populate_resultsLists, populate_resultsLists_stability
+        from TACT.computation.TI import record_TIadj
 
-        feature_name = "x"
-        target_name = "y"
+        lm_adj = {}
+        lm_adj['sensor'] = config.model
+        lm_adj["height"] = config.height
+        lm_adj["adjustment"] = method
 
-        data, target = df[[feature_name]], df[target_name]
+        self.results_stats[method] = populate_resultsLists(
+            "",
+            method,
+            lm_adj,
+            inputdata_adj,
+            data.timestamps,
+            method,
+            )
 
-        if len(df) > 1:
-
-            x = df["x"].astype(float)
-            y = df["y"].astype(float)
-
-            lm = LinearRegression()
-            lm.fit(data, target)
-            predict = lm.predict(data)
-
-            result = [lm.coef_[0], lm.intercept_]  # slope and intercept?
-            result.append(lm.score(data, target))  # r score?
-            result.append(abs((x - y).mean()))  # mean diff?
-
-            mse = mean_squared_error(target, predict, multioutput="raw_values")
-            rmse = np.sqrt(mse)
-            result.append(mse[0])
-            result.append(rmse[0])
-
-        else:
-            result = [None, None, None, None, None, None]
-            result = [np.nan, np.nan, np.nan, np.nan, np.nan, np.nan]
-        # results order: m, c, r2, mean difference, mse, rmse
-
-        # logger.debug(result)
-
-        return result
+        self.adjusted_data[method] = record_TIadj(
+            method,
+            inputdata_adj,
+            data.timestamps,
+            method,
+            emptyclassFlag=False,
+            )
 
     def get_modelRegression(self, inputdata, column1, column2, fit_intercept=True):
         """
@@ -338,219 +316,6 @@ class Adjustments:
                     )
 
         results["adjustment"] = ["SS-S"] * len(results)
-        results = results.drop(columns=["sensor", "height"])
-
-        return inputdata_test, results, m, c
-
-    def perform_SS_SF_adjustment(self, inputdata):
-        """
-        Adjusts 10-minute averaged TI data with a linear slope and offset calibration method
-        with a filter applied 
-        derived from the test data 
-
-        Parameters
-        ----------
-        inputdata : dataframe 
-
-        Returns 
-        -------
-        inputdata_adj : dataframe
-        results : dataframe
-        m :  numeric
-        c : numeric
-
-        Notes
-        -----
-        Note: Representative TI computed with original RSD_SD
-
-        References
-        ----------
-        To do: FIND/GET REFERENCE!
-        
-        """
-
-        results = pd.DataFrame(
-            columns=[
-                "sensor",
-                "height",
-                "adjustment",
-                "m",
-                "c",
-                "rsquared",
-                "difference",
-                "mse",
-                "rmse",
-            ]
-        )
-        inputdata_train = inputdata[inputdata["split"] == True].copy()
-        inputdata_test = inputdata[inputdata["split"] == False].copy()
-
-        if inputdata.empty or len(inputdata) < 2:
-            results = self.post_adjustment_stats(
-                [None], results, "Ref_TI", "adjTI_RSD_TI"
-            )
-            if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
-                results = self.post_adjustment_stats(
-                    [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
-                )
-            if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
-                results = self.post_adjustment_stats(
-                    [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
-                )
-            if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
-                results = self.post_adjustment_stats(
-                    [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
-                )
-            if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
-                results = self.post_adjustment_stats(
-                    [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
-                )
-            m = np.NaN
-            c = np.NaN
-            inputdata = False
-
-        else:
-            filtered_Ref_TI = inputdata_train["Ref_TI"][inputdata_train["RSD_TI"] < 0.3]
-            filtered_RSD_TI = inputdata_train["RSD_TI"][inputdata_train["RSD_TI"] < 0.3]
-            full = pd.DataFrame()
-            full["filt_Ref_TI"] = filtered_Ref_TI
-            full["filt_RSD_TI"] = filtered_RSD_TI
-            full = full.dropna()
-
-            if len(full) < 2:
-                results = self.post_adjustment_stats(
-                    [None],
-                    results,
-                    "Ref_TI",
-                    "adjTI_RSD_TI",
-                )
-                m = np.NaN
-                c = np.NaN
-            else:
-                model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
-                m = model[0]
-                c = model[1]
-                RSD_TI = inputdata_test["RSD_TI"].copy()
-                RSD_TI = (float(model[0]) * RSD_TI) + float(model[1])
-                inputdata_test["adjTI_RSD_TI"] = RSD_TI
-                inputdata_test["adjRepTI_RSD_RepTI"] = (
-                    RSD_TI + 1.28 * inputdata_test["RSD_SD"]
-                )
-                results = self.post_adjustment_stats(
-                    inputdata_test, results, "Ref_TI", "adjTI_RSD_TI"
-                )
-
-            if "Ane_TI_Ht1" in inputdata.columns and "RSD_TI_Ht1" in inputdata.columns:
-                filtered_Ref_TI = inputdata_train["Ane_TI_Ht1"][
-                    inputdata_train["Ane_TI_Ht1"] < 0.3
-                ]
-                filtered_RSD_TI = inputdata_train["RSD_TI_Ht1"][
-                    inputdata_train["RSD_TI_Ht1"] < 0.3
-                ]
-                full = pd.DataFrame()
-                full["filt_Ref_TI"] = filtered_Ref_TI
-                full["filt_RSD_TI"] = filtered_RSD_TI
-                full = full.dropna()
-                if len(full) < 2:
-                    results = self.post_adjustment_stats(
-                        [None], results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
-                    )
-                else:
-                    model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
-                    RSD_TI = inputdata_test["RSD_TI_Ht1"].copy()
-                    RSD_TI = (model[0] * RSD_TI) + model[1]
-                    inputdata_test["adjTI_RSD_TI_Ht1"] = RSD_TI
-                    inputdata_test["adjRepTI_RSD_RepTI_Ht1"] = (
-                        RSD_TI + 1.28 * inputdata_test["RSD_SD_Ht1"]
-                    )
-                    results = self.post_adjustment_stats(
-                        inputdata, results, "Ane_TI_Ht1", "adjTI_RSD_TI_Ht1"
-                    )
-
-            if "Ane_TI_Ht2" in inputdata.columns and "RSD_TI_Ht2" in inputdata.columns:
-                filtered_Ref_TI = inputdata_train["Ane_TI_Ht2"][
-                    inputdata_train["Ane_TI_Ht2"] < 0.3
-                ]
-                filtered_RSD_TI = inputdata_train["RSD_TI_Ht2"][
-                    inputdata_train["RSD_TI_Ht2"] < 0.3
-                ]
-                full = pd.DataFrame()
-                full["filt_Ref_TI"] = filtered_Ref_TI
-                full["filt_RSD_TI"] = filtered_RSD_TI
-                full = full.dropna()
-                if len(full) < 2:
-                    results = self.post_adjustment_stats(
-                        [None], results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
-                    )
-                else:
-                    model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
-                    RSD_TI = inputdata_test["RSD_TI_Ht2"].copy()
-                    RSD_TI = (model[0] * RSD_TI) + model[1]
-                    inputdata_test["adjTI_RSD_TI_Ht2"] = RSD_TI
-                    inputdata_test["adjRepTI_RSD_RepTI_Ht2"] = (
-                        RSD_TI + 1.28 * inputdata_test["RSD_SD_Ht2"]
-                    )
-                    results = self.post_adjustment_stats(
-                        inputdata_test, results, "Ane_TI_Ht2", "adjTI_RSD_TI_Ht2"
-                    )
-
-            if "Ane_TI_Ht3" in inputdata.columns and "RSD_TI_Ht3" in inputdata.columns:
-                filtered_Ref_TI = inputdata_train["Ane_TI_Ht3"][
-                    inputdata_train["Ane_TI_Ht3"] < 0.3
-                ]
-                filtered_RSD_TI = inputdata_train["RSD_TI_Ht3"][
-                    inputdata_train["RSD_TI_Ht3"] < 0.3
-                ]
-                full = pd.DataFrame()
-                full["filt_Ref_TI"] = filtered_Ref_TI
-                full["filt_RSD_TI"] = filtered_RSD_TI
-                full = full.dropna()
-
-                if len(full) < 2:
-                    results = self.post_adjustment_stats(
-                        [None], results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
-                    )
-                else:
-                    model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
-                    RSD_TI = inputdata_test["RSD_TI_Ht3"].copy()
-                    RSD_TI = (model[0] * RSD_TI) + model[1]
-                    inputdata_test["adjTI_RSD_TI_Ht3"] = RSD_TI
-                    inputdata_test["adjRepTI_RSD_RepTI_Ht3"] = (
-                        RSD_TI + 1.28 * inputdata_test["RSD_SD_Ht3"]
-                    )
-                    results = self.post_adjustment_stats(
-                        inputdata_test, results, "Ane_TI_Ht3", "adjTI_RSD_TI_Ht3"
-                    )
-
-            if "Ane_TI_Ht4" in inputdata.columns and "RSD_TI_Ht4" in inputdata.columns:
-                filtered_Ref_TI = inputdata_train["Ane_TI_Ht4"][
-                    inputdata_train["Ane_TI_Ht4"] < 0.3
-                ]
-                filtered_RSD_TI = inputdata_train["RSD_TI_Ht4"][
-                    inputdata_train["RSD_TI_Ht4"] < 0.3
-                ]
-                full = pd.DataFrame()
-                full["filt_Ref_TI"] = filtered_Ref_TI
-                full["filt_RSD_TI"] = filtered_RSD_TI
-                full = full.dropna()
-
-                if len(full) < 2:
-                    results = self.post_adjustment_stats(
-                        [None], results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
-                    )
-                else:
-                    model = self.get_regression(filtered_RSD_TI, filtered_Ref_TI)
-                    RSD_TI = inputdata_test["RSD_TI_Ht4"].copy()
-                    RSD_TI = (model[0] * RSD_TI) + model[1]
-                    inputdata_test["adjTI_RSD_TI_Ht4"] = RSD_TI
-                    inputdata_test["adjRepTI_RSD_RepTI_Ht4"] = (
-                        RSD_TI + 1.28 * inputdata_test["RSD_SD_Ht4"]
-                    )
-                    results = self.post_adjustment_stats(
-                        inputdata_test, results, "Ane_TI_Ht4", "adjTI_RSD_TI_Ht4"
-                    )
-
-        results["adjustment"] = ["SS-SF"] * len(results)
         results = results.drop(columns=["sensor", "height"])
 
         return inputdata_test, results, m, c
@@ -985,6 +750,33 @@ class Adjustments:
 
         return inputdata_test, results, m, c
 
+def post_adjustment_stats(inputdata, results, ref_col, TI_col):
+
+        if isinstance(inputdata, pd.DataFrame):
+            fillEmpty = False
+            if ref_col in inputdata.columns and TI_col in inputdata.columns:
+                model_adjTI = get_regression(inputdata[ref_col], inputdata[TI_col])
+                name1 = "TI_regression_" + TI_col + "_" + ref_col
+                results.loc[name1, ["m"]] = model_adjTI[0]
+                results.loc[name1, ["c"]] = model_adjTI[1]
+                results.loc[name1, ["rsquared"]] = model_adjTI[2]
+                results.loc[name1, ["difference"]] = model_adjTI[3]
+                results.loc[name1, ["mse"]] = model_adjTI[4]
+                results.loc[name1, ["rmse"]] = model_adjTI[5]
+            else:
+                fillEmpty = True
+        else:
+            fillEmpty = True
+        if fillEmpty:
+            name1 = "TI_regression_" + TI_col + "_" + ref_col
+            results.loc[name1, ["m"]] = "NaN"
+            results.loc[name1, ["c"]] = "NaN"
+            results.loc[name1, ["rsquared"]] = "NaN"
+            results.loc[name1, ["difference"]] = "NaN"
+            results.loc[name1, ["mse"]] = "NaN"
+            results.loc[name1, ["rmse"]] = "NaN"
+        return results
+
 
 def empirical_stdAdjustment(
     inputdata,
@@ -1084,8 +876,7 @@ def train_test_split(trainPercent, inputdata, stepOverride=False):
         _inputdata["split"] = msk
 
     return _inputdata
-
-
+    
 def quick_metrics(inputdata, config, results_df, lm_adj_dict, testID):
     """"""
     from TACT.computation.match import perform_match, perform_match_input
@@ -1152,141 +943,3 @@ def quick_metrics(inputdata, config, results_df, lm_adj_dict, testID):
     lm_adj_dict[str(str(testID) + " :SS_G_SFa")] = lm_adj
 
     return results_df, lm_adj_dict
-
-
-def get_all_regressions(inputdata, title=None):
-    """Create dataframe of all regression statistics for all instrument height comparisons
-    
-    Parameters:
-    -----------
-    reader : pandas dataframe
-        all data to analyze for regression statistics
-    title : string
-        string to label the results dataframe
-    
-    Returns:
-    --------
-    daily_sr : pandas dataframe
-        regression statistics output for each compared instrument/height
-
-    References:
-    -----------
-
-    """
-
-    pairList = [
-        ["Ref_WS", "RSD_WS"],
-        ["Ref_WS", "Ane2_WS"],
-        ["Ref_TI", "RSD_TI"],
-        ["Ref_TI", "Ane2_TI"],
-        ["Ref_SD", "RSD_SD"],
-        ["Ref_SD", "Ane2_SD"],
-    ]
-
-    lenFlag = False
-    if len(inputdata) < 2:
-        lenFlag = True
-
-    columns = [title, "m", "c", "rsquared", "mean difference", "mse", "rmse"]
-    results = pd.DataFrame(columns=columns)
-
-    logger.debug(f"getting regr for {title}")
-
-    for p in pairList:
-
-        res_name = str(
-            p[0].split("_")[1]
-            + "_regression_"
-            + p[0].split("_")[0]
-            + "_"
-            + p[1].split("_")[0]
-        )
-
-        if p[1] in inputdata.columns and lenFlag == False:
-            _adjuster = Adjustments(inputdata)
-            results_regr = [res_name] + _adjuster.get_regression(
-                inputdata[p[0]], inputdata[p[1]]
-            )
-
-        else:
-            results_regr = [res_name, "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"]
-
-        _results = pd.DataFrame(columns=columns, data=[results_regr])
-        results = pd.concat(
-            [results, _results], ignore_index=True, axis=0, join="outer"
-        )
-
-    # labels not required
-    labelsExtra = [
-        "RSD_SD_Ht1",
-        "RSD_TI_Ht1",
-        "RSD_WS_Ht1",
-        "RSD_SD_Ht2",
-        "RSD_TI_Ht2",
-        "RSD_WS_Ht2",
-        "RSD_SD_Ht3",
-        "RSD_TI_Ht3",
-        "RSD_WS_Ht3",
-        "RSD_WS_Ht4",
-        "RSD_SD_Ht4",
-        "RSD_TI_Ht4",
-    ]
-    labelsRef = ["Ref_WS", "Ref_TI", "Ref_SD"]
-    labelsAne = [
-        "Ane_SD_Ht1",
-        "Ane_TI_Ht1",
-        "Ane_WS_Ht1",
-        "Ane_SD_Ht2",
-        "Ane_TI_Ht2",
-        "Ane_WS_Ht2",
-        "Ane_SD_Ht3",
-        "Ane_TI_Ht3",
-        "Ane_WS_Ht3",
-        "Ane_WS_Ht4",
-        "Ane_SD_Ht4",
-        "Ane_TI_Ht4",
-    ]
-
-    for l in labelsExtra:
-
-        parts = l.split("_")
-        reg_type = list(set(parts).intersection(["WS", "TI", "SD"]))
-
-        if "RSD" in l:
-            ht_type = parts[2]
-            ref_type = [s for s in labelsAne if reg_type[0] in s]
-            ref_type = [s for s in ref_type if ht_type in s]
-
-        res_name = str(reg_type[0] + "_regression_" + parts[0])
-
-        if "Ht" in parts[2]:
-            res_name = (
-                res_name
-                + parts[2]
-                + "_"
-                + ref_type[0].split("_")[0]
-                + ref_type[0].split("_")[2]
-            )
-
-        else:
-            res_name = res_name + "_Ref"
-
-        logger.debug(res_name)
-
-        if l in inputdata.columns and lenFlag == False:
-            _adjuster = Adjustments(inputdata)
-            res = [res_name] + _adjuster.get_regression(
-                inputdata[ref_type[0]], inputdata[l]
-            )
-
-        else:
-            res = [res_name, "NaN", "NaN", "NaN", "NaN", "NaN", "NaN"]
-
-        logger.debug(res)
-
-        _results = pd.DataFrame(columns=columns, data=[res])
-        results = pd.concat(
-            [results, _results], ignore_index=True, axis=0, join="outer"
-        )
-
-    return results
