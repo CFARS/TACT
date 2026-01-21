@@ -107,6 +107,11 @@ This project is licensed under the BSD 3-Clause License - see the [LICENSE](lega
 - **Issues**: [GitHub Issues](https://github.com/CFARS/TACT/issues)
 - **Contact**: aea@nrgsystems.com
 
+## 📄 Local Dev note for AEA
+
+.\activate_local.bat
+python main.py
+
 ---
 
 For detailed usage instructions, API reference, and guides, visit **[tact.akleao.com](https://tact.akleao.com)**

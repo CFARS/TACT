@@ -431,3 +431,177 @@ def plot_dnv_validation(
         print(f"\n✅ All plots saved to: {output_dir}")
 
     return figures
+
+
+def plot_iea_task52_kpis(
+    validation_results: Dict[str, pd.DataFrame],
+    m_values: list[int] = [4, 9, 14],
+    title_prefix: str = "IEA Task 52 KPIs",
+    save_path: Optional[str] = None,
+    figsize: Tuple[int, int] = (14, 8),
+    tolerance_lines: Optional[Dict[str, float]] = None
+) -> plt.Figure:
+    """
+    Plot IEA Task 52 KPIs validation results.
+    
+    Creates plots showing:
+    - Effective TI (Ieff) ratio vs wind speed bin for each m value
+    - Damage Index (DI) relative error per m value
+    - I90 relative error
+    
+    Parameters
+    ----------
+    validation_results : dict
+        Validation results from validate_iea_task52_kpis
+        Must contain "overall" and "by_bin" DataFrames
+    m_values : list[int]
+        List of m values to plot (default: [4, 9, 14])
+    title_prefix : str
+        Prefix for plot titles (default: "IEA Task 52 KPIs")
+    save_path : str, optional
+        Path to save the figure
+    figsize : tuple
+        Figure size (width, height)
+    tolerance_lines : dict, optional
+        Dictionary with tolerance values to plot as reference lines
+        Keys: "ieff_tolerance", "di_tolerance", "i90_tolerance"
+        Values: tolerance percentages (e.g., 0.05 for 5%)
+    
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The created figure
+    """
+    by_bin = validation_results["by_bin"]
+    overall = validation_results["overall"]
+    
+    if len(by_bin) == 0:
+        raise ValueError("No bin data available for plotting")
+    
+    # Create subplots: one for Ieff by bin, one for DI/I90 summary
+    fig = plt.figure(figsize=figsize)
+    gs = fig.add_gridspec(2, 2, hspace=0.3, wspace=0.3)
+    
+    # Plot 1: Ieff ratio by wind speed bin (for each m)
+    ax1 = fig.add_subplot(gs[0, :])
+    
+    colors = plt.cm.tab10(np.linspace(0, 1, len(m_values)))
+    
+    for i, m in enumerate(m_values):
+        col_name = f"ieff_ratio_m{m}"
+        if col_name in by_bin.columns:
+            valid_mask = by_bin[col_name].notna()
+            if valid_mask.any():
+                ax1.plot(
+                    by_bin.loc[valid_mask, "ws_bin_center"],
+                    by_bin.loc[valid_mask, col_name],
+                    marker='o',
+                    label=f'Ieff ratio (m={m})',
+                    color=colors[i],
+                    linewidth=2,
+                    markersize=6
+                )
+    
+    # Add reference line at 1.0
+    ax1.axhline(y=1.0, color='black', linestyle='--', linewidth=1.5, alpha=0.7, label='Perfect agreement')
+    
+    # Add tolerance lines if provided
+    if tolerance_lines and "ieff_tolerance" in tolerance_lines:
+        tol = tolerance_lines["ieff_tolerance"]
+        ax1.axhline(y=1.0 + tol, color='red', linestyle=':', linewidth=1, alpha=0.5, label=f'±{tol*100:.1f}% tolerance')
+        ax1.axhline(y=1.0 - tol, color='red', linestyle=':', linewidth=1, alpha=0.5)
+        ax1.fill_between(
+            by_bin["ws_bin_center"].unique(),
+            1.0 - tol,
+            1.0 + tol,
+            alpha=0.1,
+            color='red'
+        )
+    
+    ax1.set_xlabel('Wind Speed (m/s)', fontsize=12, fontweight='bold')
+    ax1.set_ylabel('Ieff Ratio (RSD/Reference)', fontsize=12, fontweight='bold')
+    ax1.set_title(f'{title_prefix} - Effective TI Ratio by Wind Speed Bin', fontsize=14, fontweight='bold')
+    ax1.grid(True, alpha=0.3, linestyle='--')
+    ax1.legend(loc='best', fontsize=10)
+    
+    # Plot 2: DI relative error per m value
+    ax2 = fig.add_subplot(gs[1, 0])
+    
+    di_rel_errors = []
+    m_labels = []
+    for m in m_values:
+        col_name = f"di_rel_error_m{m}"
+        if col_name in overall.columns:
+            val = overall.iloc[0][col_name]
+            if not np.isnan(val):
+                di_rel_errors.append(val * 100)  # Convert to percentage
+                m_labels.append(f'm={m}')
+    
+    if di_rel_errors:
+        bars = ax2.bar(m_labels, di_rel_errors, color=colors[:len(di_rel_errors)], alpha=0.7, edgecolor='black', linewidth=1.5)
+        ax2.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+        
+        # Add tolerance lines if provided
+        if tolerance_lines and "di_tolerance" in tolerance_lines:
+            tol = tolerance_lines["di_tolerance"] * 100
+            ax2.axhline(y=tol, color='red', linestyle=':', linewidth=1, alpha=0.5, label=f'±{tol:.1f}% tolerance')
+            ax2.axhline(y=-tol, color='red', linestyle=':', linewidth=1, alpha=0.5)
+            ax2.fill_between(range(-1, len(m_labels) + 1), -tol, tol, alpha=0.1, color='red')
+        
+        # Add value labels on bars
+        for bar, val in zip(bars, di_rel_errors):
+            height = bar.get_height()
+            ax2.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{val:.2f}%',
+                    ha='center', va='bottom' if height >= 0 else 'top',
+                    fontsize=10, fontweight='bold')
+    
+    ax2.set_ylabel('DI Relative Error (%)', fontsize=12, fontweight='bold')
+    ax2.set_title('Damage Index Relative Error', fontsize=12, fontweight='bold')
+    ax2.grid(True, alpha=0.3, linestyle='--', axis='y')
+    if tolerance_lines and "di_tolerance" in tolerance_lines:
+        ax2.legend(loc='best', fontsize=9)
+    
+    # Plot 3: I90 relative error
+    ax3 = fig.add_subplot(gs[1, 1])
+    
+    if "i90_rel_error" in overall.columns:
+        i90_rel_error = overall.iloc[0]["i90_rel_error"]
+        if not np.isnan(i90_rel_error):
+            i90_rel_error_pct = i90_rel_error * 100
+            bar = ax3.bar(['I90'], [i90_rel_error_pct], color='steelblue', alpha=0.7, edgecolor='black', linewidth=1.5)
+            ax3.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+            
+            # Add tolerance lines if provided
+            if tolerance_lines and "i90_tolerance" in tolerance_lines:
+                tol = tolerance_lines["i90_tolerance"] * 100
+                ax3.axhline(y=tol, color='red', linestyle=':', linewidth=1, alpha=0.5, label=f'±{tol:.1f}% tolerance')
+                ax3.axhline(y=-tol, color='red', linestyle=':', linewidth=1, alpha=0.5)
+                ax3.fill_between([-0.5, 0.5], -tol, tol, alpha=0.1, color='red')
+                ax3.legend(loc='best', fontsize=9)
+            
+            # Add value label
+            height = bar[0].get_height()
+            ax3.text(0, height,
+                    f'{i90_rel_error_pct:.2f}%',
+                    ha='center', va='bottom' if height >= 0 else 'top',
+                    fontsize=10, fontweight='bold')
+            
+            # Add N_i90 as subtitle
+            if "N_i90" in overall.columns:
+                n_i90 = overall.iloc[0]["N_i90"]
+                ax3.text(0, -max(abs(i90_rel_error_pct) * 0.3, 2), f'N={int(n_i90)}',
+                        ha='center', va='top', fontsize=9, style='italic')
+    
+    ax3.set_ylabel('I90 Relative Error (%)', fontsize=12, fontweight='bold')
+    ax3.set_title('I90 (V > 7 m/s) Relative Error', fontsize=12, fontweight='bold')
+    ax3.grid(True, alpha=0.3, linestyle='--', axis='y')
+    ax3.set_ylim(ax3.get_ylim())  # Fix ylim for text positioning
+    
+    plt.suptitle(title_prefix, fontsize=16, fontweight='bold', y=0.995)
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Saved IEA Task 52 KPIs plot to: {save_path}")
+    
+    return fig

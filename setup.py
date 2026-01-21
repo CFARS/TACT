@@ -4,6 +4,10 @@ setup(
     name="tact",
     version="0.1.0",
     packages=find_packages(),
+    package_data={
+        "tact.assets.bat": ["*.pkl"],
+    },
+    include_package_data=True,
     install_requires=[
         "numpy",
         "pandas",

@@ -14,7 +14,7 @@ data = pd.read_csv(data_path)
 
 # Create and run adjustment
 method = BaselineResults()
-result = method.adjust(data, config_path)
+result = method.adjust(data, {"config_path": config_path})
 
 # Convert metrics list to DataFrame
 metrics_df = pd.DataFrame(result.metrics)

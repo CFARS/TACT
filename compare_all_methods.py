@@ -10,6 +10,7 @@ from tact.adjustments.baseline import BaselineResults
 from tact.adjustments.SSSF import SSSF
 from tact.adjustments.SSWS import SSWS
 from tact.adjustments.SSWSStd import SSWSStd
+from tact.adjustments.bat import BATAdjustment
 from tact.utils.setup_processors import setup_processors
 from tact.utils.load_data import load_data
 from tact.validation import validate_dnv_rp0661
@@ -110,7 +111,7 @@ def compare_all_methods():
     }
 
     # Methods to test
-    methods = ["baseline", "ss-sf", "ssws", "sswsstd"]
+    methods = ["baseline", "ss-sf", "ssws", "sswsstd", "bat"]
 
     # Initialize TACT
     tact = TACT()

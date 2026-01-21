@@ -1,0 +1,269 @@
+# BAT - Bias Adjustment Technique
+
+**Location:** `tact/adjustments/bat.py`
+
+## Overview
+
+The BAT (Bias Adjustment Technique) method uses Singular Spectrum Analysis (SSA) to decompose RSD wind speed and standard deviation time series, then applies learned gains and offsets to correct systematic biases. Unlike other TACT methods, BAT does not require reference data for training—it uses pre-trained coefficients.
+
+## Methodology
+
+### Algorithm Steps
+
+1. **SSA Decomposition**:
+   - Decompose RSD wind speed series using SSA (window length L=100 by default)
+   - Decompose RSD standard deviation series using SSA
+   - Extract elementary components (rank d ≤ L)
+
+2. **Component Reconstruction with Corrections**:
+   - Initialize with component 0 (trend):
+     ```
+     tempWS = recon(0)
+     tempSTD = recon(0)
+     ```
+   - For components 1..n_calib (default 35):
+     ```
+     tempWS += recon(j) * WSGain[j] + WSOffset[j]
+     tempSTD += recon(j) * STDGain[j] + STDOffset[j]
+     ```
+   - For components > n_calib:
+     ```
+     tempWS += recon(j)  (no correction)
+     tempSTD += recon(j)  (no correction)
+     ```
+
+3. **Final Correction**:
+   ```
+   CorrWS = tempWS
+   CorrSD = tempSTD
+   CorrTI = CorrSD / CorrWS
+   ```
+
+### Key Characteristics
+
+- **No training required**: Uses pre-trained coefficients from `Generic_BAT35_wk6.pkl`
+- **SSA-based**: Decomposes time series into components for targeted correction
+- **Component-wise correction**: Applies gains/offsets to first 35 components only
+- **Preserves high-frequency**: Components >35 added back without modification
+- **Handles short series**: Auto-reduces L if series length < 2*L
+
+## Usage
+
+### Basic Example
+
+```python
+from tact import TACT
+
+# Initialize
+tact = TACT()
+
+# Run BAT adjustment
+results = tact.adjust(
+    data=your_data,
+    method="bat",
+    parameters={
+        "config_path": "config.json",  # Required
+        "L": 100,                      # Optional: SSA window length (default 100)
+        "n_calib": 35,                 # Optional: Number of calibrated components (default 35)
+        "coeff_path": None             # Optional: Custom coefficient file path
+    }
+)
+```
+
+### Complete Workflow
+
+```python
+from tact import TACT
+from tact.utils.load_data import load_data
+from tact.utils.setup_processors import setup_processors
+from tact.validation import validate_dnv_rp0661
+
+# Load and process data
+data = load_data("data.csv")
+binning_proc, ti_proc, stats_proc = setup_processors("config.json")
+data = binning_proc.process(data)
+data = ti_proc.process(data)
+
+# Run BAT adjustment
+tact = TACT()
+results = tact.adjust(
+    data=data,
+    method="bat",
+    parameters={
+        "config_path": "config.json",
+        "L": 100,
+        "n_calib": 35
+    }
+)
+
+# Validate
+validation = validate_dnv_rp0661(
+    adjusted_data=results["adjusted_data"],
+    reference_col="ref_ti",
+    adjusted_col="adjTI_RSD_TI",
+    wind_speed_col="ref_ws",
+    bin_col="bins",
+    criteria_type="LV"
+)
+```
+
+## Parameters
+
+### Required Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `config_path` | str | Path to configuration JSON file with column mappings |
+
+### Optional Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `L` | int | 100 | SSA window length. Must satisfy 2 ≤ L ≤ N/2 where N is series length. Auto-reduced if series is too short. |
+| `n_calib` | int | 35 | Number of calibrated components (components 1..n_calib get gains/offsets) |
+| `coeff_path` | str | None | Custom path to coefficient file. If None, uses packaged `Generic_BAT35_wk6.pkl` |
+
+## Required Data Columns
+
+BAT requires only RSD data (no reference data needed):
+
+- `rsd.primary.wind_speed`: RSD mean wind speed (m/s)
+- `rsd.primary.standard_deviation`: RSD wind speed standard deviation (m/s)
+
+These are mapped via your `config.json` file. Example mapping:
+
+```json
+{
+    "input_data_column_mapping": {
+        "rsd": {
+            "primary": {
+                "wind_speed": "rsd_ws",
+                "standard_deviation": "rsd_sd"
+            }
+        }
+    }
+}
+```
+
+## Output Format
+
+### Returned Dictionary
+
+```python
+{
+    "adjusted_data": pd.DataFrame,  # Data with adjusted columns
+    "metrics": dict                 # Adjustment metadata
+}
+```
+
+### Adjusted Data Columns
+
+The method adds these columns to your data:
+
+| Column | Description |
+|--------|-------------|
+| `RSD_adjWS` | Adjusted RSD wind speed |
+| `RSD_adjSD` | Adjusted RSD standard deviation |
+| `adjTI_RSD_TI` | Adjusted turbulence intensity (RSD_adjSD / RSD_adjWS) |
+| `adjRepTI_RSD_RepTI` | Adjusted representative TI |
+
+### Metrics Dictionary
+
+Contains adjustment metadata:
+
+| Key | Description |
+|-----|-------------|
+| `method` | Method name ("BAT") |
+| `L` | SSA window length used |
+| `n_calib` | Number of calibrated components |
+| `coeff_file` | Coefficient file name/path used |
+| `n_total` | Total number of data points |
+| `n_valid` | Number of valid (non-NaN) corrected points |
+| `pct_valid` | Percentage of valid corrections |
+| `mean_ws_before` | Mean WS before correction |
+| `mean_ws_after` | Mean WS after correction |
+| `mean_sd_before` | Mean SD before correction |
+| `mean_sd_after` | Mean SD after correction |
+
+## Coefficient File
+
+BAT uses pre-trained coefficients stored in `tact/assets/bat/Generic_BAT35_wk6.pkl`. This file must be present for the method to work.
+
+The coefficient file should contain an object with the following attributes:
+- `WSGain`: Array of wind speed gains (length ≥ n_calib+1)
+- `WSOffset`: Array of wind speed offsets (length ≥ n_calib+1)
+- `STDGain`: Array of standard deviation gains (length ≥ n_calib+1)
+- `STDOffset`: Array of standard deviation offsets (length ≥ n_calib+1)
+
+### Installing the Coefficient File
+
+The coefficient file `Generic_BAT35_wk6.pkl` must be placed in `tact/assets/bat/` directory. If you're installing TACT as a package, ensure the file is included in the package data (handled automatically by `setup.py`).
+
+## Edge Cases and Limitations
+
+### Short Time Series
+
+- **Requirement**: SSA requires 2 ≤ L ≤ N/2 where N is series length
+- **Auto-handling**: If N < 2*L, L is automatically reduced to max(2, N//2) with a warning
+- **Minimum**: Series must have at least 2 points
+
+### Missing Data (NaNs)
+
+- **Behavior**: Rows with NaN in either WS or SD are excluded from SSA computation
+- **Output**: Adjusted columns will have NaN where input was invalid
+- **Index preservation**: Original index is preserved, NaN values indicate uncorrected points
+
+### Non-Positive Corrected Wind Speed
+
+- **Guard**: If corrected WS ≤ 0, it is set to NaN to avoid infinite TI
+- **TI calculation**: Division by zero is prevented by replacing 0 with NaN before computing TI
+
+## Performance Characteristics
+
+### When BAT Works Well
+
+- Systematic biases in RSD measurements
+- Time series with sufficient length (≥ 2*L points)
+- Pre-trained coefficients match your sensor/system characteristics
+- No training data available (BAT doesn't require reference measurements)
+
+### When BAT May Struggle
+
+- **Short series**: Limited data reduces SSA effectiveness
+- **Mismatched coefficients**: If pre-trained coefficients don't match your sensor, performance degrades
+- **Non-stationary biases**: BAT assumes biases are consistent across the time series
+- **High noise**: Very noisy data may not benefit from component-wise correction
+
+## Comparison with Other Methods
+
+| Aspect | BAT | SS-SF | SSWS | SSWSStd |
+|--------|-----|-------|------|---------|
+| Requires reference data | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
+| Training required | ❌ No | ✅ Yes | ✅ Yes | ✅ Yes |
+| Method type | SSA + coefficients | Linear regression | Linear regression | Dual regression |
+| Parameters | Pre-trained | Site-specific | Site-specific | Site-specific |
+| Complexity | Medium | Low | Low | Medium |
+
+## Technical Details
+
+### SSA Implementation
+
+BAT uses a custom SSA implementation in `tact/utils/ssa.py`:
+
+- **Embedding**: Creates trajectory matrix X of shape (L, K) where K = N - L + 1
+- **Decomposition**: Performs SVD: X = U @ diag(S) @ Vt
+- **Reconstruction**: Diagonal averaging (Hankelization) to convert components back to time series
+- **Memory efficient**: Uses `save_mem=True` style to avoid storing all elementary matrices
+
+### Component Indexing
+
+- Component 0: Trend/low-frequency component (no correction applied)
+- Components 1..n_calib: Calibrated components (gains/offsets applied)
+- Components >n_calib: High-frequency components (added back without correction)
+
+## References
+
+BAT uses Singular Spectrum Analysis (SSA) for time series decomposition. For more information on SSA, see:
+
+- Golyandina, N., et al. (2001). "Analysis of Time Series Structure: SSA and Related Techniques"
+- Vautard, R., et al. (1992). "Singular-spectrum analysis: a toolkit for short, noisy chaotic signals"

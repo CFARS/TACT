@@ -1,0 +1,252 @@
+---
+title: IEA Task 52 KPIs
+description: Validate your results using IEA Task 52 proposed Key Performance Indicators
+---
+
+Validate your turbulence intensity adjustments using the IEA Task 52 proposed Key Performance Indicators (KPIs).
+
+## Overview
+
+The IEA Task 52 KPIs provide three complementary metrics for evaluating RSD (Remote Sensing Device) performance:
+
+1. **Effective TI (Ieff)** - Bin-wise metric per wind-speed bin
+2. **Damage Index (DI)** - Overall metric for the whole dataset
+3. **I90** - Extreme value metric for V > 7 m/s
+
+These metrics are based on the proposed definitions from the IEA Task 52 Working Group 1, Work Item 1 (20251205_IEA52_WG1_WI1_updated, Nordex slide deck).
+
+## Quick Start
+
+```python
+from tact.validation import validate_iea_task52_kpis
+
+# After running adjustment
+results = validate_iea_task52_kpis(
+    data=adjusted_data,
+    ws_col="ref_ws",
+    rsd_sd_col="rsd_sd",
+    ref_sd_col="ref_sd",
+    rsd_ti_col="rsd_ti",
+    ref_ti_col="ref_ti"
+)
+
+# Check results
+print("Damage Index (m=9):")
+print(f"  Ratio: {results['overall']['di_ratio_m9'].iloc[0]:.4f}")
+print(f"  Rel Error: {results['overall']['di_rel_error_m9'].iloc[0]*100:.2f}%")
+
+print("\nI90 (V > 7 m/s):")
+print(f"  Ratio: {results['overall']['i90_ratio'].iloc[0]:.4f}")
+print(f"  Rel Error: {results['overall']['i90_rel_error'].iloc[0]*100:.2f}%")
+
+print("\nEffective TI summary (8-13 m/s):")
+print(f"  Q25: {results['overall']['ieff_rel_error_q25_m9'].iloc[0]*100:.2f}%")
+print(f"  Q75: {results['overall']['ieff_rel_error_q75_m9'].iloc[0]*100:.2f}%")
+```
+
+## Metrics Explained
+
+### Effective TI (Ieff)
+
+The Effective TI is calculated bin-wise (per wind-speed bin) using the formula:
+
+**Ieff = (∑ᵢ pᵢ σᵢᵐ)^(1/m)**
+
+Where:
+- σᵢ = standard deviation samples (rsd_sd or ref_sd)
+- pᵢ = probabilities (equal weights: 1/N for all valid rows)
+- m = exponent parameter (typically 4, 9, or 14)
+
+The metric is computed separately for RSD and reference data, then compared via ratio and relative error.
+
+```python
+# View Ieff by wind speed bin
+by_bin = results['by_bin']
+print(by_bin[['ws_bin_center', 'ieff_ratio_m9', 'ieff_rel_error_m9', 'N']])
+```
+
+### Damage Index (DI)
+
+The Damage Index uses the same formula as Ieff but is calculated over the entire dataset (no binning):
+
+**DI = (∑ᵢ pᵢ σᵢᵐ)^(1/m)**
+
+This provides an overall assessment of the dataset's effective turbulence intensity.
+
+```python
+# View DI for all m values
+overall = results['overall']
+for m in [4, 9, 14]:
+    print(f"DI (m={m}):")
+    print(f"  Ratio: {overall[f'di_ratio_m{m}'].iloc[0]:.4f}")
+    print(f"  Rel Error: {overall[f'di_rel_error_m{m}'].iloc[0]*100:.2f}%")
+```
+
+### I90 (Extreme Value)
+
+I90 is calculated for wind speeds V > 7 m/s using:
+
+**I90 = Imean + 1.28 × Istd**
+
+This metric captures extreme turbulence conditions that are critical for load calculations.
+
+```python
+# View I90 results
+overall = results['overall']
+print(f"I90 (V > 7 m/s):")
+print(f"  RSD: {overall['i90_rsd'].iloc[0]:.4f}")
+print(f"  Reference: {overall['i90_ref'].iloc[0]:.4f}")
+print(f"  Ratio: {overall['i90_ratio'].iloc[0]:.4f}")
+print(f"  N observations: {overall['N_i90'].iloc[0]:.0f}")
+```
+
+## Data Conventions
+
+TACT uses the following column naming conventions:
+
+- **"mast"** variables (external language) → **ref_*** in TACT data
+- **"lidar"** variables → **rsd_*** in TACT data
+- **lidar_sigma** → **rsd_sd**
+- **mast_sigma** → **ref_sd**
+
+## Configuration Options
+
+### Default Parameters
+
+```python
+results = validate_iea_task52_kpis(
+    data=adjusted_data,
+    m_values=[4, 9, 14],           # Exponents for Ieff/DI calculations
+    v_i90_min=7.0,                # Minimum wind speed for I90 (m/s)
+    v_ieff_range=(8.0, 13.0),     # Wind speed range for Ieff summary
+    quantiles=(0.25, 0.75),       # Quantiles for Ieff error summary
+    use_test_only=True            # Use only test data if "split" column exists
+)
+```
+
+### Custom Wind Speed Bins
+
+```python
+# Use custom 0.5 m/s bins
+ws_bins = np.arange(0, 25.5, 0.5)
+results = validate_iea_task52_kpis(
+    data=adjusted_data,
+    ws_bins=ws_bins
+)
+```
+
+## Visualization
+
+Create plots of the IEA Task 52 KPIs:
+
+```python
+from tact.visualization import plot_iea_task52_kpis
+
+fig = plot_iea_task52_kpis(
+    validation_results=results,
+    m_values=[4, 9, 14],
+    title_prefix="My Adjustment - IEA Task 52 KPIs",
+    save_path="iea_task52_kpis.png"
+)
+```
+
+Optional tolerance lines can be added:
+
+```python
+fig = plot_iea_task52_kpis(
+    validation_results=results,
+    tolerance_lines={
+        "ieff_tolerance": 0.05,   # 5% tolerance for Ieff
+        "di_tolerance": 0.05,      # 5% tolerance for DI
+        "i90_tolerance": 0.10      # 10% tolerance for I90
+    }
+)
+```
+
+## Results Structure
+
+The validation function returns a dictionary with three keys:
+
+### `overall` DataFrame
+
+Contains scalar metrics for the entire dataset:
+- `n_observations`: Number of valid observations
+- `mean_wind_speed`: Mean wind speed
+- `di_rsd_m{m}`, `di_ref_m{m}`: Damage Index values
+- `di_ratio_m{m}`, `di_rel_error_m{m}`: DI comparison metrics
+- `i90_rsd`, `i90_ref`: I90 values
+- `i90_ratio`, `i90_rel_error`: I90 comparison metrics
+- `N_i90`: Number of observations used for I90
+- `ieff_rel_error_q25_m{m}`, `ieff_rel_error_q75_m{m}`: Ieff error quartiles (8-13 m/s range)
+
+### `by_bin` DataFrame
+
+Contains per-bin metrics:
+- `ws_bin_left`, `ws_bin_right`, `ws_bin_center`: Bin boundaries and center
+- `mean_wind_speed`: Mean wind speed in bin
+- `N`: Number of observations in bin
+- `ieff_rsd_m{m}`, `ieff_ref_m{m}`: Effective TI values
+- `ieff_ratio_m{m}`, `ieff_rel_error_m{m}`: Ieff comparison metrics
+
+### `metadata` Dictionary
+
+Contains configuration and metadata:
+- `m_values`: List of m values used
+- `ws_bins`: Wind speed bin edges
+- `v_i90_min`: Minimum wind speed for I90
+- `v_ieff_range`: Wind speed range for Ieff summary
+- `column_mapping`: Column names used
+- `n_total_rows`, `n_valid_rows`, `n_i90_rows`: Sample counts
+
+## Example Workflow
+
+```python
+from tact import TACT
+from tact.validation import validate_iea_task52_kpis
+from tact.visualization import plot_iea_task52_kpis
+
+# Load and process data
+data = load_data("data.csv")
+# ... run adjustment ...
+
+# Validate using IEA Task 52 KPIs
+results = validate_iea_task52_kpis(
+    data=adjusted_data,
+    ws_col="ref_ws",
+    rsd_sd_col="rsd_sd",
+    ref_sd_col="ref_sd",
+    rsd_ti_col="rsd_ti",
+    ref_ti_col="ref_ti",
+    m_values=[4, 9, 14]
+)
+
+# Print summary
+overall = results['overall'].iloc[0]
+print("=== IEA Task 52 KPIs Summary ===")
+print(f"\nDamage Index (m=9):")
+print(f"  Ratio: {overall['di_ratio_m9']:.4f}")
+print(f"  Relative Error: {overall['di_rel_error_m9']*100:.2f}%")
+
+print(f"\nI90 (V > 7 m/s):")
+print(f"  Ratio: {overall['i90_ratio']:.4f}")
+print(f"  Relative Error: {overall['i90_rel_error']*100:.2f}%")
+print(f"  N observations: {overall['N_i90']:.0f}")
+
+print(f"\nEffective TI (8-13 m/s, m=9):")
+print(f"  Q25: {overall['ieff_rel_error_q25_m9']*100:.2f}%")
+print(f"  Q75: {overall['ieff_rel_error_q75_m9']*100:.2f}%")
+
+# Create plots
+fig = plot_iea_task52_kpis(
+    validation_results=results,
+    save_path="iea_task52_kpis.png"
+)
+```
+
+## Reference
+
+The IEA Task 52 KPIs are based on definitions from:
+
+**20251205_IEA52_WG1_WI1_updated** (Nordex slide deck)
+
+These are proposed metrics and thresholds are still under discussion. The TACT implementation computes the metrics without enforcing pass/fail thresholds, allowing users to interpret results according to their specific requirements.

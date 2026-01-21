@@ -116,9 +116,9 @@ results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json
     tact = TACT()
     results = tact.adjust(
         data=data,
-        method="ss-sf",  # or "ssws", "sswsstd", "baseline"
+        method="ss-sf",  # or "ssws", "sswsstd", "baseline", "bat"
         parameters={
-            "split": True,              # Use train/test split
+            "split": True,              # Use train/test split (not needed for bat)
             "config_path": "config.json"
         }
     )
@@ -128,6 +128,7 @@ results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json
     - `ss-sf`: Recommended for most cases
     - `sswsstd`: Dual WS+SD adjustment
     - `ssws`: Wind speed only
+    - `bat`: SSA-based correction (no training data needed)
     - `baseline`: No adjustment (reference)
   </Step>
 
@@ -227,6 +228,30 @@ results = tact.adjust(data, "ss-sf", {"split": True, "config_path": "config.json
 
     **Performance:** MRBE 90.4%, RRMSE 183.0%
   </Tab>
+
+  <Tab title="BAT">
+    **Bias Adjustment Technique**
+
+    ```python
+    results = tact.adjust(
+        data=data,
+        method="bat",
+        parameters={
+            "config_path": "config.json",
+            "L": 100,        # Optional: SSA window length
+            "n_calib": 35    # Optional: Calibrated components
+        }
+    )
+    ```
+
+    **Best for:**
+    - When reference data is not available
+    - Pre-trained coefficient-based correction
+    - SSA-based time series decomposition
+    - Systematic bias correction
+
+    **Note:** Requires `Generic_BAT35_wk6.pkl` coefficient file in `tact/assets/bat/`
+  </Tab>
 </Tabs>
 
 ## Parameters Guide
@@ -306,8 +331,8 @@ The returned DataFrame includes original columns plus:
 |--------|-------------|
 | `adjTI_RSD_TI` | Adjusted turbulence intensity |
 | `adjRepTI_RSD_RepTI` | Adjusted representative TI |
-| `RSD_adjWS` | Adjusted wind speed (SSWSStd only) |
-| `RSD_adjSD` | Adjusted std deviation (SSWSStd only) |
+| `RSD_adjWS` | Adjusted wind speed (SSWSStd, BAT) |
+| `RSD_adjSD` | Adjusted std deviation (SSWSStd, BAT) |
 
 ## Save Results
 
@@ -368,7 +393,7 @@ with pd.ExcelWriter("tact_results.xlsx") as writer:
   <Tab title="Compare Methods">
     ```python
     # Run and compare multiple methods
-    methods = ["baseline", "ss-sf", "ssws", "sswsstd"]
+    methods = ["baseline", "ss-sf", "ssws", "sswsstd", "bat"]
     tact = TACT()
 
     all_results = {}

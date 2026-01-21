@@ -33,3 +33,6 @@
 !Example/*xlsx
 !UserGuide.pdf
 !docs/mint.json.claude
+
+# Local dev helpers
+activate_local.bat

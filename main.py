@@ -3,12 +3,13 @@ from tact.adjustments.baseline import BaselineResults
 from tact.adjustments.SSSF import SSSF
 from tact.adjustments.SSWS import SSWS
 from tact.adjustments.SSWSStd import SSWSStd
+from tact.adjustments.bat import BATAdjustment
 from tact.utils.setup_processors import setup_processors
 from tact.utils.process_statistics import process_statistics
 from tact.utils.save_results import save_results
 from tact.utils.load_data import load_data
-from tact.validation import validate_dnv_rp0661
-from tact.visualization import plot_dnv_validation
+from tact.validation import validate_dnv_rp0661, validate_iea_task52_kpis
+from tact.visualization import plot_dnv_validation, plot_iea_task52_kpis
 import json
 
 
@@ -19,7 +20,8 @@ def main():
         "data_path": "tact/example/data/tact-test-data.csv",
         "config_path": "tact/example/config.json",
         "output_dir": "tact/example/output",
-        "method": "sswsstd",  # options: 'ss-sf', 'ssws', 'sswsstd', 'baseline'
+        # "method": "sswsstd",  # options: 'ss-sf', 'ssws', 'sswsstd', 'baseline', 'bat'
+        "method": "bat",  # BAT method - requires Generic_BAT35_wk6.pkl in tact/assets/bat/
         "parameters": {"split": True}
     }
     
@@ -50,6 +52,9 @@ def main():
     col_map = column_config["input_data_column_mapping"]
     ref_ti_col = col_map["reference"]["turbulence_intensity"]
     ref_ws_col = col_map["reference"]["wind_speed"]
+    ref_sd_col = col_map["reference"]["standard_deviation"]
+    rsd_ti_col = col_map["rsd"]["primary"]["turbulence_intensity"]
+    rsd_sd_col = col_map["rsd"]["primary"]["standard_deviation"]
 
     # DNV RP-0661 Validation
     # Try with minimum TI filter to exclude unreliable low TI measurements
@@ -67,17 +72,28 @@ def main():
         min_ti_threshold=min_ti_filter
     )
 
+    # IEA Task 52 KPIs Validation
+    print(f"\nRunning IEA Task 52 KPIs validation...")
+    iea_validation_results = validate_iea_task52_kpis(
+        data=results["adjusted_data"],
+        ws_col=ref_ws_col,
+        rsd_sd_col=rsd_sd_col,
+        ref_sd_col=ref_sd_col,
+        rsd_ti_col="adjTI_RSD_TI",  # Use adjusted TI for RSD
+        ref_ti_col=ref_ti_col,
+        m_values=[4, 9, 14],
+        use_test_only=True
+    )
+
     # Process statistics
     means = process_statistics(results["adjusted_data"], stats_processor)
-
-    # Generate validation plots
-    rsd_ti_col = col_map["rsd"]["primary"]["turbulence_intensity"]
 
     # Create plots subdirectory
     import os
     plots_dir = os.path.join(config["output_dir"], "plots")
     os.makedirs(plots_dir, exist_ok=True)
 
+    # Generate DNV validation plots
     plot_dnv_validation(
         validation_results=validation_results,
         adjusted_data=results["adjusted_data"],
@@ -91,12 +107,21 @@ def main():
         output_dir=plots_dir
     )
 
+    # Generate IEA Task 52 KPIs plots
+    plot_iea_task52_kpis(
+        validation_results=iea_validation_results,
+        m_values=[4, 9, 14],
+        title_prefix=f"{config['method']} - IEA Task 52 KPIs",
+        save_path=os.path.join(plots_dir, f"{config['method']}_iea_task52_kpis.png")
+    )
+
     # Save results
     save_results(
         means=means,
         adjusted_data=results["adjusted_data"],
-        reg_results=results["reg_results"],
+        reg_results=results.get("reg_results"),  # Some methods (like BAT) don't return reg_results
         validation_results=validation_results,
+        iea_validation_results=iea_validation_results,
         method=config["method"],
         output_dir=config["output_dir"]
     )
