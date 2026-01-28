@@ -1,0 +1,115 @@
+{
+    "input_data_column_mapping": {
+        "timestamp": "Timestamp",
+        "hour": "Hour",
+        "reference": {
+            "wind_speed": "tower_353012_Ch1_Anem_55.50m_WSW_Avg_m/s",
+            "standard_deviation": "tower_353012_Ch1_Anem_55.50m_WSW_SD_m/s",
+            "turbulence_intensity": "tower_353012_Ch1_Anem_55.50m_WSW_TI"
+        },
+        "rsd": {
+            "primary": {
+                "wind_speed": "windcube_WLS7-518_55m Wind Speed (m/s)",
+                "wind_direction": "windcube_WLS7-518_55m Wind Direction (¬∞)",
+                "turbulence_intensity": "windcube_WLS7-518_55m TI",
+                "standard_deviation": "windcube_WLS7-518_55m Wind Speed Dispersion (m/s)"
+            },
+            "height_1": {
+                "wind_speed": "windcube_WLS7-518_40m Wind Speed (m/s)",
+                "wind_direction": "windcube_WLS7-518_40m Wind Direction (¬∞)",
+                "turbulence_intensity": "windcube_WLS7-518_40m TI",
+                "standard_deviation": "windcube_WLS7-518_40m Wind Speed Dispersion (m/s)"
+            },
+            "height_2": {
+                "wind_speed": "windcube_WLS7-518_50m Wind Speed (m/s)",
+                "wind_direction": "windcube_WLS7-518_50m Wind Direction (¬∞)",
+                "turbulence_intensity": "windcube_WLS7-518_50m TI",
+                "standard_deviation": "windcube_WLS7-518_50m Wind Speed Dispersion (m/s)"
+            },
+            "height_3": {
+                "wind_speed": "windcube_WLS7-518_65m Wind Speed (m/s)",
+                "wind_direction": "windcube_WLS7-518_65m Wind Direction (¬∞)",
+                "turbulence_intensity": "windcube_WLS7-518_65m TI",
+                "standard_deviation": "windcube_WLS7-518_65m Wind Speed Dispersion (m/s)"
+            },
+            "shear_exponent": {
+                "low": "windcube_WLS7-518_45m Wind Speed (m/s)",
+                "high": "windcube_WLS7-518_180m Wind Speed (m/s)"
+            }
+        },
+        "anemometer_2": {
+            "primary": {
+                "wind_speed": "tower_353012_Ch2_Anem_55.50m_ESE_Avg_m/s",
+                "standard_deviation": "tower_353012_Ch2_Anem_55.50m_ESE_SD_m/s",
+                "turbulence_intensity": "tower_353012_Ch2_Anem_55.50m_ESE_TI"
+            },
+            "height_1": {
+                "wind_speed": "tower_353012_Ch9_Anem_42.40m_WSW_Avg_m/s",
+                "standard_deviation": "tower_353012_Ch9_Anem_42.40m_WSW_SD_m/s",
+                "turbulence_intensity": "tower_353012_Ch9_Anem_42.40m_WSW_TI"
+            },
+            "height_2": {
+                "wind_speed": "tower_353012_Ch5_Anem_49.20m_WSW_Avg_m/s",
+                "standard_deviation": "tower_353012_Ch5_Anem_49.20m_WSW_SD_m/s",
+                "turbulence_intensity": "tower_353012_Ch5_Anem_49.20m_WSW_TI"
+            },
+            "height_3": {
+                "wind_speed": "tower_353012_Ch6_Anem_49.20m_ESE_Avg_m/s",
+                "standard_deviation": "tower_353012_Ch6_Anem_49.20m_ESE_SD_m/s",
+                "turbulence_intensity": "tower_353012_Ch6_Anem_49.20m_ESE_TI"
+            },
+            "shear_exponent": {
+                "high": "tower_353012_Ch2_Anem_55.50m_ESE_Avg_m/s_alpha",
+                "low": "tower_353012_Ch9_Anem_42.40m_WSW_Avg_m/s_alpha"
+            }
+        }
+    },
+    "site_metadata": {
+        "cfars_region": 17,
+        "terrain": "Simple",
+        "primary_comparison_height": 55,
+        "season": "fall",
+        "rsd_to_mast_distance": 60,
+        "rsd":{
+            "type": "WindCube2.1",
+            "reference_anemometer": "NRG#40",
+            "anemometer_2":{
+                "type": "Thies",
+                "class": 1,
+                "meets_standards": true
+            },
+        "optional":{
+            "comparison_heights":{
+                "height_1": 40,
+                "height_2": 50,
+                "height_3": 65,
+                "height_4": null
+                },
+            "anemometer_height_classes":{
+                "height_1": 1,
+                "height_2": 1,
+                "height_3": 1,
+                "height_4": null
+            },
+            "rsd_shear_exponent_calculation_heights":{
+                "lower": 45,
+                "higher": 180
+            },
+            "anemometer_shear_exponent_calculation_heights":{
+                "lower": 42.5,
+                "higher": 55
+            }
+        }
+    },
+    "processing_parameters":{
+        "tower_distortion_using_conservative_method": true,
+        "anemometer_icing": true,
+        "wind_speed_outliers": true,
+        "sensor_degradation": true,
+        "rsd_low_data_availability_filter": true,
+        "rsd_low_cnr_filter": true,
+        "rsd_wind_speed_corrected": true,
+        "application_of_site_specific_transfer_function": true
+        }
+    }   
+}

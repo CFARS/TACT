@@ -33,3 +33,6 @@
 !Example/*xlsx
 !UserGuide.pdf
 !docs/mint.json.claude
+!tact/example/data/*.csv
+!tact/example/config.json
+!tact/tests/data/*.csv
